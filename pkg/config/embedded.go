@@ -13,7 +13,7 @@
 // +------------------------------+-------------------+-----------------------------+---------------------------------------------+----------------+-------------------+
 //
 // The package implements both generating an embedded configuration for a binary, as well as reading and validating an embedded configuration.
-package embedded
+package config
 
 import (
 	"crypto/ecdsa"
@@ -45,18 +45,18 @@ const (
 var (
 	ErrExeTooSmall                  = errors.New("embedded config: executable not large enough to contain embedded config")
 	ErrConfigTooLarge               = errors.New("embedded config: config JSON is too large")
-	ErrSignatureSize                = errors.New(fmt.Sprintf("embedded config: signature is not %d bytes", headerSignatureSize))
+	ErrSignatureSize                = fmt.Errorf("embedded config: signature is not %d bytes", headerSignatureSize)
 	ErrConfigNotPresent             = errors.New("embedded config: config not present: magic marker missing")
 	ErrUnsupportedConfigVersion     = errors.New("embedded config: unsupported config version")
 	ErrUnsupportedSignatureKeyType  = errors.New("embedded config: unsupported signature key type")
 	ErrSignatureVerificationFailure = errors.New("embedded config: signature verification failed")
 )
 
-// Config is the interface which all structs, which want to become embedded
+// EmbeddedConfig is the interface which all structs, which want to become embedded
 // configuration structs, must implement.
 // Essentially they must provide a validation function and a function which
 // returns
-type Config interface {
+type EmbeddedConfig interface {
 	// Validate must ensure to validate the config settings for valid settings
 	Validate() error
 
@@ -67,7 +67,7 @@ type Config interface {
 	Cert() []byte
 }
 
-func EmbeddedConfig(exe []byte, c Config, key *ecdsa.PrivateKey) ([]byte, error) {
+func GenerateEmbeddedConfig(exe []byte, c EmbeddedConfig, key *ecdsa.PrivateKey) ([]byte, error) {
 	// validate configuration
 	if err := c.Validate(); err != nil {
 		return nil, fmt.Errorf("embedded config: validation: %w", err)
@@ -130,7 +130,7 @@ const (
 	ReadOptionIgnoreSignature
 )
 
-func ReadEmbeddedConfig(exe []byte, config Config, ca *x509.CertPool, opts ...ReadOption) error {
+func ReadEmbeddedConfig(exe []byte, config EmbeddedConfig, ca *x509.CertPool, opts ...ReadOption) error {
 	// parse options
 	var ignoreExpiryTime, ignoreSignature bool
 	for _, opt := range opts {

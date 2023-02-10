@@ -1,5 +1,9 @@
 package config
 
+import "github.com/githedgehog/das-boot/pkg/config"
+
+var _ config.EmbeddedConfig = &Stage2{}
+
 // Stage2 represents the structure of the config for the stage 2 installer.
 //
 // Here is an example JSON:
@@ -36,6 +40,10 @@ type Stage2 struct {
 
 	// HedgehogSonicProvisioners is a list of provisioners that will be executed if the `NOSType` is `hedgehog_sonic`.
 	HedgehogSonicProvisioners []HedgehogSonicProvisioner `json:"hedgehog_sonic_provisioners,omitempty"`
+
+	// SignatureCert holds the DER encoded X509 certificate with which the signature of the embedded config
+	// can be validated
+	SignatureCert []byte `json:"signature_cert,omitempty"`
 }
 
 // NOSTypeHedgehogSonic is the value for the Hedgehog SONiC distribution that can be sent through the stage 2 configuration.
@@ -46,4 +54,14 @@ const NOSTypeHedgehogSonic = "hedgehog_sonic"
 type HedgehogSonicProvisioner struct {
 	Name string `json:"name"`
 	URL  string `json:"URL"`
+}
+
+// Cert implements config.EmbeddedConfig
+func (c *Stage2) Cert() []byte {
+	return c.SignatureCert
+}
+
+// Validate implements config.EmbeddedConfig
+func (c *Stage2) Validate() error {
+	panic("unimplemented")
 }

@@ -1,5 +1,11 @@
 package config
 
+import (
+	"github.com/githedgehog/das-boot/pkg/config"
+)
+
+var _ config.EmbeddedConfig = &Stage1{}
+
 // Stage1 represents the structure of the config for the stage 1 installer.
 //
 // Here is an example JSON:
@@ -25,6 +31,10 @@ type Stage1 struct {
 
 	// Stage2URL is the URL to the stage 2 installer
 	Stage2URL string `json:"stage2_url"`
+
+	// SignatureCert holds the DER encoded X509 certificate with which the signature of the embedded config
+	// can be validated
+	SignatureCert []byte `json:"signature_cert,omitempty"`
 }
 
 // KeylimeConfig is the keylime configuration as it is embedded in the stage 1 configuration.
@@ -46,4 +56,14 @@ type KeylimeConfig struct {
 
 	// TenantTriggerURL is the URL which notifies the Keylime tenant controller to add the device to the Keylime Verifier (CV)
 	TenantTriggerURL string `json:"tenant_trigger_url,omitempty"`
+}
+
+// Cert implements config.EmbeddedConfig
+func (c *Stage1) Cert() []byte {
+	return c.SignatureCert
+}
+
+// Validate implements config.EmbeddedConfig
+func (c *Stage1) Validate() error {
+	panic("unimplemented")
 }

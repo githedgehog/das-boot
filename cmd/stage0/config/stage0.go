@@ -1,5 +1,11 @@
 package config
 
+import (
+	"github.com/githedgehog/das-boot/pkg/config"
+)
+
+var _ config.EmbeddedConfig = &Stage0{}
+
 // Stage0 represents the structure of the config for the stage 0 installer.
 //
 // Here is an example JSON:
@@ -29,6 +35,10 @@ type Stage0 struct {
 
 	// IPAMURL is the URL where the installer is going to get its IP and VLAN configuration from.
 	IPAMURL string `json:"ipam_url,omitempty"`
+
+	// SignatureCert holds the DER encoded X509 certificate with which the signature of the embedded config
+	// can be validated
+	SignatureCert []byte `json:"signature_cert,omitempty"`
 }
 
 // OnieHeaders is being included by the control plane (seeder) when generating the
@@ -56,4 +66,12 @@ type OnieHeaders struct {
 
 	// Operation will be either "install" or "onie-update".
 	Operation string `json:"ONIE-OPERATION,omitempty"`
+}
+
+func (c *Stage0) Cert() []byte {
+	return c.SignatureCert
+}
+
+func (c *Stage0) Validate() error {
+	panic("unimplemented")
 }
