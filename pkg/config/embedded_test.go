@@ -22,11 +22,11 @@ import (
 	"time"
 )
 
-func generateTestKeyMaterial() (key *ecdsa.PrivateKey, cert []byte, caPool *x509.CertPool, caKey *ecdsa.PrivateKey, caCert *x509.Certificate) {
+func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert []byte, caPool *x509.CertPool, caKey *ecdsa.PrivateKey, caCert *x509.Certificate) {
 	var err error
 
 	// create CA
-	caKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	caKey, err = ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +56,7 @@ func generateTestKeyMaterial() (key *ecdsa.PrivateKey, cert []byte, caPool *x509
 	caPool.AddCert(caCert)
 
 	// create cert for signing which is signed by CA
-	key, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	key, err = ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
 		panic(err)
 	}
@@ -307,10 +307,12 @@ func (*failReader) Read(p []byte) (n int, err error) {
 }
 
 func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
-	key, cert, caPool, _, _ := generateTestKeyMaterial()
-	if key == nil || cert == nil || caPool == nil {
+	key, _, _, _, _ := generateTestKeyMaterial(elliptic.P256())
+	if key == nil {
 		panic("generateTestKeyMaterial is broken")
 	}
+
+	invalidKey, _, _, _, _ := generateTestKeyMaterial(elliptic.P384())
 
 	var exe = []byte("I'm a binary")
 	strTooBig := strings.Repeat("a", math.MaxUint32)
@@ -318,16 +320,20 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 	type args struct {
 		exe []byte
 		c   EmbeddedConfig
+		key *ecdsa.PrivateKey
 	}
 	tests := []struct {
-		name     string
-		args     args
-		wantErr  bool
-		failRand bool
+		name             string
+		args             args
+		wantErr          bool
+		wantErrToBe      error
+		cryptoRandReader io.Reader
+		ecdsaSignASN1    func(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) ([]byte, error)
 	}{
 		{
 			name: "success",
 			args: args{
+				key: key,
 				exe: exe,
 				c: &configTest{
 					Field1: "I'm not empty",
@@ -338,17 +344,20 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 		{
 			name: "validation fails",
 			args: args{
+				key: key,
 				exe: exe,
 				c: &configTest{
 					Field1: "still valid",
 					Field2: 17,
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
+			wantErrToBe: &ValidationError{},
 		},
 		{
 			name: "config invalid for JSON marshaling",
 			args: args{
+				key: key,
 				exe: exe,
 				c:   &invalidConfigTest{},
 			},
@@ -357,40 +366,92 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 		{
 			name: "config too large in size",
 			args: args{
+				key: key,
 				exe: exe,
 				c: &configTest{
 					Field1: strTooBig,
 					Field2: 1,
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
+			wantErrToBe: ErrConfigTooLarge,
 		},
 		{
 			name: "signing error",
 			args: args{
+				key: key,
 				exe: exe,
 				c: &configTest{
 					Field1: "valid",
 					Field2: 2,
 				},
 			},
-			failRand: true,
-			wantErr:  true,
+			cryptoRandReader: &failReader{},
+			wantErr:          true,
+		},
+		{
+			name: "invalid key error",
+			args: args{
+				key: invalidKey,
+				exe: exe,
+				c: &configTest{
+					Field1: "I'm not empty",
+					Field2: 8,
+				},
+			},
+			wantErr:     true,
+			wantErrToBe: ErrInvalidKey,
+		},
+		{
+			name: "invalid signature size",
+			args: args{
+				key: key,
+				exe: exe,
+				c: &configTest{
+					Field1: "I'm not empty",
+					Field2: 8,
+				},
+			},
+			ecdsaSignASN1: func(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) ([]byte, error) {
+				b, err := ecdsa.SignASN1(rand, priv, hash)
+				if err != nil {
+					return nil, err
+				}
+				// add some bytes to mess with it
+				b = append(b, []byte{0x1, 0x2, 0x3, 0x4, 0x5}...)
+				return b, nil
+			},
+			wantErr:     true,
+			wantErrToBe: ErrSignatureSize,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.failRand {
-				cryptoRandReader = &failReader{}
+			if tt.cryptoRandReader != nil {
+				oldCryptoRandReader := cryptoRandReader
+				cryptoRandReader = tt.cryptoRandReader
 				defer func() {
-					cryptoRandReader = rand.Reader
+					cryptoRandReader = oldCryptoRandReader
 				}()
 			}
-			_, err := GenerateExecutableWithEmbeddedConfig(tt.args.exe, tt.args.c, key)
+			if tt.ecdsaSignASN1 != nil {
+				oldEcdsaSignASN1 := ecdsaSignASN1
+				ecdsaSignASN1 = tt.ecdsaSignASN1
+				defer func() {
+					ecdsaSignASN1 = oldEcdsaSignASN1
+				}()
+			}
+			_, err := GenerateExecutableWithEmbeddedConfig(tt.args.exe, tt.args.c, tt.args.key)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateEmbeddedConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("ReadEmbeddedConfig() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+				}
+			}
+			// TODO: this is difficult with the changing signature
 			// if !reflect.DeepEqual(got, tt.want) {
 			// 	t.Errorf("GenerateEmbeddedConfig() = %v, want %v", got, tt.want)
 			// }
@@ -399,7 +460,7 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 }
 
 func TestReadEmbeddedConfig(t *testing.T) {
-	key, cert, caPool, _, _ := generateTestKeyMaterial()
+	key, cert, caPool, _, _ := generateTestKeyMaterial(elliptic.P256())
 	if key == nil || cert == nil || caPool == nil {
 		panic("generateTestKeyMaterial is broken")
 	}

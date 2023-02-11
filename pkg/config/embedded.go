@@ -18,6 +18,7 @@ package config
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
@@ -46,6 +47,7 @@ const (
 var (
 	ErrExeTooSmall                  = errors.New("embedded config: executable not large enough to contain embedded config")
 	ErrConfigTooLarge               = errors.New("embedded config: config JSON is too large")
+	ErrInvalidKey                   = errors.New("embedded config: key is not an ECDSA P-256 key")
 	ErrSignatureSize                = fmt.Errorf("embedded config: signature is exceeding %d bytes", headerSignatureSize)
 	ErrConfigNotPresent             = errors.New("embedded config: config not present: magic marker missing")
 	ErrUnsupportedConfigVersion     = errors.New("embedded config: unsupported config version")
@@ -96,6 +98,7 @@ type EmbeddedConfig interface {
 var (
 	timeNow          = time.Now
 	cryptoRandReader = rand.Reader
+	ecdsaSignASN1    = ecdsa.SignASN1
 	keyUsages        = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
 )
 
@@ -103,6 +106,11 @@ var (
 // private key for signing the exe+config and generates an executable with the config and signature embedded.
 // The format of the executable is described in the package documentation.
 func GenerateExecutableWithEmbeddedConfig(exe []byte, c EmbeddedConfig, key *ecdsa.PrivateKey) ([]byte, error) {
+	// ensure the key is an ECDSA P-256 key
+	if key.Curve != elliptic.P256() {
+		return nil, ErrInvalidKey
+	}
+
 	// validate configuration
 	if err := c.Validate(); err != nil {
 		return nil, &ValidationError{Err: err}
@@ -136,7 +144,7 @@ func GenerateExecutableWithEmbeddedConfig(exe []byte, c EmbeddedConfig, key *ecd
 	cks := sha256.Sum256(blob)
 
 	// create Signature
-	signature, err := ecdsa.SignASN1(cryptoRandReader, key, cks[:])
+	signature, err := ecdsaSignASN1(cryptoRandReader, key, cks[:])
 	if err != nil {
 		return nil, fmt.Errorf("embedded config: ECDSA signature: %w", err)
 	}
