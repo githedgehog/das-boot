@@ -5,9 +5,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
+	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"errors"
 	"fmt"
 	"io"
@@ -20,16 +22,15 @@ import (
 	"time"
 )
 
-func generateTestKeyMaterial() (key *ecdsa.PrivateKey, cert []byte, caPool *x509.CertPool) {
+func generateTestKeyMaterial() (key *ecdsa.PrivateKey, cert []byte, caPool *x509.CertPool, caKey *ecdsa.PrivateKey, caCert *x509.Certificate) {
 	var err error
 
 	// create CA
-	var caKey *ecdsa.PrivateKey
 	caKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		panic(err)
 	}
-	caKeyID := sha256.Sum256(elliptic.Marshal(caKey.Curve, caKey.PublicKey.X, caKey.PublicKey.Y))
+	caKeyID := sha1.Sum(elliptic.Marshal(caKey.Curve, caKey.PublicKey.X, caKey.PublicKey.Y))
 	caTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(2019),
 		Subject: pkix.Name{
@@ -47,7 +48,7 @@ func generateTestKeyMaterial() (key *ecdsa.PrivateKey, cert []byte, caPool *x509
 	if err != nil {
 		panic(fmt.Errorf("failed to generate CA certificate: %w", err))
 	}
-	caCert, err := x509.ParseCertificate(caCertDER)
+	caCert, err = x509.ParseCertificate(caCertDER)
 	if err != nil {
 		panic(fmt.Errorf("failed to parse CA certificate: %w", err))
 	}
@@ -76,7 +77,7 @@ func generateTestKeyMaterial() (key *ecdsa.PrivateKey, cert []byte, caPool *x509
 	}
 	csrPub := csr.PublicKey.(*ecdsa.PublicKey)
 
-	subjectKeyId := sha256.Sum256(elliptic.Marshal(csrPub.Curve, csrPub.X, csrPub.Y))
+	subjectKeyId := sha1.Sum(elliptic.Marshal(csrPub.Curve, csrPub.X, csrPub.Y))
 	certTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(mathrand.Int63()),
 		Subject:      csr.Subject,
@@ -109,6 +110,112 @@ func generateTestKeyMaterial() (key *ecdsa.PrivateKey, cert []byte, caPool *x509
 	}
 
 	return
+}
+
+func generateRSAKeyAndCertAndAddToPool(caPool *x509.CertPool) []byte {
+	// generate new CA
+	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+	type pkcs1PublicKey struct {
+		N *big.Int
+		E int
+	}
+
+	caPublicKeyBytes, err := asn1.Marshal(pkcs1PublicKey{
+		N: caKey.PublicKey.N,
+		E: caKey.PublicKey.E,
+	})
+	if err != nil {
+		panic(err)
+	}
+	caKeyID := sha1.Sum(caPublicKeyBytes)
+	caTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(2019),
+		Subject: pkix.Name{
+			CommonName: "Installer Signing Root CA",
+		},
+		SubjectKeyId:          caKeyID[:],
+		AuthorityKeyId:        caKeyID[:],
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour * 24 * 360),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+	caCertDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caKey.PublicKey, caKey)
+	if err != nil {
+		panic(fmt.Errorf("failed to generate CA certificate: %w", err))
+	}
+	caCert, err := x509.ParseCertificate(caCertDER)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse CA certificate: %w", err))
+	}
+	caPool.AddCert(caCert)
+
+	// cert for signing
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+
+	csrTemplate := &x509.CertificateRequest{
+		PublicKey: key.PublicKey,
+		Subject: pkix.Name{
+			CommonName: "installer signing cert",
+		},
+	}
+	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, csrTemplate, key)
+	if err != nil {
+		panic(fmt.Errorf("failed to create CSR: %w", err))
+	}
+	csr, err := x509.ParseCertificateRequest(csrBytes)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse CSR: %w", err))
+	}
+	csrPub := csr.PublicKey.(*rsa.PublicKey)
+
+	publicKeyBytes, err := asn1.Marshal(pkcs1PublicKey{
+		N: csrPub.N,
+		E: csrPub.E,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	subjectKeyId := sha1.Sum(publicKeyBytes)
+	certTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(mathrand.Int63()),
+		Subject:      csr.Subject,
+		SubjectKeyId: subjectKeyId[:],
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Hour * 24 * 360),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	cert, err := x509.CreateCertificate(rand.Reader, certTemplate, caCert, csr.PublicKey, caKey)
+	if err != nil {
+		panic(fmt.Errorf("certificate signing failed: %w", err))
+	}
+
+	// sanity check to see that this initialization works
+	tmpCert, err := x509.ParseCertificate(cert)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse signing certificate: %w", err))
+	}
+	chains, err := tmpCert.Verify(x509.VerifyOptions{
+		Intermediates: caPool,
+		Roots:         caPool,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	})
+	if err != nil {
+		panic(fmt.Errorf("failed to verify signing certificate: %w", err))
+	}
+	if len(chains) != 1 {
+		panic(fmt.Errorf("verification chain has an unexpected length: %d != 1", len(chains)))
+	}
+	return cert
 }
 
 var _ EmbeddedConfig = &configTest{}
@@ -200,7 +307,7 @@ func (*failReader) Read(p []byte) (n int, err error) {
 }
 
 func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
-	key, cert, caPool := generateTestKeyMaterial()
+	key, cert, caPool, _, _ := generateTestKeyMaterial()
 	if key == nil || cert == nil || caPool == nil {
 		panic("generateTestKeyMaterial is broken")
 	}
@@ -292,10 +399,11 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 }
 
 func TestReadEmbeddedConfig(t *testing.T) {
-	key, cert, caPool := generateTestKeyMaterial()
+	key, cert, caPool, _, _ := generateTestKeyMaterial()
 	if key == nil || cert == nil || caPool == nil {
 		panic("generateTestKeyMaterial is broken")
 	}
+	rsaCert := generateRSAKeyAndCertAndAddToPool(caPool)
 
 	// generate valid embedded config
 	origCfg := &configTest{
@@ -320,13 +428,14 @@ func TestReadEmbeddedConfig(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		args           args
-		wantErr        bool
-		wantErrToBe    error
-		certVerifyTime func() time.Time
-		testCfg        EmbeddedConfig
-		wantCfg        *configTest
+		name                string
+		args                args
+		wantErr             bool
+		wantErrToBe         error
+		certVerifyTime      func() time.Time
+		certVerifyKeyUsages []x509.ExtKeyUsage
+		testCfg             EmbeddedConfig
+		wantCfg             *configTest
 	}{
 		{
 			name: "success",
@@ -429,6 +538,30 @@ func TestReadEmbeddedConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "fail certificate verification if expiry option is set, but verification fails for other reason",
+			args: args{
+				exe:  exe,
+				ca:   caPool,
+				opts: []ReadOption{ReadOptionIgnoreExpiryTime},
+			},
+			testCfg: &configTest{},
+			wantErr: true,
+			certVerifyTime: func() time.Time {
+				return time.Now().Add(time.Hour * 24 * 3600)
+			},
+			certVerifyKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageEmailProtection},
+		},
+		{
+			name: "fail if cert is RSA key based",
+			args: args{
+				exe: exe,
+				ca:  caPool,
+			},
+			testCfg:     &configTestCert{OverrideCert: rsaCert},
+			wantErr:     true,
+			wantErrToBe: ErrUnsupportedSignatureKeyType,
+		},
+		{
 			name: "success if signature verification is disabled",
 			args: args{
 				exe:  exe,
@@ -455,6 +588,13 @@ func TestReadEmbeddedConfig(t *testing.T) {
 				timeNow = tt.certVerifyTime
 				defer func() {
 					timeNow = oldTimeNow
+				}()
+			}
+			if len(tt.certVerifyKeyUsages) > 0 {
+				oldKeyUsages := keyUsages
+				keyUsages = tt.certVerifyKeyUsages
+				defer func() {
+					keyUsages = oldKeyUsages
 				}()
 			}
 			err := ReadEmbeddedConfig(tt.args.exe, tt.testCfg, tt.args.ca, tt.args.opts...)

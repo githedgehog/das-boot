@@ -96,6 +96,7 @@ type EmbeddedConfig interface {
 var (
 	timeNow          = time.Now
 	cryptoRandReader = rand.Reader
+	keyUsages        = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
 )
 
 // GenerateExecutableWithEmbeddedConfig takes the bytes of an executable, a config structure and the
@@ -253,7 +254,7 @@ func ReadEmbeddedConfig(exe []byte, config EmbeddedConfig, ca *x509.CertPool, op
 				if _, err := cert.Verify(x509.VerifyOptions{
 					Intermediates: ca,
 					Roots:         ca,
-					KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+					KeyUsages:     keyUsages, // for unit testing
 					CurrentTime:   cert.NotBefore.Add(time.Second),
 				}); err != nil {
 					return fmt.Errorf("embedded config: signature certificate verification: %w", err)
