@@ -3,19 +3,20 @@
 //
 // The layout / byte format can be best described in the following diagram:
 //
-// +------------------------------+------------------------------------------------------------------------------------------------------------------------------------+
-// |          ELF binary          |                                                        Embedded Config                                                             |
-// +------------------------------+-------------------+----------------------------------------------------------------------------------------------------------------+
-// |                              |      Content      |                                               Header                                                           |
-// +------------------------------+-------------------+-----------------------------+---------------------------------------------+----------------+-------------------+
-// | arm, arm64 or x86_64 version |    Config JSON    |        Content size         |     Signature (binary + Content + Size)     |     Version    | Config Magic Word |
-// |  Original binary size bytes  | Config size bytes | uint32 Big Endian (4 bytes) | EC DSA (P-256) from SHA-256 hash (64 bytes) | uint8 (1 byte) |      8 bytes      |
-// +------------------------------+-------------------+-----------------------------+---------------------------------------------+----------------+-------------------+
+// +------------------------------+------------------------------------------------------------------------------------------------------------------------------------------+
+// |          ELF binary          |                                                        Embedded Config                                                                   |
+// +------------------------------+-------------------+----------------------------------------------------------------------------------------------------------------------+
+// |                              |      Content      |                                               Header                                                                 |
+// +------------------------------+-------------------+-----------------------------+---------------------------------------------------+----------------+-------------------+
+// | arm, arm64 or x86_64 version |    Config JSON    |        Content size         |     Signature (binary + Content + Size)           |     Version    | Config Magic Word |
+// |  Original binary size bytes  | Config size bytes | uint32 Big Endian (4 bytes) | EC DSA (P-256) from SHA-256 hash (up to 73 bytes) | uint8 (1 byte) |      8 bytes      |
+// +------------------------------+-------------------+-----------------------------+---------------------------------------------------+----------------+-------------------+
 //
 // The package implements both generating an embedded configuration for a binary, as well as reading and validating an embedded configuration.
 package config
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
@@ -37,7 +38,7 @@ const (
 	headerMagic         = "hedgehog"
 	headerMagicSize     = len(headerMagic)
 	headerVersionSize   = 1
-	headerSignatureSize = 64
+	headerSignatureSize = 73 // An ECDSA signature on the P256 curve can be up to 73 bytes when DER encoded
 	headerContentSize   = 4
 	headerSize          = headerMagicSize + headerVersionSize + headerSignatureSize + headerContentSize
 )
@@ -45,12 +46,36 @@ const (
 var (
 	ErrExeTooSmall                  = errors.New("embedded config: executable not large enough to contain embedded config")
 	ErrConfigTooLarge               = errors.New("embedded config: config JSON is too large")
-	ErrSignatureSize                = fmt.Errorf("embedded config: signature is not %d bytes", headerSignatureSize)
+	ErrSignatureSize                = fmt.Errorf("embedded config: signature is exceeding %d bytes", headerSignatureSize)
 	ErrConfigNotPresent             = errors.New("embedded config: config not present: magic marker missing")
 	ErrUnsupportedConfigVersion     = errors.New("embedded config: unsupported config version")
 	ErrUnsupportedSignatureKeyType  = errors.New("embedded config: unsupported signature key type")
 	ErrSignatureVerificationFailure = errors.New("embedded config: signature verification failed")
 )
+
+var _ error = &ValidationError{}
+
+// ValidationError will be returned by `GenerateExecutableWithEmbeddedConfig`
+// or `ReadEmbeddedConfig` if the config fails to pass its `Validate()` function.
+type ValidationError struct {
+	// Err is the error as wrapped by
+	Err error
+}
+
+// Error implements error
+func (e *ValidationError) Error() string {
+	return fmt.Sprintf("embedded config: validation: %s", e.Err)
+}
+
+// Unwrap implements the go 1.13 unwrap interface
+func (e *ValidationError) Unwrap() error {
+	return e.Err
+}
+
+func (e *ValidationError) Is(target error) bool {
+	_, ok := target.(*ValidationError)
+	return ok
+}
 
 // EmbeddedConfig is the interface which all structs, which want to become embedded
 // configuration structs, must implement.
@@ -67,10 +92,19 @@ type EmbeddedConfig interface {
 	Cert() []byte
 }
 
-func GenerateEmbeddedConfig(exe []byte, c EmbeddedConfig, key *ecdsa.PrivateKey) ([]byte, error) {
+// unit test overrides
+var (
+	timeNow          = time.Now
+	cryptoRandReader = rand.Reader
+)
+
+// GenerateExecutableWithEmbeddedConfig takes the bytes of an executable, a config structure and the
+// private key for signing the exe+config and generates an executable with the config and signature embedded.
+// The format of the executable is described in the package documentation.
+func GenerateExecutableWithEmbeddedConfig(exe []byte, c EmbeddedConfig, key *ecdsa.PrivateKey) ([]byte, error) {
 	// validate configuration
 	if err := c.Validate(); err != nil {
-		return nil, fmt.Errorf("embedded config: validation: %w", err)
+		return nil, &ValidationError{Err: err}
 	}
 
 	// marshal it to JSON
@@ -101,12 +135,21 @@ func GenerateEmbeddedConfig(exe []byte, c EmbeddedConfig, key *ecdsa.PrivateKey)
 	cks := sha256.Sum256(blob)
 
 	// create Signature
-	signature, err := ecdsa.SignASN1(rand.Reader, key, cks[:])
+	signature, err := ecdsa.SignASN1(cryptoRandReader, key, cks[:])
 	if err != nil {
 		return nil, fmt.Errorf("embedded config: ECDSA signature: %w", err)
 	}
-	if len(signature) != headerSignatureSize {
+	sigLen := len(signature)
+	if sigLen > headerSignatureSize {
+		// this can never fail
+		// for as long as the key size / curve does not change
 		return nil, ErrSignatureSize
+	}
+	// pad with zeroes as necessary
+	if sigLen < headerSignatureSize {
+		for i := 0; i < headerSignatureSize-sigLen; i++ {
+			signature = append(signature, 0x0)
+		}
 	}
 
 	// now finish building the blob by adding:
@@ -120,16 +163,37 @@ func GenerateEmbeddedConfig(exe []byte, c EmbeddedConfig, key *ecdsa.PrivateKey)
 	return blob, nil
 }
 
-var timeNow = time.Now
-
+// ReadOption represents read options that can be passed to `ReadEmbeddedConfig()`
 type ReadOption uint
 
 const (
+	// ReadOptionUndefined should not be used
 	ReadOptionUndefined ReadOption = iota
+
+	// ReadOptionIgnoreExpiryTime instructs `ReadEmbeddedConfig()` to ignore the
+	// potential failure that the certificate which was used for signing is expired.
+	// This is particularly useful in cases when we read the embedded configuration,
+	// but we cannot rely on the system time yet (aka stage0).
 	ReadOptionIgnoreExpiryTime
+
+	// ReadOptionIgnoreSignature instructs `ReadEmbeddedConfig()` to completely
+	// ignore the signature verification. This will also skip certificate
+	// verification.
+	//
+	// This is particularly useful in cases when an installer needs to be executed
+	// manually outside of the automated execution context, and for whatever
+	// reason signature verification would stand in the way.
+	//
+	// NOTE: As signature verification is not really a security mechanism here,
+	// but rather a way to prevent the execution of an installer with a generated
+	// configuration from an unexpected seeder, this is a legitimate use-case.
 	ReadOptionIgnoreSignature
 )
 
+// ReadEmbeddedConfig will read the embedded configuration from `exe` and will store the configuration
+// in the value pointed to by `config` and validate it. It is going to perform certificate verification of
+// the certificate which is embedded in the `config`, and it is going to verify the embedded signature,
+// unless this is disabled with the `ReadOptionIgnoreSignature` option.
 func ReadEmbeddedConfig(exe []byte, config EmbeddedConfig, ca *x509.CertPool, opts ...ReadOption) error {
 	// parse options
 	var ignoreExpiryTime, ignoreSignature bool
@@ -184,7 +248,7 @@ func ReadEmbeddedConfig(exe []byte, config EmbeddedConfig, ca *x509.CertPool, op
 			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 			CurrentTime:   timeNow(), // for unit testing
 		}); err != nil {
-			var certErr *x509.CertificateInvalidError
+			var certErr x509.CertificateInvalidError
 			if errors.As(err, &certErr) && ignoreExpiryTime && certErr.Reason == x509.Expired {
 				if _, err := cert.Verify(x509.VerifyOptions{
 					Intermediates: ca,
@@ -210,9 +274,17 @@ func ReadEmbeddedConfig(exe []byte, config EmbeddedConfig, ca *x509.CertPool, op
 		cks := sha256.Sum256(exe[:headerStart+headerContentSize])
 
 		// verify signature
-		if !ecdsa.VerifyASN1(pubKey, cks[:], exe[headerStart+headerContentSize:headerStart+headerContentSize+headerSignatureSize]) {
+		sig := make([]byte, headerSignatureSize)
+		copy(sig, exe[headerStart+headerContentSize:headerStart+headerContentSize+headerSignatureSize])
+		sig = bytes.TrimRight(sig, "\x00") // remove padding
+		if !ecdsa.VerifyASN1(pubKey, cks[:], sig) {
 			return ErrSignatureVerificationFailure
 		}
+	}
+
+	// validate configuration
+	if err := config.Validate(); err != nil {
+		return &ValidationError{Err: err}
 	}
 
 	// success
