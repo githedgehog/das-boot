@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/githedgehog/das-boot/pkg/config"
+	"go.githedgehog.com/dasboot/pkg/config"
 )
 
 var _ config.EmbeddedConfig = &Stage1{}
