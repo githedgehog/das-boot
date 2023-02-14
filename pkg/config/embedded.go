@@ -30,6 +30,7 @@ import (
 	"time"
 )
 
+// HeaderVersion represents a version of the embedded config format
 type HeaderVersion uint8
 
 // HeaderVersion1 represents version 1 of the embedded config format
@@ -50,7 +51,8 @@ var (
 	ErrInvalidKey                   = errors.New("embedded config: key is not an ECDSA P-256 key")
 	ErrSignatureSize                = fmt.Errorf("embedded config: signature is exceeding %d bytes", headerSignatureSize)
 	ErrConfigNotPresent             = errors.New("embedded config: config not present: magic marker missing")
-	ErrUnsupportedConfigVersion     = errors.New("embedded config: unsupported config version")
+	ErrInvalidConfigVersion         = errors.New("embedded config: invalid config version")
+	ErrUnsupportedHeaderVersion     = errors.New("embedded config: unsupported header version")
 	ErrUnsupportedSignatureKeyType  = errors.New("embedded config: unsupported signature key type")
 	ErrSignatureVerificationFailure = errors.New("embedded config: signature verification failed")
 )
@@ -79,11 +81,29 @@ func (e *ValidationError) Is(target error) bool {
 	return ok
 }
 
+// UnsupportedConfigVersionError will be returned by `ReadEmbeddedConfig`
+// if the config version of the read structure is not supported by the
+// code which is trying to read the structure.
+type UnsupportedConfigVersionError struct {
+	Version ConfigVersion
+}
+
+func (e *UnsupportedConfigVersionError) Error() string {
+	return fmt.Sprintf("embedded config: unsupported config version %d", e.Version)
+}
+
+func (e *UnsupportedConfigVersionError) Is(target error) bool {
+	_, ok := target.(*UnsupportedConfigVersionError)
+	return ok
+}
+
 // EmbeddedConfig is the interface which all structs, which want to become embedded
 // configuration structs, must implement.
 // Essentially they must provide a validation function and a function which
 // returns
 type EmbeddedConfig interface {
+	EmbeddedConfigVersion
+
 	// Validate must ensure to validate the config settings for valid settings
 	Validate() error
 
@@ -109,6 +129,11 @@ func GenerateExecutableWithEmbeddedConfig(exe []byte, c EmbeddedConfig, key *ecd
 	// ensure the key is an ECDSA P-256 key
 	if key.Curve != elliptic.P256() {
 		return nil, ErrInvalidKey
+	}
+
+	// validate configuration version isn't invalid
+	if cfgVer := c.ConfigVersion(); cfgVer <= 0 {
+		return nil, ErrInvalidConfigVersion
 	}
 
 	// validate configuration
@@ -228,7 +253,7 @@ func ReadEmbeddedConfig(exe []byte, config EmbeddedConfig, ca *x509.CertPool, op
 
 	// we only support version 1 right now, so abort in all other cases
 	if HeaderVersion(exe[exeSize-headerMagicSize-headerVersionSize]) != HeaderVersion1 {
-		return ErrUnsupportedConfigVersion
+		return ErrUnsupportedHeaderVersion
 	}
 
 	// calculate the config content size
@@ -243,6 +268,12 @@ func ReadEmbeddedConfig(exe []byte, config EmbeddedConfig, ca *x509.CertPool, op
 	// get the config
 	if err := json.Unmarshal(exe[contentStart:contentStart+int(contentBytesSize)], config); err != nil {
 		return fmt.Errorf("embedded config: JSON decoding: %w", err)
+	}
+
+	// ensure config version is not an invalid value (which cannot be this way if it was generated with this package)
+	cfgVer := config.ConfigVersion()
+	if cfgVer <= 0 {
+		return ErrInvalidConfigVersion
 	}
 
 	// validate config certificate against CA pool
@@ -289,6 +320,11 @@ func ReadEmbeddedConfig(exe []byte, config EmbeddedConfig, ca *x509.CertPool, op
 		if !ecdsa.VerifyASN1(pubKey, cks[:], sig) {
 			return ErrSignatureVerificationFailure
 		}
+	}
+
+	// validate configuration version
+	if !config.IsSupportedConfigVersion(cfgVer) {
+		return &UnsupportedConfigVersionError{Version: cfgVer}
 	}
 
 	// validate configuration

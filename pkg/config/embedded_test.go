@@ -221,9 +221,20 @@ func generateRSAKeyAndCertAndAddToPool(caPool *x509.CertPool) []byte {
 var _ EmbeddedConfig = &configTest{}
 
 type configTest struct {
-	Field1        string `json:",omitempty"`
-	Field2        int    `json:",omitempty"`
-	SignatureCert []byte `json:",omitempty"`
+	Field1        string        `json:",omitempty"`
+	Field2        int           `json:",omitempty"`
+	SignatureCert []byte        `json:",omitempty"`
+	Version       ConfigVersion `json:",omitempty"`
+}
+
+// IsSupportedConfigVersion implements EmbeddedConfig
+func (*configTest) IsSupportedConfigVersion(v ConfigVersion) bool {
+	return v == 1
+}
+
+// Version implements EmbeddedConfig
+func (c *configTest) ConfigVersion() ConfigVersion {
+	return c.Version
 }
 
 // Cert implements EmbeddedConfig
@@ -246,9 +257,20 @@ func (c *configTest) Validate() error {
 var _ EmbeddedConfig = &configTestFailValidate{}
 
 type configTestFailValidate struct {
-	Field1        string `json:",omitempty"`
-	Field2        int    `json:",omitempty"`
-	SignatureCert []byte `json:",omitempty"`
+	Field1        string        `json:",omitempty"`
+	Field2        int           `json:",omitempty"`
+	SignatureCert []byte        `json:",omitempty"`
+	Version       ConfigVersion `json:",omitempty"`
+}
+
+// IsSupportedConfigVersion implements EmbeddedConfig
+func (*configTestFailValidate) IsSupportedConfigVersion(v ConfigVersion) bool {
+	return v == 1
+}
+
+// Version implements EmbeddedConfig
+func (c *configTestFailValidate) ConfigVersion() ConfigVersion {
+	return c.Version
 }
 
 // Cert implements EmbeddedConfig
@@ -264,9 +286,20 @@ func (c *configTestFailValidate) Validate() error {
 var _ EmbeddedConfig = &configTestCert{}
 
 type configTestCert struct {
-	Field1       string `json:",omitempty"`
-	Field2       int    `json:",omitempty"`
-	OverrideCert []byte `json:"-"`
+	Field1       string        `json:",omitempty"`
+	Field2       int           `json:",omitempty"`
+	OverrideCert []byte        `json:"-"`
+	Version      ConfigVersion `json:",omitempty"`
+}
+
+// IsSupportedConfigVersion implements EmbeddedConfig
+func (*configTestCert) IsSupportedConfigVersion(v ConfigVersion) bool {
+	return v == 1
+}
+
+// Version implements EmbeddedConfig
+func (c *configTestCert) ConfigVersion() ConfigVersion {
+	return c.Version
 }
 
 // Cert implements EmbeddedConfig
@@ -283,6 +316,16 @@ var _ EmbeddedConfig = &invalidConfigTest{}
 
 type invalidConfigTest struct {
 	Field1 chan struct{} `json:",omitempty"`
+}
+
+// IsSupportedConfigVersion implements EmbeddedConfig
+func (*invalidConfigTest) IsSupportedConfigVersion(v ConfigVersion) bool {
+	return true
+}
+
+// Version implements EmbeddedConfig
+func (c *invalidConfigTest) ConfigVersion() ConfigVersion {
+	return 1
 }
 
 // Cert implements EmbeddedConfig
@@ -336,10 +379,25 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 				key: key,
 				exe: exe,
 				c: &configTest{
-					Field1: "I'm not empty",
-					Field2: 8,
+					Field1:  "I'm not empty",
+					Field2:  8,
+					Version: 1,
 				},
 			},
+		},
+		{
+			name: "invalid configuration version",
+			args: args{
+				key: key,
+				exe: exe,
+				c: &configTest{
+					Field1:  "still valid",
+					Field2:  17,
+					Version: 0,
+				},
+			},
+			wantErr:     true,
+			wantErrToBe: ErrInvalidConfigVersion,
 		},
 		{
 			name: "validation fails",
@@ -347,8 +405,9 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 				key: key,
 				exe: exe,
 				c: &configTest{
-					Field1: "still valid",
-					Field2: 17,
+					Field1:  "still valid",
+					Field2:  17,
+					Version: 1,
 				},
 			},
 			wantErr:     true,
@@ -369,8 +428,9 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 				key: key,
 				exe: exe,
 				c: &configTest{
-					Field1: strTooBig,
-					Field2: 1,
+					Field1:  strTooBig,
+					Field2:  1,
+					Version: 1,
 				},
 			},
 			wantErr:     true,
@@ -382,8 +442,9 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 				key: key,
 				exe: exe,
 				c: &configTest{
-					Field1: "valid",
-					Field2: 2,
+					Field1:  "valid",
+					Field2:  2,
+					Version: 1,
 				},
 			},
 			cryptoRandReader: &failReader{},
@@ -395,8 +456,9 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 				key: invalidKey,
 				exe: exe,
 				c: &configTest{
-					Field1: "I'm not empty",
-					Field2: 8,
+					Field1:  "I'm not empty",
+					Field2:  8,
+					Version: 1,
 				},
 			},
 			wantErr:     true,
@@ -408,8 +470,9 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 				key: key,
 				exe: exe,
 				c: &configTest{
-					Field1: "I'm not empty",
-					Field2: 8,
+					Field1:  "I'm not empty",
+					Field2:  8,
+					Version: 1,
 				},
 			},
 			ecdsaSignASN1: func(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) ([]byte, error) {
@@ -471,6 +534,7 @@ func TestReadEmbeddedConfig(t *testing.T) {
 		Field1:        "I'm not empty",
 		Field2:        8,
 		SignatureCert: cert,
+		Version:       1,
 	}
 	exeOnly := []byte("I'm a binary")
 	exe, err := GenerateExecutableWithEmbeddedConfig(exeOnly, origCfg, key)
@@ -478,9 +542,28 @@ func TestReadEmbeddedConfig(t *testing.T) {
 		panic("GenerateEmbeddedConfig is broken")
 	}
 
+	// generate valid embedded config that has an unsupported config version
+	// for unsupported config version test
+	cfgUnsupported := &configTest{
+		Field1:        "I'm not empty",
+		Field2:        8,
+		SignatureCert: cert,
+		Version:       2,
+	}
+	exeUnsupportedConfig, err := GenerateExecutableWithEmbeddedConfig(exeOnly, cfgUnsupported, key)
+	if err != nil {
+		panic("GenerateEmbeddedConfig is broken")
+	}
+
+	// for invalid signature test
 	exeWrongSignature := make([]byte, len(exe))
 	copy(exeWrongSignature, exe)
 	exeWrongSignature[len(exeWrongSignature)-headerMagicSize-headerVersionSize-5] = exeWrongSignature[len(exeWrongSignature)-headerMagicSize-headerVersionSize-5] + 1
+
+	// for invalid config version test
+	exeInvalidConfigVersion := make([]byte, len(exe))
+	copy(exeInvalidConfigVersion, exe)
+	exeInvalidConfigVersion[len(exeInvalidConfigVersion)-headerSize-2] = '0'
 
 	type args struct {
 		exe  []byte
@@ -524,12 +607,12 @@ func TestReadEmbeddedConfig(t *testing.T) {
 			wantErrToBe: ErrConfigNotPresent,
 		},
 		{
-			name: "unsupported version",
+			name: "unsupported header version",
 			args: args{
 				exe: append(bytes.Repeat([]byte{0x42}, headerSize+1), []byte("hedgehog")...),
 			},
 			wantErr:     true,
-			wantErrToBe: ErrUnsupportedConfigVersion,
+			wantErrToBe: ErrUnsupportedHeaderVersion,
 		},
 		{
 			name: "exe not long enough for config",
@@ -546,6 +629,26 @@ func TestReadEmbeddedConfig(t *testing.T) {
 			},
 			testCfg: &invalidConfigTest{},
 			wantErr: true,
+		},
+		{
+			name: "invalid config version",
+			args: args{
+				exe: exeInvalidConfigVersion,
+				ca:  caPool,
+			},
+			testCfg:     &configTest{},
+			wantErr:     true,
+			wantErrToBe: ErrInvalidConfigVersion,
+		},
+		{
+			name: "invalid config version",
+			args: args{
+				exe: exeUnsupportedConfig,
+				ca:  caPool,
+			},
+			testCfg:     &configTest{},
+			wantErr:     true,
+			wantErrToBe: &UnsupportedConfigVersionError{},
 		},
 		{
 			name: "fail config validation",
@@ -729,4 +832,38 @@ func TestValidationError(t *testing.T) {
 			t.Errorf("wrapping errors isn't working properly")
 		}
 	})
+}
+
+func TestUnsupportedConfigVersionError(t *testing.T) {
+	origErr := &UnsupportedConfigVersionError{Version: 1}
+
+	tests := []struct {
+		name                              string
+		err                               error
+		wantUnsupportedConfigVersionError bool
+	}{
+		{
+			name:                              "single",
+			err:                               origErr,
+			wantUnsupportedConfigVersionError: true,
+		},
+		{
+			name:                              "wrapped",
+			err:                               fmt.Errorf("wrap the validation error: %w", origErr),
+			wantUnsupportedConfigVersionError: true,
+		},
+		{
+			name:                              "different",
+			err:                               errors.New("different error"),
+			wantUnsupportedConfigVersionError: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isUnsupportedConfigVersionErr := errors.Is(tt.err, &UnsupportedConfigVersionError{})
+			if isUnsupportedConfigVersionErr != tt.wantUnsupportedConfigVersionError {
+				t.Errorf("%v is not an UnuspportedConfigVersionError (isUnsupportedConfigVersionErr %t != tt.wantUnsupportedConfigVersionError %t)", tt.err, isUnsupportedConfigVersionErr, tt.wantUnsupportedConfigVersionError)
+			}
+		})
+	}
 }

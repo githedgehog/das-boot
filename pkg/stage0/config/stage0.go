@@ -39,6 +39,9 @@ type Stage0 struct {
 	// SignatureCert holds the DER encoded X509 certificate with which the signature of the embedded config
 	// can be validated
 	SignatureCert []byte `json:"signature_cert,omitempty"`
+
+	// Version is tracking the format of this structure itself
+	Version config.ConfigVersion `json:"version,omitempty"`
 }
 
 // OnieHeaders is being included by the control plane (seeder) when generating the
@@ -68,10 +71,22 @@ type OnieHeaders struct {
 	Operation string `json:"ONIE-OPERATION,omitempty"`
 }
 
+// Cert implements config.EmbeddedConfig
 func (c *Stage0) Cert() []byte {
 	return c.SignatureCert
 }
 
+// Validate implements config.EmbeddedConfig
 func (c *Stage0) Validate() error {
 	panic("unimplemented")
+}
+
+// ConfigVersion implements config.EmbeddedConfig
+func (c *Stage0) ConfigVersion() config.ConfigVersion {
+	return c.Version
+}
+
+// IsSupportedConfigVersion implements config.EmbeddedConfig
+func (*Stage0) IsSupportedConfigVersion(v config.ConfigVersion) bool {
+	return v == 1
 }
