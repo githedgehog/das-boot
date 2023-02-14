@@ -66,7 +66,8 @@ func (c *Stage2) Cert() []byte {
 
 // Validate implements config.EmbeddedConfig
 func (c *Stage2) Validate() error {
-	panic("unimplemented")
+	// TODO: implement
+	return nil
 }
 
 // ConfigVersion implements config.EmbeddedConfig
