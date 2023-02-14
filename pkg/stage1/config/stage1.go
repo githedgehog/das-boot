@@ -35,6 +35,9 @@ type Stage1 struct {
 	// SignatureCert holds the DER encoded X509 certificate with which the signature of the embedded config
 	// can be validated
 	SignatureCert []byte `json:"signature_cert,omitempty"`
+
+	// Version is tracking the format of this structure itself
+	Version config.ConfigVersion `json:"version,omitempty"`
 }
 
 // KeylimeConfig is the keylime configuration as it is embedded in the stage 1 configuration.
@@ -66,4 +69,14 @@ func (c *Stage1) Cert() []byte {
 // Validate implements config.EmbeddedConfig
 func (c *Stage1) Validate() error {
 	panic("unimplemented")
+}
+
+// ConfigVersion implements config.EmbeddedConfig
+func (c *Stage1) ConfigVersion() config.ConfigVersion {
+	return c.Version
+}
+
+// IsSupportedConfigVersion implements config.EmbeddedConfig
+func (*Stage1) IsSupportedConfigVersion(v config.ConfigVersion) bool {
+	return v == 1
 }

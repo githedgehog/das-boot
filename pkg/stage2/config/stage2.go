@@ -44,6 +44,9 @@ type Stage2 struct {
 	// SignatureCert holds the DER encoded X509 certificate with which the signature of the embedded config
 	// can be validated
 	SignatureCert []byte `json:"signature_cert,omitempty"`
+
+	// Version is tracking the format of this structure itself
+	Version config.ConfigVersion `json:"version,omitempty"`
 }
 
 // NOSTypeHedgehogSonic is the value for the Hedgehog SONiC distribution that can be sent through the stage 2 configuration.
@@ -64,4 +67,14 @@ func (c *Stage2) Cert() []byte {
 // Validate implements config.EmbeddedConfig
 func (c *Stage2) Validate() error {
 	panic("unimplemented")
+}
+
+// ConfigVersion implements config.EmbeddedConfig
+func (c *Stage2) ConfigVersion() config.ConfigVersion {
+	return c.Version
+}
+
+// IsSupportedConfigVersion implements config.EmbeddedConfig
+func (*Stage2) IsSupportedConfigVersion(v config.ConfigVersion) bool {
+	return v == 1
 }
