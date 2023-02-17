@@ -96,6 +96,14 @@ func (u Uevent) GetPartitionNumber() int {
 	return int(ret)
 }
 
+func (u Uevent) GetPartitionName() string {
+	val, ok := u[UeventPartname]
+	if !ok {
+		return ""
+	}
+	return val
+}
+
 func (u Uevent) GetMajorMinor() (uint32, uint32, error) {
 	maj, ok := u[UeventMajor]
 	if !ok {
