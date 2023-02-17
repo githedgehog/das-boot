@@ -52,9 +52,10 @@ func Discover() (Devices, error) {
 		if err := dev.ensureDevicePath(); err != nil {
 			continue
 		}
+		_ = dev.discoverFilesystem()
+		_ = dev.discoverFilesystemLabel()
 		if dev.IsPartition() {
 			_ = dev.discoverPartitionType()
-			_ = dev.discoverFilesystemLabel()
 		}
 		// fmt.Printf("%#v\n", *dev)
 	}

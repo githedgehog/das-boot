@@ -182,5 +182,10 @@ func (d Devices) createHedgehogIdentityPartitionByONIELocation() error {
 	).Run(); err != nil {
 		return fmt.Errorf("devices: sgdisk create failed: %w", err)
 	}
+
+	// reread partition table
+	if err := disk.ReReadPartitionTable(); err != nil { // nolint
+		// TODO: log error
+	}
 	return nil
 }
