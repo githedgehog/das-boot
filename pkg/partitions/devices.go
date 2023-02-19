@@ -51,6 +51,15 @@ func (d Devices) GetONIEPartition() *Device {
 	return nil
 }
 
+func (d Devices) GetDiagPartition() *Device {
+	for _, dev := range d {
+		if dev.IsDiagPartition() {
+			return dev
+		}
+	}
+	return nil
+}
+
 func (d Devices) GetHedgehogIdentityPartition() *Device {
 	for _, dev := range d {
 		if dev.IsHedgehogIdentityPartition() {
@@ -105,7 +114,7 @@ func (d Devices) deletePartitionsByONIELocation() error {
 	}
 	var partsToDelete Devices
 	for _, part := range parts {
-		if part.IsEFIPartition() || part.IsONIEPartition() || part.IsHedgehogIdentityPartition() {
+		if part.IsEFIPartition() || part.IsONIEPartition() || part.IsDiagPartition() || part.IsHedgehogIdentityPartition() {
 			continue
 		}
 		partsToDelete = append(partsToDelete, part)

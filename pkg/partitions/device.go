@@ -160,6 +160,13 @@ func (d *Device) IsONIEPartition() bool {
 	return false
 }
 
+func (d *Device) IsDiagPartition() bool {
+	if d.IsPartition() {
+		return strings.HasSuffix(d.GetPartitionName(), "-DIAG") || strings.HasSuffix(d.GetPartitionName(), "-diag") || strings.HasSuffix(d.FSLabel, "-DIAG") || strings.HasSuffix(d.FSLabel, "-diag")
+	}
+	return false
+}
+
 func (d *Device) IsHedgehogIdentityPartition() bool {
 	if d.IsPartition() {
 		return d.GPTPartType == GPTPartTypeHedgehogIdentity || d.GetPartitionName() == GPTPartNameHedgehogIdentity || d.FSLabel == FSLabelHedgehogIdentity
