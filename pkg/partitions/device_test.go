@@ -859,3 +859,158 @@ func TestDevice_Unmount(t *testing.T) {
 		})
 	}
 }
+
+func Test_ensureMountPath(t *testing.T) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	base := filepath.Join(pwd, "testdata", "ensureMountPath")
+	type args struct {
+		path string
+	}
+	errOsStatFailed := errors.New("os.Stat failed unrecoverably")
+	errOsRemoveFailed := errors.New("os.Remove failed")
+	errOsMkdirAllFailed := errors.New("os.MkdirAll failed")
+	tests := []struct {
+		name        string
+		args        args
+		wantErr     bool
+		wantErrToBe error
+		osStat      func(name string) (fs.FileInfo, error)
+		osRemove    func(name string) error
+		osMkdirAll  func(path string, perm fs.FileMode) error
+		pre         func()
+		cleanupPath bool
+	}{
+		{
+			name: "already exists",
+			args: args{
+				path: filepath.Join(base, "exists"),
+			},
+			pre: func() {
+				if err := os.MkdirAll(filepath.Join(base, "exists"), 0750); err != nil {
+					panic(err)
+				}
+			},
+			cleanupPath: true,
+			wantErr:     false,
+		},
+		{
+			name: "already exists as a file",
+			args: args{
+				path: filepath.Join(base, "exists"),
+			},
+			pre: func() {
+				if _, err := os.Create(filepath.Join(base, "exists")); err != nil {
+					panic(err)
+				}
+			},
+			cleanupPath: true,
+			wantErr:     false,
+		},
+		{
+			name: "osStat failed unrecoverably",
+			args: args{
+				path: filepath.Join(base, "fail"),
+			},
+			osStat: func(name string) (fs.FileInfo, error) {
+				if name != filepath.Join(base, "fail") {
+					return nil, fmt.Errorf("unexpected path: %s", name)
+				}
+				return nil, errOsStatFailed
+			},
+			wantErr:     true,
+			wantErrToBe: errOsStatFailed,
+		},
+		{
+			name: "already exists as a file but removal fails",
+			args: args{
+				path: filepath.Join(base, "exists"),
+			},
+			pre: func() {
+				if _, err := os.Create(filepath.Join(base, "exists")); err != nil {
+					panic(err)
+				}
+			},
+			osRemove: func(name string) error {
+				if name != filepath.Join(base, "exists") {
+					return fmt.Errorf("unexpected path: %s", name)
+				}
+				return errOsRemoveFailed
+			},
+			cleanupPath: true,
+			wantErr:     true,
+			wantErrToBe: errOsRemoveFailed,
+		},
+		{
+			name: "does not exist yet",
+			args: args{
+				path: filepath.Join(base, "createme"),
+			},
+			cleanupPath: true,
+			wantErr:     false,
+		},
+		{
+			name: "does not exist yet but create failed",
+			args: args{
+				path: filepath.Join(base, "createme"),
+			},
+			osMkdirAll: func(path string, perm fs.FileMode) error {
+				if path != filepath.Join(base, "createme") {
+					return fmt.Errorf("unexpected path: %s", path)
+				}
+				if perm != 0750 {
+					return fmt.Errorf("unexpected permissions: %o", perm)
+				}
+				return errOsMkdirAllFailed
+			},
+			wantErr:     true,
+			wantErrToBe: errOsMkdirAllFailed,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.osStat != nil {
+				oldOsStat := osStat
+				defer func() {
+					osStat = oldOsStat
+				}()
+				osStat = tt.osStat
+			}
+			if tt.osRemove != nil {
+				oldOsRemove := osRemove
+				defer func() {
+					osRemove = oldOsRemove
+				}()
+				osRemove = tt.osRemove
+			}
+			if tt.osMkdirAll != nil {
+				oldOsMkdirAll := osMkdirAll
+				defer func() {
+					osMkdirAll = oldOsMkdirAll
+				}()
+				osMkdirAll = tt.osMkdirAll
+			}
+			if tt.cleanupPath {
+				defer func() {
+					os.Remove(tt.args.path)
+				}()
+			}
+			if tt.pre != nil {
+				tt.pre()
+			}
+			err := ensureMountPath(tt.args.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ensureMountPath() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("ensureMountPath() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+		})
+	}
+}

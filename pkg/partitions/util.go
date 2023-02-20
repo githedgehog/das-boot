@@ -11,9 +11,12 @@ import (
 
 // for unit testing
 var (
-	osStat      func(name string) (fs.FileInfo, error) = os.Stat
-	rootPath                                           = "/"
-	execCommand func(name string, arg ...string) Cmd   = func(name string, arg ...string) Cmd {
+	osStat     func(name string) (fs.FileInfo, error)    = os.Stat
+	osRemove   func(name string) error                   = os.Remove
+	osMkdirAll func(path string, perm fs.FileMode) error = os.MkdirAll
+
+	rootPath                                         = "/"
+	execCommand func(name string, arg ...string) Cmd = func(name string, arg ...string) Cmd {
 		return exec.Command(name, arg...)
 	}
 	unixIoctlGetInt func(fd int, req uint) (int, error)                                                 = unix.IoctlGetInt

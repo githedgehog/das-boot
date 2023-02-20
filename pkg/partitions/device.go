@@ -287,11 +287,11 @@ func ensureMountPath(path string) error {
 		return fmt.Errorf("device: stat on mount path %s: %w", path, err)
 	}
 	if st != nil && !st.IsDir() {
-		if err := os.Remove(path); err != nil {
+		if err := osRemove(path); err != nil {
 			return fmt.Errorf("device: removing file at mount path %s: %w", path, err)
 		}
 	}
-	if err := os.MkdirAll(path, 0750); err != nil {
+	if err := osMkdirAll(path, 0750); err != nil {
 		return fmt.Errorf("device: mkdir on mount path %s: %w", path, err)
 	}
 	return nil
