@@ -1194,3 +1194,312 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 		})
 	}
 }
+
+func TestDevice_discoverFilesystemLabel(t *testing.T) {
+	errCmdFailed := errors.New("command failed")
+	tests := []struct {
+		name        string
+		device      *Device
+		wantErr     bool
+		wantErrToBe error
+		wantFSLabel string
+		execCommand func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+	}{
+		{
+			name: "no device node",
+			device: &Device{
+				Path: "",
+			},
+			wantErr:     true,
+			wantErrToBe: ErrNoDeviceNode,
+		},
+		{
+			name: "command fails",
+			device: &Device{
+				Path: "/path/to/device",
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "fs_label"},
+					}
+					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+						if err := testCmd.IsExpectedCommand(); err != nil {
+							return nil, err
+						}
+						return nil, errCmdFailed
+					})
+					return testCmd
+				}
+			},
+			wantErr:     true,
+			wantErrToBe: errCmdFailed,
+		},
+		{
+			name: "success",
+			device: &Device{
+				Path: "/path/to/device",
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "fs_label"},
+					}
+					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+						if err := testCmd.IsExpectedCommand(); err != nil {
+							return nil, err
+						}
+						return []byte("my_fancy_fs_label"), nil
+					})
+					return testCmd
+				}
+			},
+			wantErr:     false,
+			wantFSLabel: "my_fancy_fs_label",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			if tt.execCommand != nil {
+				oldExecCommand := execCommand
+				defer func() {
+					execCommand = oldExecCommand
+				}()
+				execCommand = tt.execCommand(t, ctrl)
+			}
+			err := tt.device.discoverFilesystemLabel()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Device.discoverFilesystemLabel() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("ensureMountPath() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+			// test this regardless if there was an error or not
+			// need to make sure that an error does not mutate the field unexpectedly
+			if tt.device.FSLabel != tt.wantFSLabel {
+				t.Errorf("Device.FSLabel = %v, want %v", tt.device.FSLabel, tt.wantFSLabel)
+				return
+			}
+		})
+	}
+}
+
+func TestDevice_discoverFilesystem(t *testing.T) {
+	errCmdFailed := errors.New("command failed")
+	tests := []struct {
+		name           string
+		device         *Device
+		wantErr        bool
+		wantErrToBe    error
+		wantFilesystem string
+		execCommand    func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+	}{
+		{
+			name: "no device node",
+			device: &Device{
+				Path: "",
+			},
+			wantErr:     true,
+			wantErrToBe: ErrNoDeviceNode,
+		},
+		{
+			name: "command fails",
+			device: &Device{
+				Path: "/path/to/device",
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "fs"},
+					}
+					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+						if err := testCmd.IsExpectedCommand(); err != nil {
+							return nil, err
+						}
+						return nil, errCmdFailed
+					})
+					return testCmd
+				}
+			},
+			wantErr:     true,
+			wantErrToBe: errCmdFailed,
+		},
+		{
+			name: "success",
+			device: &Device{
+				Path: "/path/to/device",
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "fs"},
+					}
+					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+						if err := testCmd.IsExpectedCommand(); err != nil {
+							return nil, err
+						}
+						return []byte("unittestfs"), nil
+					})
+					return testCmd
+				}
+			},
+			wantErr:        false,
+			wantFilesystem: "unittestfs",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			if tt.execCommand != nil {
+				oldExecCommand := execCommand
+				defer func() {
+					execCommand = oldExecCommand
+				}()
+				execCommand = tt.execCommand(t, ctrl)
+			}
+			err := tt.device.discoverFilesystem()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Device.discoverFilesystem() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("Device.discoverFilesystem() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+			// test this regardless if there was an error or not
+			// need to make sure that an error does not mutate the field unexpectedly
+			if tt.device.Filesystem != tt.wantFilesystem {
+				t.Errorf("Device.Filesystem = %v, want %v", tt.device.Filesystem, tt.wantFilesystem)
+				return
+			}
+		})
+	}
+}
+
+func TestDevice_discoverPartitionType(t *testing.T) {
+	errCmdFailed := errors.New("command failed")
+	tests := []struct {
+		name            string
+		device          *Device
+		wantErr         bool
+		wantErrToBe     error
+		wantGPTPartType string
+		execCommand     func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+	}{
+		{
+			name: "no device node",
+			device: &Device{
+				Path: "",
+			},
+			wantErr:     true,
+			wantErrToBe: ErrNoDeviceNode,
+		},
+		{
+			name: "command fails",
+			device: &Device{
+				Path: "/path/to/device",
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "gpt_parttype"},
+					}
+					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+						if err := testCmd.IsExpectedCommand(); err != nil {
+							return nil, err
+						}
+						return nil, errCmdFailed
+					})
+					return testCmd
+				}
+			},
+			wantErr:     true,
+			wantErrToBe: errCmdFailed,
+		},
+		{
+			name: "success",
+			device: &Device{
+				Path: "/path/to/device",
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "gpt_parttype"},
+					}
+					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+						if err := testCmd.IsExpectedCommand(); err != nil {
+							return nil, err
+						}
+						return []byte("very-unique-gpt-partition-type"), nil
+					})
+					return testCmd
+				}
+			},
+			wantErr:         false,
+			wantGPTPartType: "very-unique-gpt-partition-type",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			if tt.execCommand != nil {
+				oldExecCommand := execCommand
+				defer func() {
+					execCommand = oldExecCommand
+				}()
+				execCommand = tt.execCommand(t, ctrl)
+			}
+			err := tt.device.discoverPartitionType()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Device.discoverPartitionType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("Device.discoverPartitionType() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+			// test this regardless if there was an error or not
+			// need to make sure that an error does not mutate the field unexpectedly
+			if tt.device.GPTPartType != tt.wantGPTPartType {
+				t.Errorf("Device.GPTPartType = %v, want %v", tt.device.GPTPartType, tt.wantGPTPartType)
+				return
+			}
+		})
+	}
+}
