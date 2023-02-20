@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 type Devices []*Device
@@ -131,7 +133,7 @@ func (d Devices) deletePartitionsByONIELocation() error {
 	}
 
 	if err := disk.ReReadPartitionTable(); err != nil { // nolint
-		// TODO: probably should get logged?
+		Logger.Warn("rereading partition table failed", zap.Error(err))
 	}
 	return nil
 }

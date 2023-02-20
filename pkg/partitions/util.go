@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 )
 
@@ -27,6 +28,8 @@ var (
 	filepathRel          func(basepath string, targpath string) (string, error)                              = filepath.Rel
 	filepathEvalSymlinks func(path string) (string, error)                                                   = filepath.EvalSymlinks
 )
+
+var Logger = zap.L().With(zap.String("logger", "pkg/partitions"))
 
 // WalkDir extends filepath.WalkDir to also follow symlinks but only until maxLevel depth
 // You can specify symlinks that you do not want to follow in the exclusions list.
