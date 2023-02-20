@@ -12,6 +12,7 @@ import (
 // for unit testing
 var (
 	osStat     func(name string) (fs.FileInfo, error)    = os.Stat
+	osLstat    func(name string) (fs.FileInfo, error)    = os.Lstat
 	osRemove   func(name string) error                   = os.Remove
 	osMkdirAll func(path string, perm fs.FileMode) error = os.MkdirAll
 
@@ -19,10 +20,12 @@ var (
 	execCommand func(name string, arg ...string) Cmd = func(name string, arg ...string) Cmd {
 		return exec.Command(name, arg...)
 	}
-	unixIoctlGetInt func(fd int, req uint) (int, error)                                                 = unix.IoctlGetInt
-	unixMount       func(source string, target string, fstype string, flags uintptr, data string) error = unix.Mount
-	unixUnmount     func(target string, flags int) error                                                = unix.Unmount
-	unixMknod       func(path string, mode uint32, dev int) (err error)                                 = unix.Mknod
+	unixIoctlGetInt      func(fd int, req uint) (int, error)                                                 = unix.IoctlGetInt
+	unixMount            func(source string, target string, fstype string, flags uintptr, data string) error = unix.Mount
+	unixUnmount          func(target string, flags int) error                                                = unix.Unmount
+	unixMknod            func(path string, mode uint32, dev int) (err error)                                 = unix.Mknod
+	filepathRel          func(basepath string, targpath string) (string, error)                              = filepath.Rel
+	filepathEvalSymlinks func(path string) (string, error)                                                   = filepath.EvalSymlinks
 )
 
 // WalkDir extends filepath.WalkDir to also follow symlinks but only until maxLevel depth
@@ -37,7 +40,7 @@ func WalkDir(path string, walkFn fs.WalkDirFunc, maxLevel uint, exclusions ...st
 func walkDir(filename string, linkDirname string, walkFn fs.WalkDirFunc, maxLevel uint, exclusions []string) error {
 	symWalkFunc := func(path string, info fs.DirEntry, err error) error {
 
-		if fname, err := filepath.Rel(filename, path); err == nil {
+		if fname, err := filepathRel(filename, path); err == nil {
 			path = filepath.Join(linkDirname, fname)
 		} else {
 			return err
@@ -50,11 +53,11 @@ func walkDir(filename string, linkDirname string, walkFn fs.WalkDirFunc, maxLeve
 			}
 		}
 		if err == nil && info.Type()&os.ModeSymlink == os.ModeSymlink && !excluded {
-			finalPath, err := filepath.EvalSymlinks(path)
+			finalPath, err := filepathEvalSymlinks(path)
 			if err != nil {
 				return err
 			}
-			info, err := os.Lstat(finalPath)
+			info, err := osLstat(finalPath)
 			if err != nil {
 				return walkFn(path, fs.FileInfoToDirEntry(info), err)
 			}
