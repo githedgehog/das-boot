@@ -428,10 +428,12 @@ func TestDevice_Delete(t *testing.T) {
 			err := tt.device.Delete()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Device.Delete() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
 			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
 				if !errors.Is(err, tt.wantErrToBe) {
-					t.Errorf("Uevent.DevicePath() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					t.Errorf("Device.Delete() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
 				}
 			}
 		})
@@ -529,10 +531,12 @@ func TestDevice_ReReadPartitionTable(t *testing.T) {
 			err := tt.device.ReReadPartitionTable()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Device.ReReadPartitionTable() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
 			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
 				if !errors.Is(err, tt.wantErrToBe) {
-					t.Errorf("Uevent.DevicePath() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					t.Errorf("Device.ReReadPartitionTable() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
 				}
 			}
 		})
@@ -1188,7 +1192,7 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 			}
 			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
 				if !errors.Is(err, tt.wantErrToBe) {
-					t.Errorf("ensureMountPath() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					t.Errorf("Device.MakeFilesystemForHedgehogIdentityPartition() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
 					return
 				}
 			}
@@ -1285,7 +1289,7 @@ func TestDevice_discoverFilesystemLabel(t *testing.T) {
 			}
 			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
 				if !errors.Is(err, tt.wantErrToBe) {
-					t.Errorf("ensureMountPath() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					t.Errorf("Device.discoverFilesystemLabel() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
 					return
 				}
 			}
