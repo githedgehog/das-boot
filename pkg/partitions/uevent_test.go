@@ -478,3 +478,31 @@ func TestUevent_GetPartitionName(t *testing.T) {
 		})
 	}
 }
+
+func TestUevent_GetDeviceName(t *testing.T) {
+	tests := []struct {
+		name string
+		u    Uevent
+		want string
+	}{
+		{
+			name: "success",
+			u: Uevent{
+				UeventDevname: "loop0",
+			},
+			want: "loop0",
+		},
+		{
+			name: "invalid uevent",
+			u:    Uevent{},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.u.GetDeviceName(); got != tt.want {
+				t.Errorf("Uevent.GetDeviceName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

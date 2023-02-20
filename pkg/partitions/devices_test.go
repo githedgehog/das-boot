@@ -345,6 +345,52 @@ func TestDevices_DeletePartitions(t *testing.T) {
 	partHHIdentity.Disk = disk
 	partNOS.Disk = disk
 
+	// good set for multiple deletes
+	partEFI2 := &Device{
+		Uevent: Uevent{
+			UeventDevtype: UeventDevtypePartition,
+			UeventPartn:   "1",
+		},
+		GPTPartType: GPTPartTypeEFI,
+	}
+	partONIE2 := &Device{
+		Uevent: Uevent{
+			UeventDevtype: UeventDevtypePartition,
+			UeventPartn:   "2",
+		},
+		GPTPartType: GPTPartTypeONIE,
+	}
+	partNOS21 := &Device{
+		Uevent: Uevent{
+			UeventDevtype: UeventDevtypePartition,
+			UeventPartn:   "3",
+		},
+	}
+	partNOS22 := &Device{
+		Uevent: Uevent{
+			UeventDevtype: UeventDevtypePartition,
+			UeventPartn:   "4",
+		},
+	}
+	partNOS23 := &Device{
+		Uevent: Uevent{
+			UeventDevtype: UeventDevtypePartition,
+			UeventPartn:   "5",
+		},
+	}
+	disk2 := &Device{
+		Uevent: Uevent{
+			UeventDevtype: UeventDevtypeDisk,
+		},
+		Path: "/path/to/disk/device",
+	}
+	disk2.Partitions = []*Device{partEFI2, partONIE2, partNOS22, partNOS23, partNOS21}
+	partEFI2.Disk = disk2
+	partONIE2.Disk = disk2
+	partNOS21.Disk = disk2
+	partNOS22.Disk = disk2
+	partNOS23.Disk = disk2
+
 	// create some broken objects
 	partONIENoDisk := &Device{
 		Uevent: Uevent{
@@ -400,6 +446,31 @@ func TestDevices_DeletePartitions(t *testing.T) {
 					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
 						return testCmd.IsExpectedCommand()
 					})
+					return testCmd
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "success exercise sort and multiple delete",
+			d: Devices{
+				partEFI2,
+				partONIE2,
+				partNOS21,
+				partNOS22,
+				partNOS23,
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:  cmd,
+						name: name,
+						arg:  arg,
+					}
+					// this is a bit confusing: we are registering a new MockCmd 3x with the ctrl
+					// but on each of them we expect the Run command only once
+					cmd.EXPECT().Run().Times(1).Return(nil)
 					return testCmd
 				}
 			},
