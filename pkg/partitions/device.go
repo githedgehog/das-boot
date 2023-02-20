@@ -218,7 +218,7 @@ func (d *Device) ReReadPartitionTable() error {
 	if err != nil {
 		return err
 	}
-	if _, err = unix.IoctlGetInt(int(f.Fd()), blkrrpart); err != nil {
+	if _, err = unixIoctlGetInt(int(f.Fd()), blkrrpart); err != nil {
 		return fmt.Errorf("device: unable to re-read partition table: %ww", err)
 	}
 	return nil

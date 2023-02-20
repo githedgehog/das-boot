@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // Uevent represents the contents of a "uevent" file as it is exposed through sysfs
@@ -49,6 +51,7 @@ var (
 	execCommand func(name string, arg ...string) Cmd   = func(name string, arg ...string) Cmd {
 		return exec.Command(name, arg...)
 	}
+	unixIoctlGetInt func(fd int, req uint) (int, error) = unix.IoctlGetInt
 )
 
 // internal constants for accessing the uevent map

@@ -2,6 +2,9 @@ package partitions
 
 import (
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
@@ -422,6 +425,107 @@ func TestDevice_Delete(t *testing.T) {
 			err := tt.device.Delete()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Device.Delete() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("Uevent.DevicePath() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+				}
+			}
+		})
+	}
+}
+
+func TestDevice_ReReadPartitionTable(t *testing.T) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	errIoctlFailed := errors.New("ioctl failed")
+	tests := []struct {
+		name            string
+		device          *Device
+		unixIoctlGetInt func(fd int, req uint) (int, error)
+		wantErr         bool
+		wantErrToBe     error
+	}{
+		{
+			name: "success",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypeDisk,
+				},
+				Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device"),
+			},
+			unixIoctlGetInt: func(fd int, req uint) (int, error) {
+				if fd <= 2 {
+					return 0, fmt.Errorf("not an opened device file")
+				}
+				if req != blkrrpart {
+					return 0, fmt.Errorf("not a BLKRRPART ioctl")
+				}
+				return 42, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "not a disk",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypePartition,
+				},
+			},
+			wantErr:     true,
+			wantErrToBe: ErrDeviceNotDisk,
+		},
+		{
+			name: "device node missing",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypeDisk,
+				},
+				Path: "",
+			},
+			wantErr:     true,
+			wantErrToBe: ErrNoDeviceNode,
+		},
+		{
+			name: "device node missing",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypeDisk,
+				},
+				Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "missing"),
+			},
+			wantErr:     true,
+			wantErrToBe: os.ErrNotExist,
+		},
+		{
+			name: "ioctl fails",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypeDisk,
+				},
+				Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device"),
+			},
+			unixIoctlGetInt: func(fd int, req uint) (int, error) {
+				return 0, errIoctlFailed
+			},
+			wantErr:     true,
+			wantErrToBe: errIoctlFailed,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.unixIoctlGetInt != nil {
+				oldUnixIoctlGetInt := unixIoctlGetInt
+				defer func() {
+					unixIoctlGetInt = oldUnixIoctlGetInt
+				}()
+				unixIoctlGetInt = tt.unixIoctlGetInt
+			}
+			err := tt.device.ReReadPartitionTable()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Device.ReReadPartitionTable() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
 				if !errors.Is(err, tt.wantErrToBe) {
