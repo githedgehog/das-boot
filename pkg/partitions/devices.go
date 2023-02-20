@@ -3,7 +3,6 @@ package partitions
 import (
 	"errors"
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
 )
@@ -182,7 +181,7 @@ func (d Devices) createHedgehogIdentityPartitionByONIELocation() error {
 	//     --change-name=${created_part}:$volume_label $blk_dev \
 
 	// -t, --typecode=partnum:{hexcode|GUID}                                                           change partition type code
-	if err := exec.Command(
+	if err := execCommand(
 		"sgdisk",
 		fmt.Sprintf("--new=%d::+%dMB", partNum, DefaultPartSizeHedgehogIdentityInMB),
 		fmt.Sprintf("--change-name=%d:%s", partNum, GPTPartNameHedgehogIdentity),

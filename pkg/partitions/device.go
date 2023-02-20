@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -106,7 +105,7 @@ func (d *Device) discoverPartitionType() error {
 	if d.Path == "" {
 		return ErrNoDeviceNode
 	}
-	out, err := exec.Command("grub-probe", "-d", d.Path, "-t", "gpt_parttype").Output()
+	out, err := execCommand("grub-probe", "-d", d.Path, "-t", "gpt_parttype").Output()
 	if err != nil {
 		return fmt.Errorf("device: grub-probe gpt_parttype: %w", err)
 	}
@@ -125,7 +124,7 @@ func (d *Device) discoverFilesystem() error {
 	// ext2 kernel driver.
 	// The filesystems only distinguish themselves by the set of features.
 	// This is not really a problem for us right now
-	out, err := exec.Command("grub-probe", "-d", d.Path, "-t", "fs").Output()
+	out, err := execCommand("grub-probe", "-d", d.Path, "-t", "fs").Output()
 	if err != nil {
 		return fmt.Errorf("device: grub-probe fs: %w", err)
 	}
@@ -137,7 +136,7 @@ func (d *Device) discoverFilesystemLabel() error {
 	if d.Path == "" {
 		return ErrNoDeviceNode
 	}
-	out, err := exec.Command("grub-probe", "-d", d.Path, "-t", "fs_label").Output()
+	out, err := execCommand("grub-probe", "-d", d.Path, "-t", "fs_label").Output()
 	if err != nil {
 		return fmt.Errorf("device: grub-probe fs_label: %w", err)
 	}
@@ -202,7 +201,7 @@ func (d *Device) Delete() error {
 		return ErrNoDeviceNode
 	}
 
-	if err := exec.Command("sgdisk", "-d", strconv.Itoa(partNum), disk.Path).Run(); err != nil {
+	if err := execCommand("sgdisk", "-d", strconv.Itoa(partNum), disk.Path).Run(); err != nil {
 		return fmt.Errorf("device: sgdisk -d failed: %w", err)
 	}
 	return nil
@@ -303,7 +302,7 @@ func (d *Device) MakeFilesystemForHedgehogIdentityPartition(force bool) error {
 	if d.Filesystem != "" && !force {
 		return ErrFilesystemAlreadyCreated
 	}
-	if err := exec.Command("mkfs.ext4", "-L", FSLabelHedgehogIdentity, d.Path).Run(); err != nil {
+	if err := execCommand("mkfs.ext4", "-L", FSLabelHedgehogIdentity, d.Path).Run(); err != nil {
 		return fmt.Errorf("device: mkfs.ext4: %w", err)
 	}
 	d.Filesystem = FSExt4

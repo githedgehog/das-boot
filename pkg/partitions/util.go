@@ -3,6 +3,7 @@ package partitions
 import (
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 )
 
@@ -51,3 +52,16 @@ func walkDir(filename string, linkDirname string, walkFn fs.WalkDirFunc, maxLeve
 	}
 	return filepath.WalkDir(filename, symWalkFunc)
 }
+
+// Cmd interface is representing an os/exec Cmd struct.
+// This makes it usable to replace for testing.
+//
+//go:generate mockgen -destination util_mock_cmd_test.go -package partitions . Cmd
+type Cmd interface {
+	Run() error
+	Output() ([]byte, error)
+	Start() error
+	Wait() error
+}
+
+var _ Cmd = &exec.Cmd{}

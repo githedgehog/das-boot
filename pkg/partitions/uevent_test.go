@@ -41,7 +41,7 @@ func TestReadUevent(t *testing.T) {
 				"MAJOR":   "259",
 				"MINOR":   "0",
 				"DEVNAME": "nvme0n1",
-				"DEVTYPE": "disk",
+				"DEVTYPE": UeventDevtypeDisk,
 				"DISKSEQ": "1",
 			},
 		},
@@ -54,7 +54,7 @@ func TestReadUevent(t *testing.T) {
 				"MAJOR":    "259",
 				"MINOR":    "1",
 				"DEVNAME":  "nvme0n1p1",
-				"DEVTYPE":  "partition",
+				"DEVTYPE":  UeventDevtypePartition,
 				"DISKSEQ":  "1",
 				"PARTN":    "1",
 				"PARTNAME": "EFI system partition",
@@ -69,7 +69,7 @@ func TestReadUevent(t *testing.T) {
 				"MAJOR":   "7",
 				"MINOR":   "0",
 				"DEVNAME": "loop0",
-				"DEVTYPE": "disk",
+				"DEVTYPE": UeventDevtypeDisk,
 				"DISKSEQ": "2",
 			},
 		},
@@ -82,7 +82,7 @@ func TestReadUevent(t *testing.T) {
 				"MAJOR":   "7",
 				"MINOR":   "0",
 				"DEVNAME": "loop0",
-				"DEVTYPE": "disk",
+				"DEVTYPE": UeventDevtypeDisk,
 				"DISKSEQ": "2",
 				"WEIRD":   "Value with = inside",
 			},
@@ -332,14 +332,14 @@ func TestUevent_IsDisk(t *testing.T) {
 		{
 			name: "success",
 			u: Uevent{
-				UeventDevtype: "disk",
+				UeventDevtype: UeventDevtypeDisk,
 			},
 			want: true,
 		},
 		{
 			name: "not a disk",
 			u: Uevent{
-				UeventDevtype: "partition",
+				UeventDevtype: UeventDevtypePartition,
 			},
 			want: false,
 		},
@@ -374,14 +374,14 @@ func TestUevent_IsPartition(t *testing.T) {
 		{
 			name: "success",
 			u: Uevent{
-				UeventDevtype: "partition",
+				UeventDevtype: UeventDevtypePartition,
 			},
 			want: true,
 		},
 		{
 			name: "not a partition",
 			u: Uevent{
-				UeventDevtype: "disk",
+				UeventDevtype: UeventDevtypeDisk,
 			},
 			want: false,
 		},
@@ -428,7 +428,7 @@ func TestUevent_GetPartitionNumber(t *testing.T) {
 		{
 			name: "not a partition",
 			u: Uevent{
-				UeventDevtype: "disk",
+				UeventDevtype: UeventDevtypeDisk,
 			},
 			want: -1,
 		},

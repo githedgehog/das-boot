@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -43,11 +44,14 @@ var (
 
 // for unit testing
 var (
-	osStat   func(name string) (fs.FileInfo, error) = os.Stat
-	rootPath                                        = "/"
+	osStat      func(name string) (fs.FileInfo, error) = os.Stat
+	rootPath                                           = "/"
+	execCommand func(name string, arg ...string) Cmd   = func(name string, arg ...string) Cmd {
+		return exec.Command(name, arg...)
+	}
 )
 
-// internal constatns for accessing the uevent map
+// internal constants for accessing the uevent map
 const (
 	UeventDevtype  = "DEVTYPE"
 	UeventDevname  = "DEVNAME"
@@ -55,6 +59,12 @@ const (
 	UeventPartname = "PARTNAME"
 	UeventMajor    = "MAJOR"
 	UeventMinor    = "MINOR"
+)
+
+// known values for some uevent map entries
+const (
+	UeventDevtypeDisk      = "disk"
+	UeventDevtypePartition = "partition"
 )
 
 // our C port of file testing as Golang doesn't seem to come with block device testing?!
@@ -73,7 +83,7 @@ func (u Uevent) IsDisk() bool {
 	if !ok {
 		return false
 	}
-	return val == "disk"
+	return val == UeventDevtypeDisk
 }
 
 func (u Uevent) IsPartition() bool {
@@ -81,7 +91,7 @@ func (u Uevent) IsPartition() bool {
 	if !ok {
 		return false
 	}
-	return val == "partition"
+	return val == UeventDevtypePartition
 }
 
 func (u Uevent) GetPartitionNumber() int {
