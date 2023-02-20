@@ -301,15 +301,19 @@ func (d *Device) MakeFilesystemForHedgehogIdentityPartition(force bool) error {
 	if !d.IsHedgehogIdentityPartition() {
 		return ErrUnsupportedMkfsForDevice
 	}
+	return d.makeFilesystem(FSExt4, FSLabelHedgehogIdentity, force)
+}
+
+func (d *Device) makeFilesystem(fsType, fsLabel string, force bool) error {
 	if d.Path == "" {
 		return ErrNoDeviceNode
 	}
 	if d.Filesystem != "" && !force {
 		return ErrFilesystemAlreadyCreated
 	}
-	if err := execCommand("mkfs.ext4", "-L", FSLabelHedgehogIdentity, d.Path).Run(); err != nil {
-		return fmt.Errorf("device: mkfs.ext4: %w", err)
+	if err := execCommand("mkfs."+fsType, "-L", fsLabel, d.Path).Run(); err != nil {
+		return fmt.Errorf("device: mkfs.%s: %w", fsType, err)
 	}
-	d.Filesystem = FSExt4
+	d.Filesystem = fsType
 	return nil
 }

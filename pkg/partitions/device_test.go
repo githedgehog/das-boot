@@ -1014,3 +1014,183 @@ func Test_ensureMountPath(t *testing.T) {
 		})
 	}
 }
+
+func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
+	errMkfsCmdFailed := errors.New("mkfs failed")
+	type args struct {
+		force bool
+	}
+	tests := []struct {
+		name        string
+		device      *Device
+		args        args
+		wantErr     bool
+		wantErrToBe error
+		execCommand func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+	}{
+		{
+			name: "success",
+			args: args{
+				force: false,
+			},
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypePartition,
+				},
+				GPTPartType: GPTPartTypeHedgehogIdentity,
+				Path:        "/path/to/device",
+				Filesystem:  "",
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "/path/to/device"},
+					}
+					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
+						return testCmd.IsExpectedCommand()
+					})
+					return testCmd
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "exists already but force is set",
+			args: args{
+				force: true,
+			},
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypePartition,
+				},
+				GPTPartType: GPTPartTypeHedgehogIdentity,
+				Path:        "/path/to/device",
+				Filesystem:  "ext4",
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "/path/to/device"},
+					}
+					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
+						return testCmd.IsExpectedCommand()
+					})
+					return testCmd
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "mkfs fails",
+			args: args{
+				force: false,
+			},
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypePartition,
+				},
+				GPTPartType: GPTPartTypeHedgehogIdentity,
+				Path:        "/path/to/device",
+				Filesystem:  "",
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "/path/to/device"},
+					}
+					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
+						if err := testCmd.IsExpectedCommand(); err != nil {
+							return err
+						}
+						return errMkfsCmdFailed
+					})
+					return testCmd
+				}
+			},
+			wantErr:     true,
+			wantErrToBe: errMkfsCmdFailed,
+		},
+		{
+			name: "exists already and no force is set",
+			args: args{
+				force: false,
+			},
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypePartition,
+				},
+				GPTPartType: GPTPartTypeHedgehogIdentity,
+				Path:        "/path/to/device",
+				Filesystem:  "ext4",
+			},
+			wantErr:     true,
+			wantErrToBe: ErrFilesystemAlreadyCreated,
+		},
+		{
+			name: "no device node",
+			args: args{
+				force: false,
+			},
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypePartition,
+				},
+				GPTPartType: GPTPartTypeHedgehogIdentity,
+				Path:        "",
+				Filesystem:  "",
+			},
+			wantErr:     true,
+			wantErrToBe: ErrNoDeviceNode,
+		},
+		{
+			name: "not hedgehog identity partition",
+			args: args{
+				force: false,
+			},
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypePartition,
+				},
+				GPTPartType: GPTPartTypeEFI,
+			},
+			wantErr:     true,
+			wantErrToBe: ErrUnsupportedMkfsForDevice,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			if tt.execCommand != nil {
+				oldExecCommand := execCommand
+				defer func() {
+					execCommand = oldExecCommand
+				}()
+				execCommand = tt.execCommand(t, ctrl)
+			}
+			err := tt.device.MakeFilesystemForHedgehogIdentityPartition(tt.args.force)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Device.MakeFilesystemForHedgehogIdentityPartition() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("ensureMountPath() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+		})
+	}
+}
