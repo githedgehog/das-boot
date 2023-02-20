@@ -239,28 +239,32 @@ func (d *Device) Mount() error {
 
 	if d.IsHedgehogIdentityPartition() {
 		// ensure mount path exists and is a directory
-		if err := ensureMountPath(MountPathHedgehogIdentity); err != nil {
+		mountPath := filepath.Join(rootPath, MountPathHedgehogIdentity)
+		if err := ensureMountPath(mountPath); err != nil {
 			return err
 		}
 
 		// now mount it
-		if err := unix.Mount(d.Path, MountPathHedgehogIdentity, FSExt4, unix.MS_NODEV|unix.MS_NOEXEC, ""); err != nil {
+		if err := unixMount(d.Path, mountPath, FSExt4, unix.MS_NODEV|unix.MS_NOEXEC, ""); err != nil {
 			return fmt.Errorf("device: mount: %w", err)
 		}
-		d.MountPath = MountPathHedgehogIdentity
+		d.MountPath = mountPath
+		return nil
 	}
 
 	if d.IsHedgehogLocationPartition() {
 		// ensure mount path exists and is a directory
-		if err := ensureMountPath(MountPathHedgehogLocation); err != nil {
+		mountPath := filepath.Join(rootPath, MountPathHedgehogLocation)
+		if err := ensureMountPath(mountPath); err != nil {
 			return err
 		}
 
 		// now mount it
-		if err := unix.Mount(d.Path, MountPathHedgehogLocation, FSExt4, unix.MS_NODEV|unix.MS_NOEXEC, ""); err != nil {
+		if err := unixMount(d.Path, mountPath, FSExt4, unix.MS_NODEV|unix.MS_NOEXEC, ""); err != nil {
 			return fmt.Errorf("device: mount: %w", err)
 		}
-		d.MountPath = MountPathHedgehogLocation
+		d.MountPath = mountPath
+		return nil
 	}
 
 	return ErrUnsupportedMountForDevice
@@ -277,7 +281,7 @@ func (d *Device) Unmount() error {
 }
 
 func ensureMountPath(path string) error {
-	st, err := os.Stat(path)
+	st, err := osStat(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("device: stat on mount path %s: %w", path, err)
 	}

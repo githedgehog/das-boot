@@ -155,7 +155,7 @@ func TestUevent_DevicePath(t *testing.T) {
 
 	// these must be created out of band as it requires root privileges to do so
 	// we'll skip the test if they don't exist
-	loop0Dev := filepath.Join(pwd, "testdata", "Devicepath", "dev", "loop0")
+	loop0Dev := filepath.Join(pwd, "testdata", "DevicePath", "dev", "loop0")
 	urandomDev := filepath.Join(pwd, "testdata", "DevicePath", "dev", "urandom")
 	if _, err := os.Stat(loop0Dev); err != nil {
 		t.Skipf("SKIPPING: testdata must be initialized: loop0 missing: run 'sudo mknod %s b 7 0'", loop0Dev)
@@ -239,10 +239,12 @@ func TestUevent_DevicePath(t *testing.T) {
 			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
 				if !errors.Is(err, tt.wantErrToBe) {
 					t.Errorf("Uevent.DevicePath() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
 				}
 			}
-			if got != tt.want {
+			if err == nil && got != tt.want {
 				t.Errorf("Uevent.DevicePath() = %v, want %v", got, tt.want)
+				return
 			}
 		})
 	}

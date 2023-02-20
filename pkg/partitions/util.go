@@ -5,6 +5,19 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"golang.org/x/sys/unix"
+)
+
+// for unit testing
+var (
+	osStat      func(name string) (fs.FileInfo, error) = os.Stat
+	rootPath                                           = "/"
+	execCommand func(name string, arg ...string) Cmd   = func(name string, arg ...string) Cmd {
+		return exec.Command(name, arg...)
+	}
+	unixIoctlGetInt func(fd int, req uint) (int, error)                                                 = unix.IoctlGetInt
+	unixMount       func(source string, target string, fstype string, flags uintptr, data string) error = unix.Mount
 )
 
 // WalkDir extends filepath.WalkDir to also follow symlinks but only until maxLevel depth
