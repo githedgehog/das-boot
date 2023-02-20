@@ -22,6 +22,7 @@ var (
 	unixIoctlGetInt func(fd int, req uint) (int, error)                                                 = unix.IoctlGetInt
 	unixMount       func(source string, target string, fstype string, flags uintptr, data string) error = unix.Mount
 	unixUnmount     func(target string, flags int) error                                                = unix.Unmount
+	unixMknod       func(path string, mode uint32, dev int) (err error)                                 = unix.Mknod
 )
 
 // WalkDir extends filepath.WalkDir to also follow symlinks but only until maxLevel depth

@@ -22,6 +22,9 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# pkg/partitions/uevent.go
+# pkg/partitions/uevent_test.go
 ${SUDO} ${MKNOD} ${SCRIPT_DIR}/pkg/partitions/testdata/DevicePath/dev/loop0 b 7 0
 ${SUDO} ${MKNOD} ${SCRIPT_DIR}/pkg/partitions/testdata/DevicePath/dev/urandom c 1 0
+
+# pkg/partitions/device_test.go
+${SUDO} ${MKNOD} ${SCRIPT_DIR}/pkg/partitions/testdata/ensureDevicePath/dev/loop0 b 7 0

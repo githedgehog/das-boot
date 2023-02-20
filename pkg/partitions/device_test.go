@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
@@ -1498,6 +1499,299 @@ func TestDevice_discoverPartitionType(t *testing.T) {
 			// need to make sure that an error does not mutate the field unexpectedly
 			if tt.device.GPTPartType != tt.wantGPTPartType {
 				t.Errorf("Device.GPTPartType = %v, want %v", tt.device.GPTPartType, tt.wantGPTPartType)
+				return
+			}
+		})
+	}
+}
+
+func TestDevice_ensureDevicePath(t *testing.T) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	oldRootPath := rootPath
+	rootPath = filepath.Join(pwd, "testdata", "ensureDevicePath")
+	defer func() {
+		rootPath = oldRootPath
+	}()
+
+	// these must be created out of band as it requires root privileges to do so
+	// we'll skip the test if they don't exist
+	loop0Dev := filepath.Join(pwd, "testdata", "ensureDevicePath", "dev", "loop0")
+	if _, err := os.Stat(loop0Dev); err != nil {
+		t.Skipf("SKIPPING: testdata must be initialized: loop0 missing: run 'sudo mknod %s b 7 0'", loop0Dev)
+	}
+
+	errOsStatFailed := errors.New("os.Stat failed")
+	errOsStatFailed2 := errors.New("os.Stat failed second time")
+	errOsRemoveFailed := errors.New("os.Remove failed")
+	errUnixMknodFailed := errors.New("unix.Mknod failed")
+	tests := []struct {
+		name        string
+		device      *Device
+		wantErr     bool
+		wantErrToBe error
+		wantPath    string
+		osStat      func() func(name string) (fs.FileInfo, error)
+		osRemove    func(name string) error
+		unixMknod   func(path string, mode uint32, dev int) (err error)
+	}{
+		{
+			name: "already exists",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevname: "loop0",
+				},
+			},
+			wantErr:  false,
+			wantPath: loop0Dev,
+		},
+		{
+			name: "invalid uevent",
+			device: &Device{
+				Uevent: Uevent{},
+			},
+			wantErr:     true,
+			wantErrToBe: ErrInvalidUevent,
+		},
+		{
+			name: "invalid major minor",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevname: "notexist",
+					UeventMajor:   "not-a-number",
+					UeventMinor:   "not-a-number",
+				},
+			},
+			osStat: func() func(name string) (fs.FileInfo, error) {
+				return func(name string) (fs.FileInfo, error) {
+					return nil, fmt.Errorf("just fail this")
+				}
+			},
+			wantErr:     true,
+			wantErrToBe: strconv.ErrSyntax,
+		},
+		{
+			name: "os stat fails unexpectedly",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevname: "notexist",
+					UeventMajor:   "6",
+					UeventMinor:   "0",
+				},
+			},
+			osStat: func() func(name string) (fs.FileInfo, error) {
+				secondCall := false
+				return func(name string) (fs.FileInfo, error) {
+					if name != filepath.Join(pwd, "testdata", "ensureDevicePath", "dev", "notexist") {
+						return nil, fmt.Errorf("unexpected path: %s", name)
+					}
+					if !secondCall {
+						secondCall = true
+						return nil, fmt.Errorf("just fail this")
+					}
+					return nil, errOsStatFailed
+				}
+			},
+			wantErr:     true,
+			wantErrToBe: errOsStatFailed,
+		},
+		{
+			name: "remove of invalid device node fails",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevname: "exists",
+					UeventMajor:   "6",
+					UeventMinor:   "0",
+				},
+			},
+			osRemove: func(name string) error {
+				if name != filepath.Join(pwd, "testdata", "ensureDevicePath", "dev", "exists") {
+					return fmt.Errorf("unexpected path: %s", name)
+				}
+				return errOsRemoveFailed
+			},
+			wantErr:     true,
+			wantErrToBe: errOsRemoveFailed,
+		},
+		{
+			name: "mknod fails",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevname: "exists",
+					UeventMajor:   "6",
+					UeventMinor:   "0",
+				},
+			},
+			osStat: func() func(name string) (fs.FileInfo, error) {
+				secondCall := false
+				return func(name string) (fs.FileInfo, error) {
+					if name != filepath.Join(pwd, "testdata", "ensureDevicePath", "dev", "exists") {
+						return nil, fmt.Errorf("unexpected path: %s", name)
+					}
+					if !secondCall {
+						secondCall = true
+						return nil, fmt.Errorf("just fail this")
+					}
+					return os.Stat(name)
+				}
+			},
+			osRemove: func(name string) error {
+				if name != filepath.Join(pwd, "testdata", "ensureDevicePath", "dev", "exists") {
+					return fmt.Errorf("unexpected path: %s", name)
+				}
+				// don't remove this, we just fake this
+				return nil
+			},
+			unixMknod: func(path string, mode uint32, dev int) (err error) {
+				if path != filepath.Join(pwd, "testdata", "ensureDevicePath", "dev", "exists") {
+					return fmt.Errorf("unexpected path: %s", path)
+				}
+				if mode != unix.S_IFBLK {
+					return fmt.Errorf("unexpected mode: 0x%x", mode)
+				}
+				if dev != int(unix.Mkdev(6, 0)) {
+					return fmt.Errorf("unexpected dev: major %d, minor %d", unix.Major(uint64(dev)), unix.Minor(uint64(dev)))
+				}
+				return errUnixMknodFailed
+			},
+			wantErr:     true,
+			wantErrToBe: errUnixMknodFailed,
+		},
+		{
+			name: "mknod succeeds",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevname: "loop0",
+					UeventMajor:   "6",
+					UeventMinor:   "0",
+				},
+			},
+			osStat: func() func(name string) (fs.FileInfo, error) {
+				secondCall := false
+				return func(name string) (fs.FileInfo, error) {
+					if name != loop0Dev {
+						return nil, fmt.Errorf("unexpected path: %s", name)
+					}
+					if !secondCall {
+						secondCall = true
+						return nil, fmt.Errorf("just fail this")
+					}
+					return os.Stat(name)
+				}
+			},
+			osRemove: func(name string) error {
+				if name != loop0Dev {
+					return fmt.Errorf("unexpected path: %s", name)
+				}
+				// don't remove this, we just fake this
+				return nil
+			},
+			unixMknod: func(path string, mode uint32, dev int) (err error) {
+				if path != loop0Dev {
+					return fmt.Errorf("unexpected path: %s", path)
+				}
+				if mode != unix.S_IFBLK {
+					return fmt.Errorf("unexpected mode: 0x%x", mode)
+				}
+				if dev != int(unix.Mkdev(6, 0)) {
+					return fmt.Errorf("unexpected dev: major %d, minor %d", unix.Major(uint64(dev)), unix.Minor(uint64(dev)))
+				}
+				return nil
+			},
+			wantErr:  false,
+			wantPath: loop0Dev,
+		},
+		{
+			name: "mknod succeeds but device path still fails",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevname: "loop0",
+					UeventMajor:   "6",
+					UeventMinor:   "0",
+				},
+			},
+			osStat: func() func(name string) (fs.FileInfo, error) {
+				calls := 0
+				return func(name string) (fs.FileInfo, error) {
+					if name != loop0Dev {
+						return nil, fmt.Errorf("unexpected path: %s", name)
+					}
+					defer func() {
+						calls += 1
+					}()
+					switch calls {
+					case 1:
+						return os.Stat(name)
+					case 2:
+						return nil, errOsStatFailed2
+					default:
+						return nil, fmt.Errorf("just fail this")
+					}
+				}
+			},
+			osRemove: func(name string) error {
+				if name != loop0Dev {
+					return fmt.Errorf("unexpected path: %s", name)
+				}
+				// don't remove this, we just fake this
+				return nil
+			},
+			unixMknod: func(path string, mode uint32, dev int) error {
+				if path != loop0Dev {
+					return fmt.Errorf("unexpected path: %s", path)
+				}
+				if mode != unix.S_IFBLK {
+					return fmt.Errorf("unexpected mode: 0x%x", mode)
+				}
+				if dev != int(unix.Mkdev(6, 0)) {
+					return fmt.Errorf("unexpected dev: major %d, minor %d", unix.Major(uint64(dev)), unix.Minor(uint64(dev)))
+				}
+				return nil
+			},
+			wantErr:     true,
+			wantErrToBe: errOsStatFailed2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.osStat != nil {
+				oldOsStat := osStat
+				defer func() {
+					osStat = oldOsStat
+				}()
+				osStat = tt.osStat()
+			}
+			if tt.osRemove != nil {
+				oldOsRemove := osRemove
+				defer func() {
+					osRemove = oldOsRemove
+				}()
+				osRemove = tt.osRemove
+			}
+			if tt.unixMknod != nil {
+				oldUnixMknod := unixMknod
+				defer func() {
+					unixMknod = oldUnixMknod
+				}()
+				unixMknod = tt.unixMknod
+			}
+			err := tt.device.ensureDevicePath()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Device.ensureDevicePath() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("Device.ensureDevicePath() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+			// test this regardless if there was an error or not
+			// need to make sure that an error does not mutate the field unexpectedly
+			if tt.device.Path != tt.wantPath {
+				t.Errorf("Device.Path = %v, want %v", tt.device.Path, tt.wantPath)
 				return
 			}
 		})

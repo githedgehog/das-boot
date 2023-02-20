@@ -78,16 +78,16 @@ func (d *Device) ensureDevicePath() error {
 		// ensure to delete any existing file or directory
 		// or whatever else might be in the way
 		p := filepath.Join(rootPath, "dev", d.Uevent[UeventDevname])
-		info, err := os.Stat(p)
+		info, err := osStat(p)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("device: ensure device path: stat: %w", err)
 		}
 		if info != nil {
-			if err := os.Remove(p); err != nil {
+			if err := osRemove(p); err != nil {
 				return fmt.Errorf("device: ensure device path: remove %s: %w", p, err)
 			}
 		}
-		if err := unix.Mknod(p, unix.S_IFBLK, int(unix.Mkdev(major, minor))); err != nil {
+		if err := unixMknod(p, unix.S_IFBLK, int(unix.Mkdev(major, minor))); err != nil {
 			return fmt.Errorf("device: mknod: %w", err)
 		}
 
