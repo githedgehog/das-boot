@@ -81,11 +81,13 @@ func (d Devices) GetHedgehogLocationPartition() *Device {
 
 // DeletePartitions will find the NOS disk by identifying it through
 // the location of the ONIE partition by default, and delete all
-// non-EFI, non-ONIE and non-Hedgehog partitions.
+// non-EFI, non-ONIE, non-Diag and non-Hedgehog partitions.
 //
 // However, if a platform was passed and the platform falls into a
 // category of exceptions (disk cannot be identified by ONIE partition),
 // then it is cleaning up with a dedicated procedure.
+// `platform` is expected to be the value of the `onie_platform`
+// environment variable.
 //
 // NOTE: it is advisable to call `Discover()` again after a call
 // to this to make sure the partitions are gone from the devices
