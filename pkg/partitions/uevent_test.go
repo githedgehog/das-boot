@@ -152,6 +152,18 @@ func TestUevent_DevicePath(t *testing.T) {
 	defer func() {
 		rootPath = oldRootPath
 	}()
+
+	// these must be created out of band as it requires root privileges to do so
+	// we'll skip the test if they don't exist
+	loop0Dev := filepath.Join(pwd, "testdata", "Devicepath", "dev", "loop0")
+	urandomDev := filepath.Join(pwd, "testdata", "DevicePath", "dev", "urandom")
+	if _, err := os.Stat(loop0Dev); err != nil {
+		t.Skipf("SKIPPING: testdata must be initialized: loop0 missing: run 'sudo mknod %s b 7 0'", loop0Dev)
+	}
+	if _, err := os.Stat(urandomDev); err != nil {
+		t.Skipf("SKIPPING: testdata must be initialized: urandom missing: run 'sudo mknod %s c 1 0'", urandomDev)
+	}
+
 	tests := []struct {
 		name        string
 		u           Uevent
@@ -390,6 +402,76 @@ func TestUevent_IsPartition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.u.IsPartition(); got != tt.want {
 				t.Errorf("Uevent.IsDisk() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUevent_GetPartitionNumber(t *testing.T) {
+	tests := []struct {
+		name string
+		u    Uevent
+		want int
+	}{
+		{
+			name: "success",
+			u: Uevent{
+				UeventPartn: "6",
+			},
+			want: 6,
+		},
+		{
+			name: "invalid uevent",
+			u:    Uevent{},
+			want: -1,
+		},
+		{
+			name: "not a partition",
+			u: Uevent{
+				UeventDevtype: "disk",
+			},
+			want: -1,
+		},
+		{
+			name: "invalid partition number",
+			u: Uevent{
+				UeventPartn: "not a number",
+			},
+			want: -1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.u.GetPartitionNumber(); got != tt.want {
+				t.Errorf("Uevent.GetPartitionNumber() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUevent_GetPartitionName(t *testing.T) {
+	tests := []struct {
+		name string
+		u    Uevent
+		want string
+	}{
+		{
+			name: "success",
+			u: Uevent{
+				UeventPartname: "HH-DIAG",
+			},
+			want: "HH-DIAG",
+		},
+		{
+			name: "invalid uevent",
+			u:    Uevent{},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.u.GetPartitionName(); got != tt.want {
+				t.Errorf("Uevent.GetPartitionName() = %v, want %v", got, tt.want)
 			}
 		})
 	}
