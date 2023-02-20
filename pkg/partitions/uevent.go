@@ -48,6 +48,7 @@ const (
 	UeventPartname = "PARTNAME"
 	UeventMajor    = "MAJOR"
 	UeventMinor    = "MINOR"
+	UeventDiskseq  = "DISKSEQ"
 )
 
 // known values for some uevent map entries
@@ -122,6 +123,14 @@ func (u Uevent) GetMajorMinor() (uint32, uint32, error) {
 		return 0, 0, fmt.Errorf("uevent: parsing minor: %w", err)
 	}
 	return uint32(majUint), uint32(minUint), nil
+}
+
+func (u Uevent) GetDeviceName() string {
+	val, ok := u[UeventDevname]
+	if !ok {
+		return ""
+	}
+	return val
 }
 
 // DevicePath returns the device path from the uevent.

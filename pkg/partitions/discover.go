@@ -5,18 +5,19 @@ import (
 	"io/fs"
 	"path/filepath"
 	"strings"
-)
 
-var sysfsPath = filepath.Join(rootPath, "sys")
+	"go.uber.org/zap"
+)
 
 func Discover() (Devices, error) {
 	var ret []*Device
-	// var walkFunc func(path string, d fs.FileInfo, err error) error
 	walkFunc := func(path string, d fs.DirEntry, err error) error {
 		// fmt.Printf("%s\n", path)
 		if d.Name() == "uevent" {
 			entry, err := ReadUevent(path)
 			if err != nil {
+				// we will just log an error but move on
+				Logger.Warn("ReadUevent failed", zap.Error(err))
 				return nil
 			}
 			dev := &Device{
@@ -27,7 +28,7 @@ func Discover() (Devices, error) {
 		}
 		return nil
 	}
-	if err := WalkDir(filepath.Join(sysfsPath, "block"), walkFunc, 1, "subsystem", "device", "bdi"); err != nil {
+	if err := WalkDir(filepath.Join(rootPath, "sys", "block"), walkFunc, 1, "subsystem", "device", "bdi"); err != nil {
 		return nil, fmt.Errorf("partitions: discover: %w", err)
 	}
 
@@ -50,14 +51,22 @@ func Discover() (Devices, error) {
 	// is available
 	for _, dev := range ret {
 		if err := dev.ensureDevicePath(); err != nil {
-			continue
+			Logger.Warn("ensuring device path failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
+			// technically that might be faster, but let's just try everything anyways
+			// they will most likely abort because of the missing device node anyways
+			// continue
 		}
-		_ = dev.discoverFilesystem()
-		_ = dev.discoverFilesystemLabel()
+		if err := dev.discoverFilesystem(); err != nil {
+			Logger.Debug("discover filesystem failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
+		}
+		if err := dev.discoverFilesystemLabel(); err != nil {
+			Logger.Debug("discover filesystem label failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
+		}
 		if dev.IsPartition() {
-			_ = dev.discoverPartitionType()
+			if err := dev.discoverPartitionType(); err != nil {
+				Logger.Debug("discover partition type failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
+			}
 		}
-		// fmt.Printf("%#v\n", *dev)
 	}
 	return ret, nil
 }
