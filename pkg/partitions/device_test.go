@@ -663,8 +663,9 @@ func TestDevice_Mount(t *testing.T) {
 				Path:      "/path/to/device",
 				MountPath: "/path/to/mount/path",
 			},
-			wantErr:     true,
-			wantErrToBe: ErrAlreadyMounted,
+			wantErr:       true,
+			wantErrToBe:   ErrAlreadyMounted,
+			wantMountPath: "/path/to/mount/path",
 		},
 		{
 			name: "hedgehog identity partition fails ensureMount unrecoverably",
@@ -777,7 +778,81 @@ func TestDevice_Mount(t *testing.T) {
 					return
 				}
 			}
-			if err == nil && tt.device.MountPath != tt.wantMountPath {
+			// test this regardless if there was an error or not
+			// need to make sure that an error does not mutate the mount path unexpectedly
+			if tt.device.MountPath != tt.wantMountPath {
+				t.Errorf("Device.MountPath = %v, want %v", tt.device.MountPath, tt.wantMountPath)
+				return
+			}
+		})
+	}
+}
+
+func TestDevice_Unmount(t *testing.T) {
+	errUnmountFailed := errors.New("unmount failed")
+	tests := []struct {
+		name          string
+		device        *Device
+		wantErr       bool
+		wantErrToBe   error
+		wantMountPath string
+		unixUnmount   func(target string, flags int) error
+	}{
+		{
+			name: "success",
+			device: &Device{
+				MountPath: "/mount/path",
+			},
+			unixUnmount: func(target string, flags int) error {
+				return nil
+			},
+			wantErr:       false,
+			wantMountPath: "",
+		},
+		{
+			name: "not mounted",
+			device: &Device{
+				MountPath: "",
+			},
+			wantErr:       false,
+			wantMountPath: "",
+		},
+		{
+			name: "unmount fails",
+			device: &Device{
+				MountPath: "/mount/path",
+			},
+			unixUnmount: func(target string, flags int) error {
+				return errUnmountFailed
+			},
+			wantErr:       true,
+			wantErrToBe:   errUnmountFailed,
+			wantMountPath: "/mount/path",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.unixUnmount != nil {
+				oldUnixUnmount := unixUnmount
+				defer func() {
+					unixUnmount = oldUnixUnmount
+				}()
+				unixUnmount = tt.unixUnmount
+			}
+			err := tt.device.Unmount()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Device.Unmount() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("Device.Unmount() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+			// test this regardless if there was an error or not
+			// need to make sure that an error does not mutate the mount path unexpectedly
+			if tt.device.MountPath != tt.wantMountPath {
 				t.Errorf("Device.MountPath = %v, want %v", tt.device.MountPath, tt.wantMountPath)
 				return
 			}

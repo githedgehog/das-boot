@@ -274,9 +274,10 @@ func (d *Device) Unmount() error {
 	if !d.IsMounted() {
 		return nil
 	}
-	if err := unix.Unmount(d.MountPath, 0); err != nil {
+	if err := unixUnmount(d.MountPath, 0); err != nil {
 		return fmt.Errorf("device: umount: %w", err)
 	}
+	d.MountPath = ""
 	return nil
 }
 
