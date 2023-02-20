@@ -31,6 +31,7 @@ func (d ByPartNumber) Swap(i int, j int) {
 var _ sort.Interface = ByPartNumber{}
 
 var (
+	ErrPartitionExists       = errors.New("devices: partition exists")
 	ErrONIEPartitionNotFound = errors.New("devices: ONIE partition not found")
 )
 
@@ -134,7 +135,7 @@ func (d Devices) deletePartitionsByONIELocation() error {
 		}
 	}
 
-	if err := disk.ReReadPartitionTable(); err != nil { // nolint
+	if err := disk.ReReadPartitionTable(); err != nil {
 		Logger.Warn("rereading partition table failed", zap.Error(err))
 	}
 	return nil
@@ -142,11 +143,13 @@ func (d Devices) deletePartitionsByONIELocation() error {
 
 // CreateHedgehogIdentityPartition will find the NOS disk by identifying it through
 // the location of the ONIE partition by default, and create the Hedgehog Identity
-// Partition directly *after* the ONIE partition.
+// Partition on the ONIE partition. You want to call this function **after** a
+// call to `DeletePartitions()` to make sure there is room for the identity
+// partition to be created.
 //
 // However, if a platform was passed and the platform falls into a category of
-// exceptions (disk cannot be identified by ONIE partition), then it is cleaning up
-// with a dedicated procedure.
+// exceptions (disk cannot be identified by ONIE partition), then it is creating the
+// partition with a dedicated procedure.
 //
 // NOTE: it is advisable to call `Discover()` again after a call
 // to this to make sure the partition is in the list.
@@ -160,6 +163,9 @@ func (d Devices) CreateHedgehogIdentityPartition(platform string) error {
 }
 
 func (d Devices) createHedgehogIdentityPartitionByONIELocation() error {
+	if d.GetHedgehogIdentityPartition() != nil {
+		return ErrPartitionExists
+	}
 	oniePart := d.GetONIEPartition()
 	if oniePart == nil {
 		return ErrONIEPartitionNotFound
@@ -189,15 +195,15 @@ func (d Devices) createHedgehogIdentityPartitionByONIELocation() error {
 		"sgdisk",
 		fmt.Sprintf("--new=%d::+%dMB", partNum, DefaultPartSizeHedgehogIdentityInMB),
 		fmt.Sprintf("--change-name=%d:%s", partNum, GPTPartNameHedgehogIdentity),
-		fmt.Sprintf("--typecode=%d:%s", partNum, strings.ToUpper(GPTPartNameHedgehogIdentity)),
+		fmt.Sprintf("--typecode=%d:%s", partNum, strings.ToUpper(GPTPartTypeHedgehogIdentity)),
 		disk.Path,
 	).Run(); err != nil {
 		return fmt.Errorf("devices: sgdisk create failed: %w", err)
 	}
 
 	// reread partition table
-	if err := disk.ReReadPartitionTable(); err != nil { // nolint
-		// TODO: log error
+	if err := disk.ReReadPartitionTable(); err != nil {
+		Logger.Warn("rereading partition table failed", zap.Error(err))
 	}
 	return nil
 }

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
-	"strings"
 	"testing"
 )
 
@@ -24,7 +23,7 @@ func (c *testCmd) IsExpectedCommand() error {
 		nameArg := []string{c.name}
 		nameArg = append(nameArg, c.arg...)
 		if !reflect.DeepEqual(nameArg, c.expectedNameArg) {
-			return fmt.Errorf("not expected command: '%s', actual '%s'", strings.Join(c.expectedNameArg, " "), strings.Join(nameArg, " "))
+			return fmt.Errorf("not expected command: '%#v', actual '%#v'", c.expectedNameArg, nameArg)
 		}
 	}
 	return nil
