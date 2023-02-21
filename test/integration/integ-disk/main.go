@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
+	"strings"
 
 	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/partitions"
@@ -67,6 +69,10 @@ func integDisk(ctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("partition rediscovery after deleting partitions failed: %w", err)
 	}
+	// check partitions are as expected
+	if err := checkPartitions(devs, false); err != nil {
+		return fmt.Errorf("checking partions failed: %w", err)
+	}
 
 	// now create identity partition if it is not present yet
 	l.Info("4. Ensuring Hedgehog Identity Partition exists...")
@@ -85,10 +91,111 @@ func integDisk(ctx *cli.Context) error {
 			return fmt.Errorf("partition rediscovery after creating Hedgehog Identity Partition failed: %w", err)
 		}
 	}
+	// check partitions are as expected again, this time identity partition must exist
+	if err := checkPartitions(devs, true); err != nil {
+		return fmt.Errorf("checking partions failed: %w", err)
+	}
 
 	// success, now just print device/disk information
 	l.Info("5. Success! Printing disks/partitions for confirmation...")
+	logDevs(devs)
+
+	// c'est fini
+	return nil
+}
+
+func checkPartitions(devs partitions.Devices, mustHaveIdentity bool) error {
+	// if this is the default x86 platform, then our partition layout will be predictable
+	// do some assertions around that!
+	if runtime.GOARCH == "amd64" {
+		var numParts int
+
+		efiPart := devs.GetEFIPartition()
+		if efiPart == nil {
+			l.Error("EFI partition missing which means it could have been delete before")
+			l.Info("printing devs before exit")
+			logDevs(devs)
+			return fmt.Errorf("EFI partition missing")
+		}
+		partn := efiPart.GetPartitionNumber()
+		if partn != 1 {
+			l.Warn("EFI partition number is not (1) as it usually should be", zap.Int("partn", partn))
+		}
+		numParts += 1
+
+		oniePart := devs.GetONIEPartition()
+		if oniePart == nil {
+			l.Error("ONIE partition missing which means it could have been deleted before")
+			l.Info("printing devs before exit")
+			logDevs(devs)
+			return fmt.Errorf("ONIE partition missing")
+		}
+		partn = oniePart.GetPartitionNumber()
+		if partn != 2 && partn != 3 {
+			l.Warn("ONIE partition number is not (2) (or (3)) as it usually should be", zap.Int("partn", partn))
+		}
+		numParts += 1
+
+		diagPart := devs.GetDiagPartition()
+		if diagPart == nil {
+			l.Debug("no Diag partition found")
+		} else {
+			partn = diagPart.GetPartitionNumber()
+			if partn != 3 && partn != 2 {
+				l.Warn("Diag partition number is not (3) (or (2)) as it usually should be", zap.Int("partn", partn))
+			}
+			numParts += 1
+		}
+
+		hhidPart := devs.GetHedgehogIdentityPartition()
+		if hhidPart == nil && mustHaveIdentity {
+			l.Error("Hedgehog partition missing even though it must be present now")
+			l.Info("printing devs before exit")
+			logDevs(devs)
+			return fmt.Errorf("Hedgehog identity Partition missing")
+		} else if hhidPart == nil {
+			l.Debug("no Hedgehog Identity partion found")
+		} else {
+			partn = hhidPart.GetPartitionNumber()
+			if partn != 3 && partn != 4 {
+				l.Warn("Hedgehog Identity Partion number is not (3) (or (4)) as it usually should be", zap.Int("partn", partn))
+			}
+
+			// we'll check other things now as well
+			// all except partition name which might not be updated in sysfs, and filesystem which will be ext2 instead of ext4 for the time being
+			if hhidPart.GPTPartType != partitions.GPTPartTypeHedgehogIdentity {
+				l.Error("Hedgehog Identity Partition does not have expected GPT partition type GUID", zap.String("got", hhidPart.GPTPartType), zap.String("want", partitions.GPTPartTypeHedgehogIdentity))
+				return fmt.Errorf("unexpected GPT partition type for Hedgehog Identity partition")
+			}
+			if hhidPart.FSLabel != partitions.FSLabelHedgehogIdentity {
+				l.Error("Hedgehog Identity Partition does not have expected FS Label", zap.String("got", hhidPart.FSLabel), zap.String("want", partitions.FSLabelHedgehogIdentity))
+				return fmt.Errorf("unexpected FS Label for Hedgehog Identity partition")
+			}
+			numParts += 1
+		}
+
+		disk := oniePart.Disk
+		if disk == nil {
+			l.Error("broken internal structure: oniePart.Disk is nil")
+			return fmt.Errorf("internal error")
+		}
+
+		// now check number of expected partitions
+		if len(disk.Partitions) != numParts {
+			l.Error("unexpected number of partitions", zap.Int("got", len(disk.Partitions)), zap.Int("want", numParts))
+			return fmt.Errorf("unexpected number of partitions")
+		}
+	}
+	return nil
+}
+
+func logDevs(devs partitions.Devices) {
 	for _, dev := range devs {
+		devname := dev.GetDeviceName()
+		if strings.HasPrefix(devname, "ram") || strings.HasPrefix(devname, "loop") {
+			// skip ram and loop devices - not very interesting and clobbers up the output
+			continue
+		}
 		major, minor, err := dev.GetMajorMinor()
 		if err != nil {
 			l.Debug("GetMajorMinor failed", zap.Error(err))
@@ -96,7 +203,7 @@ func integDisk(ctx *cli.Context) error {
 		if dev.IsDisk() {
 			l.Info(
 				"disk",
-				zap.String("devname", dev.GetDeviceName()),
+				zap.String("devname", devname),
 				zap.Uint32("major", major),
 				zap.Uint32("minor", minor),
 				zap.String("path", dev.Path),
@@ -107,7 +214,7 @@ func integDisk(ctx *cli.Context) error {
 		if dev.IsPartition() {
 			l.Info(
 				"partition",
-				zap.String("devname", dev.GetDeviceName()),
+				zap.String("devname", devname),
 				zap.Uint32("major", major),
 				zap.Uint32("minor", minor),
 				zap.String("partname", dev.GetPartitionName()),
@@ -123,7 +230,4 @@ func integDisk(ctx *cli.Context) error {
 			)
 		}
 	}
-
-	// c'est fini
-	return nil
 }
