@@ -337,5 +337,6 @@ func (d *Device) makeFilesystem(fsType, fsLabel string, force bool) error {
 		return fmt.Errorf("device: mkfs.%s: %w", fsType, err)
 	}
 	d.Filesystem = fsType
+	d.FSLabel = fsLabel
 	return nil
 }
