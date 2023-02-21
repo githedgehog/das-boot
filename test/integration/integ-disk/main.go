@@ -78,7 +78,8 @@ func integDisk(ctx *cli.Context) error {
 
 	// now create identity partition if it is not present yet
 	l.Info("5. Ensuring Hedgehog Identity Partition exists...")
-	if hhip := devs.GetHedgehogIdentityPartition(); hhip != nil {
+	hhip := devs.GetHedgehogIdentityPartition()
+	if hhip != nil {
 		l.Info("5.1 Hedgehog Identity Partition already exists")
 	} else {
 		l.Info("5.1 Hedgehog Identity Partition needs to be created...")
@@ -99,29 +100,30 @@ func integDisk(ctx *cli.Context) error {
 		if hhip == nil {
 			return fmt.Errorf("Hedgehog Identity Partition missing after rediscovery for creating partition")
 		}
-
-		// creating filesystem on it
-		l.Info("5.4 Creating filesystem on Hedgehog Identity Partition if necessary...")
-		if err := hhip.MakeFilesystemForHedgehogIdentityPartition(false); err != nil && !errors.Is(err, partitions.ErrFilesystemAlreadyCreated) {
-			return fmt.Errorf("creating filesystem for Hedgehog Identity Partition failed: %w", err)
-		}
-
-		// rediscover disks/partitions after creating filesystem
-		// NOTE: we wouldn't really need to do this step anymore, however, this is to probe the discovery mechanism again
-		l.Info("5.5 Rediscovering disks/partitions after makinf filesystem for Hedgehog Identity Partition...")
-		devs, err = partitions.Discover()
-		if err != nil {
-			return fmt.Errorf("partition rediscovery after creating Hedgehog Identity Partition failed: %w", err)
-		}
 	}
+
+	// creating filesystem on it
+	l.Info("6. Ensuring filesystem is correct on Hedgehog Identity Partition and creating it if necessary...")
+	if err := hhip.MakeFilesystemForHedgehogIdentityPartition(false); err != nil && !errors.Is(err, partitions.ErrFilesystemAlreadyCreated) {
+		return fmt.Errorf("ensuring filesystem for Hedgehog Identity Partition failed: %w", err)
+	}
+
+	// rediscover disks/partitions after creating filesystem
+	// NOTE: we wouldn't really need to do this step anymore, however, this is to probe the discovery mechanism again
+	l.Info("7. Rediscovering disks/partitions after making filesystem for Hedgehog Identity Partition...")
+	devs, err = partitions.Discover()
+	if err != nil {
+		return fmt.Errorf("partition rediscovery after creating Hedgehog Identity Partition failed: %w", err)
+	}
+
 	// check partitions are as expected again, this time identity partition must exist
-	l.Info("6. Check partitions again after deleting/creating partitions and filesystems...")
+	l.Info("8. Check partitions again after deleting/creating partitions and filesystems...")
 	if err := checkPartitions(devs, true); err != nil {
 		return fmt.Errorf("checking partions failed: %w", err)
 	}
 
 	// success, now just print device/disk information
-	l.Info("7. Success! Printing disks/partitions for confirmation...")
+	l.Info("9. Success! Printing disks/partitions for confirmation...")
 	logDevs(devs)
 
 	// c'est fini
@@ -191,9 +193,12 @@ func checkPartitions(devs partitions.Devices, mustHaveIdentity bool) error {
 				l.Error("Hedgehog Identity Partition does not have expected GPT partition type GUID", zap.String("got", hhidPart.GPTPartType), zap.String("want", partitions.GPTPartTypeHedgehogIdentity))
 				return fmt.Errorf("unexpected GPT partition type for Hedgehog Identity partition")
 			}
-			if hhidPart.FSLabel != partitions.FSLabelHedgehogIdentity {
+			if hhidPart.FSLabel != partitions.FSLabelHedgehogIdentity && mustHaveIdentity {
 				l.Error("Hedgehog Identity Partition does not have expected FS Label", zap.String("got", hhidPart.FSLabel), zap.String("want", partitions.FSLabelHedgehogIdentity))
 				return fmt.Errorf("unexpected FS Label for Hedgehog Identity partition")
+			}
+			if hhidPart.FSLabel != partitions.FSLabelHedgehogIdentity {
+				l.Warn("Hedgehog Identity Partition does not have expected FS Label", zap.String("got", hhidPart.FSLabel), zap.String("want", partitions.FSLabelHedgehogIdentity))
 			}
 			numParts += 1
 		}
