@@ -32,8 +32,8 @@ const (
 	FSLabelHedgehogLocation = "HH_LOCATION"
 
 	GPTPartNameONIE             = FSLabelONIE
-	GPTPartNameHedgehogIdentity = FSLabelHedgehogIdentity
-	GPTPartNameHedgehogLocation = FSLabelHedgehogLocation
+	GPTPartNameHedgehogIdentity = "HEDGEHOG_IDENTITY"
+	GPTPartNameHedgehogLocation = "HEDGEHOG_LOCATION"
 
 	GPTPartTypeONIE             = "7412f7d5-a156-4b13-81dc-867174929325"
 	GPTPartTypeEFI              = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
