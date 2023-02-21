@@ -305,6 +305,22 @@ func ensureMountPath(path string) error {
 	return nil
 }
 
+// MakeFilesystemForHedgehogIdentityPartition will create a filesystem for
+// the Hedgehog Identity partition if `IsHedgehogIdentityPartition() == true`.
+// It will update `d.Filesystem` and `d.FSLabel` accordingly on success.
+//
+// If the Hedgehog Identity Partition already exists, the function will return
+// with `ErrFilesystemAlreadyCreated`. However, if there is already a filesystem
+// but **not** the Hedgehog Identity Partition, then it will continue and
+// recreate the filesystem for the Hedgehog Identity Partition regardless.
+//
+// If you want to recreate an existing Hedgehog Identity Partion filesystem
+// (which is determined by the `FSLabel`), then set the `force` flag to true.
+// See the above paragraph that this is not needed if the filesystem is
+// a different filesystem. This is particularly useful if you are creating
+// a filesystem on a disk which already had an ext4 filesystem before (for
+// example from a previous non-Hedgehog SONiC installation), and you want to
+// continue creating the filesystem without force in this case.
 func (d *Device) MakeFilesystemForHedgehogIdentityPartition(force bool) error {
 	if !d.IsHedgehogIdentityPartition() {
 		return ErrUnsupportedMkfsForDevice
@@ -316,7 +332,7 @@ func (d *Device) makeFilesystem(fsType, fsLabel string, force bool) error {
 	if d.Path == "" {
 		return ErrNoDeviceNode
 	}
-	if d.Filesystem != "" && !force {
+	if d.Filesystem != "" && d.FSLabel == FSLabelHedgehogIdentity && !force {
 		return ErrFilesystemAlreadyCreated
 	}
 	var fsOpts []string

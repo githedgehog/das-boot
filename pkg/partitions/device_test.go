@@ -1144,6 +1144,7 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 				GPTPartType: GPTPartTypeHedgehogIdentity,
 				Path:        "/path/to/device",
 				Filesystem:  "ext4",
+				FSLabel:     FSLabelHedgehogIdentity,
 			},
 			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
 				return func(name string, arg ...string) Cmd {
@@ -1208,9 +1209,41 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 				GPTPartType: GPTPartTypeHedgehogIdentity,
 				Path:        "/path/to/device",
 				Filesystem:  "ext4",
+				FSLabel:     FSLabelHedgehogIdentity,
 			},
 			wantErr:     true,
 			wantErrToBe: ErrFilesystemAlreadyCreated,
+		},
+		{
+			name: "exists already but is different filesystem",
+			args: args{
+				force: false,
+			},
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypePartition,
+				},
+				GPTPartType: GPTPartTypeHedgehogIdentity,
+				Path:        "/path/to/device",
+				Filesystem:  "ext4",
+				FSLabel:     "SONiC",
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"},
+					}
+					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
+						return testCmd.IsExpectedCommand()
+					})
+					return testCmd
+				}
+			},
+			wantErr: false,
 		},
 		{
 			name: "no device node",

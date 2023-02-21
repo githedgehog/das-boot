@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -100,8 +101,8 @@ func integDisk(ctx *cli.Context) error {
 		}
 
 		// creating filesystem on it
-		l.Info("5.4 Creating filesystem on Hedgehog Identity Partition...")
-		if err := hhip.MakeFilesystemForHedgehogIdentityPartition(true); err != nil {
+		l.Info("5.4 Creating filesystem on Hedgehog Identity Partition if necessary...")
+		if err := hhip.MakeFilesystemForHedgehogIdentityPartition(false); err != nil && !errors.Is(err, partitions.ErrFilesystemAlreadyCreated) {
 			return fmt.Errorf("creating filesystem for Hedgehog Identity Partition failed: %w", err)
 		}
 
