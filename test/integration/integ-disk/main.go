@@ -70,34 +70,57 @@ func integDisk(ctx *cli.Context) error {
 		return fmt.Errorf("partition rediscovery after deleting partitions failed: %w", err)
 	}
 	// check partitions are as expected
+	l.Info("4. Check partitions are as expected after initial discovery...")
 	if err := checkPartitions(devs, false); err != nil {
 		return fmt.Errorf("checking partions failed: %w", err)
 	}
 
 	// now create identity partition if it is not present yet
-	l.Info("4. Ensuring Hedgehog Identity Partition exists...")
+	l.Info("5. Ensuring Hedgehog Identity Partition exists...")
 	if hhip := devs.GetHedgehogIdentityPartition(); hhip != nil {
-		l.Info("4.1 Hedgehog Identity Partition already exists")
+		l.Info("5.1 Hedgehog Identity Partition already exists")
 	} else {
-		l.Info("4.1 Hedgehog Identity Partition needs to be created...")
+		l.Info("5.1 Hedgehog Identity Partition needs to be created...")
 		if err := devs.CreateHedgehogIdentityPartition(os.Getenv("onie_platform")); err != nil {
 			return fmt.Errorf("creating Hedgehog Identity Partition failed: %w", err)
 		}
 
 		// rediscover disks/partitions after creating hedgehog
-		l.Info("4.2 Rediscovering disks/partitions after creating Hedgehog Identity Partition...")
+		l.Info("5.2 Rediscovering disks/partitions after creating Hedgehog Identity Partition...")
+		devs, err = partitions.Discover()
+		if err != nil {
+			return fmt.Errorf("partition rediscovery after creating Hedgehog Identity Partition failed: %w", err)
+		}
+
+		// get partition again
+		l.Info("5.3 Getting Hedgehog Identity Partition again...")
+		hhip = devs.GetHedgehogIdentityPartition()
+		if hhip == nil {
+			return fmt.Errorf("Hedgehog Identity Partition missing after rediscovery for creating partition")
+		}
+
+		// creating filesystem on it
+		l.Info("5.4 Creating filesystem on Hedgehog Identity Partition...")
+		if err := hhip.MakeFilesystemForHedgehogIdentityPartition(true); err != nil {
+			return fmt.Errorf("creating filesystem for Hedgehog Identity Partition failed: %w", err)
+		}
+
+		// rediscover disks/partitions after creating filesystem
+		// NOTE: we wouldn't really need to do this step anymore, however, this is to probe the discovery mechanism again
+		l.Info("5.5 Rediscovering disks/partitions after makinf filesystem for Hedgehog Identity Partition...")
 		devs, err = partitions.Discover()
 		if err != nil {
 			return fmt.Errorf("partition rediscovery after creating Hedgehog Identity Partition failed: %w", err)
 		}
 	}
 	// check partitions are as expected again, this time identity partition must exist
+	l.Info("6. Check partitions again after deleting/creating partitions and filesystems...")
 	if err := checkPartitions(devs, true); err != nil {
 		return fmt.Errorf("checking partions failed: %w", err)
 	}
 
 	// success, now just print device/disk information
-	l.Info("5. Success! Printing disks/partitions for confirmation...")
+	l.Info("7. Success! Printing disks/partitions for confirmation...")
 	logDevs(devs)
 
 	// c'est fini
