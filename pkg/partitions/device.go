@@ -28,8 +28,8 @@ const (
 
 	FSLabelONIE             = "ONIE-BOOT"
 	FSLabelSONiC            = "SONiC-OS"
-	FSLabelHedgehogIdentity = "HEDGEHOG_IDENTITY"
-	FSLabelHedgehogLocation = "HEDGEHOG_LOCATION"
+	FSLabelHedgehogIdentity = "HH_IDENTITY"
+	FSLabelHedgehogLocation = "HH_LOCATION"
 
 	GPTPartNameONIE             = FSLabelONIE
 	GPTPartNameHedgehogIdentity = FSLabelHedgehogIdentity

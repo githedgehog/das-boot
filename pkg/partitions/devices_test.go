@@ -689,7 +689,7 @@ func TestDevices_CreateHedgehogIdentityPartition(t *testing.T) {
 						expectedNameArg: []string{
 							"sgdisk",
 							"--new=4::+100MB",
-							"--change-name=4:HEDGEHOG_IDENTITY",
+							"--change-name=4:HH_IDENTITY",
 							"--typecode=4:E982E2BD-867C-4D7A-89A2-9C5A9BC5DFDD",
 							"/path/to/disk/device",
 						},
@@ -719,7 +719,7 @@ func TestDevices_CreateHedgehogIdentityPartition(t *testing.T) {
 						expectedNameArg: []string{
 							"sgdisk",
 							"--new=4::+100MB",
-							"--change-name=4:HEDGEHOG_IDENTITY",
+							"--change-name=4:HH_IDENTITY",
 							"--typecode=4:E982E2BD-867C-4D7A-89A2-9C5A9BC5DFDD",
 							"/path/to/disk/device",
 						},
