@@ -214,12 +214,20 @@ func (d *Device) ReReadPartitionTable() error {
 	if d.Path == "" {
 		return ErrNoDeviceNode
 	}
-	f, err := os.Open(d.Path)
-	if err != nil {
-		return err
-	}
-	if _, err = unixIoctlGetInt(int(f.Fd()), blkrrpart); err != nil {
-		return fmt.Errorf("device: unable to re-read partition table: %ww", err)
+	// TODO: this does not seem to be enough nowadays
+	// We should find out what exactly `partprobe` does and replicate the calls directly.
+	// It's probably another set of ioctls apart from blkrrpart
+	// NOTE: don't delete! keep for now until we solve the TODO
+	//
+	// f, err := os.Open(d.Path)
+	// if err != nil {
+	// 	return err
+	// }
+	// if _, err = unixIoctlGetInt(int(f.Fd()), blkrrpart); err != nil {
+	// 	return fmt.Errorf("device: unable to re-read partition table: %ww", err)
+	// }
+	if err := execCommand("partprobe", d.Path).Run(); err != nil {
+		return fmt.Errorf("device: unable to re-read partition table: partprobe: %w", err)
 	}
 	return nil
 }
@@ -311,7 +319,21 @@ func (d *Device) makeFilesystem(fsType, fsLabel string, force bool) error {
 	if d.Filesystem != "" && !force {
 		return ErrFilesystemAlreadyCreated
 	}
-	if err := execCommand("mkfs."+fsType, "-L", fsLabel, d.Path).Run(); err != nil {
+	var fsOpts []string
+	switch fsType {
+	case FSExt4:
+		// if a filesystem does already exist, which for example can be the case when
+		// SONiC was already installed previously, we need to make sure that the
+		// "default" answer of N is not being selected by mkfs.ext4, which would
+		// abort the command but with a successful exit code of 0.
+		fsOpts = []string{"-F"}
+	}
+	args := []string{"-L", fsLabel}
+	if len(fsOpts) > 0 {
+		args = append(args, fsOpts...)
+	}
+	args = append(args, d.Path)
+	if err := execCommand("mkfs."+fsType, args...).Run(); err != nil {
 		return fmt.Errorf("device: mkfs.%s: %w", fsType, err)
 	}
 	d.Filesystem = fsType

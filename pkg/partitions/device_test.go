@@ -447,12 +447,34 @@ func TestDevice_ReReadPartitionTable(t *testing.T) {
 	}
 	errIoctlFailed := errors.New("ioctl failed")
 	tests := []struct {
-		name            string
-		device          *Device
-		unixIoctlGetInt func(fd int, req uint) (int, error)
-		wantErr         bool
-		wantErrToBe     error
+		name   string
+		device *Device
+		// NOTE: don't delete! keep for now until we solve the TODO
+		// unixIoctlGetInt func(fd int, req uint) (int, error)
+		execCommand func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+		wantErr     bool
+		wantErrToBe error
 	}{
+		// NOTE: don't delete! keep for now until we solve the TODO
+		// {
+		// 	name: "success",
+		// 	device: &Device{
+		// 		Uevent: Uevent{
+		// 			UeventDevtype: UeventDevtypeDisk,
+		// 		},
+		// 		Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device"),
+		// 	},
+		// 	unixIoctlGetInt: func(fd int, req uint) (int, error) {
+		// 		if fd <= 2 {
+		// 			return 0, fmt.Errorf("not an opened device file")
+		// 		}
+		// 		if req != blkrrpart {
+		// 			return 0, fmt.Errorf("not a BLKRRPART ioctl")
+		// 		}
+		// 		return 42, nil
+		// 	},
+		// 	wantErr: false,
+		// },
 		{
 			name: "success",
 			device: &Device{
@@ -461,16 +483,51 @@ func TestDevice_ReReadPartitionTable(t *testing.T) {
 				},
 				Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device"),
 			},
-			unixIoctlGetInt: func(fd int, req uint) (int, error) {
-				if fd <= 2 {
-					return 0, fmt.Errorf("not an opened device file")
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"partprobe", filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device")},
+					}
+					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
+						return testCmd.IsExpectedCommand()
+					})
+					return testCmd
 				}
-				if req != blkrrpart {
-					return 0, fmt.Errorf("not a BLKRRPART ioctl")
-				}
-				return 42, nil
 			},
 			wantErr: false,
+		},
+		{
+			name: "partprobe fails",
+			device: &Device{
+				Uevent: Uevent{
+					UeventDevtype: UeventDevtypeDisk,
+				},
+				Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device"),
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"partprobe", filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device")},
+					}
+					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
+						if err := testCmd.IsExpectedCommand(); err != nil {
+							return err
+						}
+						return errIoctlFailed
+					})
+					return testCmd
+				}
+			},
+			wantErr:     true,
+			wantErrToBe: errIoctlFailed,
 		},
 		{
 			name: "not a disk",
@@ -493,40 +550,52 @@ func TestDevice_ReReadPartitionTable(t *testing.T) {
 			wantErr:     true,
 			wantErrToBe: ErrNoDeviceNode,
 		},
-		{
-			name: "device node missing",
-			device: &Device{
-				Uevent: Uevent{
-					UeventDevtype: UeventDevtypeDisk,
-				},
-				Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "missing"),
-			},
-			wantErr:     true,
-			wantErrToBe: os.ErrNotExist,
-		},
-		{
-			name: "ioctl fails",
-			device: &Device{
-				Uevent: Uevent{
-					UeventDevtype: UeventDevtypeDisk,
-				},
-				Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device"),
-			},
-			unixIoctlGetInt: func(fd int, req uint) (int, error) {
-				return 0, errIoctlFailed
-			},
-			wantErr:     true,
-			wantErrToBe: errIoctlFailed,
-		},
+		// NOTE: don't delete! keep for now until we solve the TODO
+		// {
+		// 	name: "device node missing for path to missing file",
+		// 	device: &Device{
+		// 		Uevent: Uevent{
+		// 			UeventDevtype: UeventDevtypeDisk,
+		// 		},
+		// 		Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "missing"),
+		// 	},
+		// 	wantErr:     true,
+		// 	wantErrToBe: os.ErrNotExist,
+		// },
+		// NOTE: don't delete! keep for now until we solve the TODO
+		// {
+		// 	name: "ioctl fails",
+		// 	device: &Device{
+		// 		Uevent: Uevent{
+		// 			UeventDevtype: UeventDevtypeDisk,
+		// 		},
+		// 		Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device"),
+		// 	},
+		// 	unixIoctlGetInt: func(fd int, req uint) (int, error) {
+		// 		return 0, errIoctlFailed
+		// 	},
+		// 	wantErr:     true,
+		// 	wantErrToBe: errIoctlFailed,
+		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.unixIoctlGetInt != nil {
-				oldUnixIoctlGetInt := unixIoctlGetInt
+			// NOTE: don't delete! keep for now until we solve the TODO
+			// if tt.unixIoctlGetInt != nil {
+			// 	oldUnixIoctlGetInt := unixIoctlGetInt
+			// 	defer func() {
+			// 		unixIoctlGetInt = oldUnixIoctlGetInt
+			// 	}()
+			// 	unixIoctlGetInt = tt.unixIoctlGetInt
+			// }
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			if tt.execCommand != nil {
+				oldExecCommand := execCommand
 				defer func() {
-					unixIoctlGetInt = oldUnixIoctlGetInt
+					execCommand = oldExecCommand
 				}()
-				unixIoctlGetInt = tt.unixIoctlGetInt
+				execCommand = tt.execCommand(t, ctrl)
 			}
 			err := tt.device.ReReadPartitionTable()
 			if (err != nil) != tt.wantErr {
@@ -1053,7 +1122,7 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 						Cmd:             cmd,
 						name:            name,
 						arg:             arg,
-						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "/path/to/device"},
+						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"},
 					}
 					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
 						return testCmd.IsExpectedCommand()
@@ -1083,7 +1152,7 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 						Cmd:             cmd,
 						name:            name,
 						arg:             arg,
-						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "/path/to/device"},
+						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"},
 					}
 					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
 						return testCmd.IsExpectedCommand()
@@ -1113,7 +1182,7 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 						Cmd:             cmd,
 						name:            name,
 						arg:             arg,
-						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "/path/to/device"},
+						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"},
 					}
 					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
 						if err := testCmd.IsExpectedCommand(); err != nil {
