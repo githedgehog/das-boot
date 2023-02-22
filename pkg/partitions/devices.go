@@ -93,8 +93,13 @@ func (d Devices) GetHedgehogLocationPartition() *Device {
 // `platform` is expected to be the value of the `onie_platform`
 // environment variable.
 //
-// DeletePartitoins will call ReReadPartitionTable on the disk that
+// DeletePartitions will call ReReadPartitionTable on the disk that
 // it operated on.
+//
+// DeletePartitions will also ensure that the BoorOrder has ONIE as
+// the first boot entry because after a call to this function, there
+// is not going to be any NOS available anymore, and a subsequent
+// reboot **MUST** ensure that it boots into ONIE again.
 //
 // NOTE: it is advisable to call `Discover()` again after a call
 // to this to make sure the partitions are gone from the devices
@@ -135,14 +140,24 @@ func (d Devices) deletePartitionsByONIELocation() error {
 
 	// now delete them all, abort with an error if *any* deletion fails
 	// it means the installer *must* fail as nothing is predictable anymore
-	for _, part := range partsToDelete {
-		if err := part.Delete(); err != nil {
+	if len(partsToDelete) > 0 {
+		for _, part := range partsToDelete {
+			if err := part.Delete(); err != nil {
+				return err
+			}
+		}
+
+		if err := disk.ReReadPartitionTable(); err != nil {
+			Logger.Warn("rereading partition table failed", zap.Error(err))
+		}
+
+		// If we deleted partions, then this means that we deleted
+		// NOS partitions. This means that we could have an unbootable
+		// system otherwise if things go wrong in the upcoming process.
+		// So we will default back to ONIE to ensure that we are good.
+		if err := MakeONIEDefaultBootEntry(); err != nil {
 			return err
 		}
-	}
-
-	if err := disk.ReReadPartitionTable(); err != nil {
-		Logger.Warn("rereading partition table failed", zap.Error(err))
 	}
 	return nil
 }
