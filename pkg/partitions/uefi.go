@@ -16,6 +16,12 @@ var (
 	ErrEmptyBootOrder    = errors.New("uefi: boot order is empty")
 )
 
+// MakeONIEDefaultBootEntry will ensure that ONIE is the first boot
+// entry in the EFI BootOrder variable. It assumes that the system
+// is currently running ONIE, and it will determine the ONIE boot
+// entry through the EFI BootCurrent variable and by checking that
+// the boot entry description of the BootXXXX entry for BootCurrent
+// actually contains the "ONIE" string, otherwise it will error.
 func MakeONIEDefaultBootEntry() error {
 	// get current boot entry number variable
 	_, bootCurrentNumber, err := efivars.BootCurrent.Get(efiCtx)
