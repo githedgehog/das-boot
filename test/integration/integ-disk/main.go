@@ -64,38 +64,43 @@ func integDisk(ctx *cli.Context) error {
 		return fmt.Errorf("failed to delete partitions: %w", err)
 	}
 
+	l.Info("3. Make sure ONIE is the default boot entry now...")
+	if err := partitions.MakeONIEDefaultBootEntry(); err != nil {
+		return fmt.Errorf("making ONIE default boot entry failed: %w", err)
+	}
+
 	// rediscover disks/partitions after deletions
-	l.Info("3. Rediscovering disks/partitions after potential partition deletions...")
+	l.Info("4. Rediscovering disks/partitions after potential partition deletions...")
 	devs, err = partitions.Discover()
 	if err != nil {
 		return fmt.Errorf("partition rediscovery after deleting partitions failed: %w", err)
 	}
 	// check partitions are as expected
-	l.Info("4. Check partitions are as expected after initial discovery...")
+	l.Info("5. Check partitions are as expected after initial discovery...")
 	if err := checkPartitions(devs, false); err != nil {
 		return fmt.Errorf("checking partions failed: %w", err)
 	}
 
 	// now create identity partition if it is not present yet
-	l.Info("5. Ensuring Hedgehog Identity Partition exists...")
+	l.Info("6. Ensuring Hedgehog Identity Partition exists...")
 	hhip := devs.GetHedgehogIdentityPartition()
 	if hhip != nil {
-		l.Info("5.1 Hedgehog Identity Partition already exists")
+		l.Info("6.1 Hedgehog Identity Partition already exists")
 	} else {
-		l.Info("5.1 Hedgehog Identity Partition needs to be created...")
+		l.Info("6.1 Hedgehog Identity Partition needs to be created...")
 		if err := devs.CreateHedgehogIdentityPartition(os.Getenv("onie_platform")); err != nil {
 			return fmt.Errorf("creating Hedgehog Identity Partition failed: %w", err)
 		}
 
 		// rediscover disks/partitions after creating hedgehog
-		l.Info("5.2 Rediscovering disks/partitions after creating Hedgehog Identity Partition...")
+		l.Info("6.2 Rediscovering disks/partitions after creating Hedgehog Identity Partition...")
 		devs, err = partitions.Discover()
 		if err != nil {
 			return fmt.Errorf("partition rediscovery after creating Hedgehog Identity Partition failed: %w", err)
 		}
 
 		// get partition again
-		l.Info("5.3 Getting Hedgehog Identity Partition again...")
+		l.Info("6.3 Getting Hedgehog Identity Partition again...")
 		hhip = devs.GetHedgehogIdentityPartition()
 		if hhip == nil {
 			return fmt.Errorf("Hedgehog Identity Partition missing after rediscovery for creating partition")
@@ -103,31 +108,31 @@ func integDisk(ctx *cli.Context) error {
 	}
 
 	// creating filesystem on it
-	l.Info("6. Ensuring filesystem is correct on Hedgehog Identity Partition and creating it if necessary...")
+	l.Info("7. Ensuring filesystem is correct on Hedgehog Identity Partition and creating it if necessary...")
 	if err := hhip.MakeFilesystemForHedgehogIdentityPartition(false); err != nil && !errors.Is(err, partitions.ErrFilesystemAlreadyCreated) {
 		return fmt.Errorf("ensuring filesystem for Hedgehog Identity Partition failed: %w", err)
 	}
 
 	// rediscover disks/partitions after creating filesystem
 	// NOTE: we wouldn't really need to do this step anymore, however, this is to probe the discovery mechanism again
-	l.Info("7. Rediscovering disks/partitions after making filesystem for Hedgehog Identity Partition...")
+	l.Info("8. Rediscovering disks/partitions after making filesystem for Hedgehog Identity Partition...")
 	devs, err = partitions.Discover()
 	if err != nil {
 		return fmt.Errorf("partition rediscovery after creating Hedgehog Identity Partition failed: %w", err)
 	}
 
 	// check partitions are as expected again, this time identity partition must exist
-	l.Info("8. Check partitions again after deleting/creating partitions and filesystems...")
+	l.Info("9. Check partitions again after deleting/creating partitions and filesystems...")
 	if err := checkPartitions(devs, true); err != nil {
 		return fmt.Errorf("checking partions failed: %w", err)
 	}
 
 	// print device/disk information
-	l.Info("9. Printing disks/partitions for confirmation...")
+	l.Info("10. Printing disks/partitions for confirmation...")
 	logDevs(devs)
 
 	// last but not least, mount Hedgehog Identity partition
-	l.Info("10. Mounting Hedgehog Identity Partition", zap.String("source", hhip.Path), zap.String("target", partitions.MountPathHedgehogIdentity))
+	l.Info("11. Mounting Hedgehog Identity Partition", zap.String("source", hhip.Path), zap.String("target", partitions.MountPathHedgehogIdentity))
 	if err := hhip.Mount(); err != nil {
 		return fmt.Errorf("mounting of Hedgehog Identity Partition failed: %w", err)
 	}
