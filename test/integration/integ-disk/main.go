@@ -122,11 +122,18 @@ func integDisk(ctx *cli.Context) error {
 		return fmt.Errorf("checking partions failed: %w", err)
 	}
 
-	// success, now just print device/disk information
-	l.Info("9. Success! Printing disks/partitions for confirmation...")
+	// print device/disk information
+	l.Info("9. Printing disks/partitions for confirmation...")
 	logDevs(devs)
 
+	// last but not least, mount Hedgehog Identity partition
+	l.Info("10. Mounting Hedgehog Identity Partition", zap.String("source", hhip.Path), zap.String("target", partitions.MountPathHedgehogIdentity))
+	if err := hhip.Mount(); err != nil {
+		return fmt.Errorf("mounting of Hedgehog Identity Partition failed: %w", err)
+	}
+
 	// c'est fini
+	l.Info("SUCCESS")
 	return nil
 }
 
