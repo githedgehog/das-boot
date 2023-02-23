@@ -1,0 +1,13 @@
+MAJOR   =    7
+MINOR=0
+this line will be skipped
+    DEVNAME=loop0
+DEVTYPE=disk   
+   DISKSEQ =  2
+
+WEIRD= Value with = inside  
+
+	will
+  be
+ignored
+

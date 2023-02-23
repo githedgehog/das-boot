@@ -1,0 +1,3 @@
+/pkg/partitions/util_mock_cmd_test.go
+/pkg/partitions/uefi_mock_efictx_test.go
+/test/integration/integ-disk/integ-disk
