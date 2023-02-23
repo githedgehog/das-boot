@@ -93,11 +93,13 @@ func MakeONIEDefaultBootEntryAndCleanup() error {
 		}
 		if !foundONIE {
 			bootEntriesToDelete = append(bootEntriesToDelete, num)
+			continue
 		}
 		newBootOrder = append(newBootOrder, num)
 	}
 	if !foundONIE {
 		bootEntriesToDelete = []uint16{}
+		newBootOrder = append(newBootOrder, bootOrder...)
 	}
 
 	// write the boot order to the EFI variable
