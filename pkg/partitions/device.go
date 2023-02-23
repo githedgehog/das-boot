@@ -1,6 +1,7 @@
 package partitions
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
@@ -232,9 +233,98 @@ func (d *Device) ReReadPartitionTable() error {
 	return nil
 }
 
+// IsMounted will check /proc/mounts to check if the
+// device is already mounted.
+//
+// It will update `MountPath` if it is. If the filesystem
+// is mounted multiple times the first entry of found in
+// /proc/mounts will be taken and used for `Mountpath`.
+//
+// NOTE: This is not short-circuited and cached on purpose.
+// If a third-party in the meantime is mounting/unmounting
+// the device, we can not rely on internal state, and
+// receiving notifications for this from the kernel is
+// overkill for its purpose here.
 func (d *Device) IsMounted() bool {
-	// TODO: should maybe actually check /proc/mounts in case this was mounted/unmounted outside of ourselves?
-	return d.MountPath != ""
+	// no need to check
+	if d.Path == "" {
+		return false
+	}
+
+	// NOTE: /proc/mounts is notorious for being broken
+	// However, for our "simple" use-case in ONIE, I don't
+	// think we need to worry about a better alternative
+	// unless we really run into an issue here.
+	procMountsPath := filepath.Join(rootPath, "proc", "mounts")
+	f, err := os.Open(procMountsPath)
+	if err != nil {
+		return false
+	}
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		split := strings.SplitN(line, " ", 3)
+		// if this is not 3, then we have a bogus procfs line
+		if len(split) != 3 {
+			continue
+		}
+		if split[0] == d.Path {
+			d.MountPath = unescapeMountPath(split[1])
+			return true
+		}
+	}
+	return false
+}
+
+// unescapeMountPath is shamelessly taken and adopted from:
+// https://github.com/moby/sys/blob/main/mountinfo/mountinfo_linux.go#L167
+//
+// Golang developers did not see a need to add unescaping of octals into
+// `strconv.Unquote`, so we need to have our own.
+func unescapeMountPath(path string) string {
+	// try to avoid copying
+	if strings.IndexByte(path, '\\') == -1 {
+		return path
+	}
+
+	// The following code is UTF-8 transparent as it only looks for some
+	// specific characters (backslash and 0..7) with values < utf8.RuneSelf,
+	// and everything else is passed through as is.
+	buf := make([]byte, len(path))
+	bufLen := 0
+	for i := 0; i < len(path); i++ {
+		if path[i] != '\\' {
+			buf[bufLen] = path[i]
+			bufLen++
+			continue
+		}
+		s := path[i:]
+		if len(s) < 4 {
+			// too short
+			return path
+		}
+		c := s[1]
+		switch c {
+		case '0', '1', '2', '3', '4', '5', '6', '7':
+			v := c - '0'
+			for j := 2; j < 4; j++ { // one digit already; two more
+				if s[j] < '0' || s[j] > '7' {
+					return path
+				}
+				x := s[j] - '0'
+				v = (v << 3) | x
+			}
+			buf[bufLen] = v
+			bufLen++
+			i += 3
+			continue
+		default:
+			return path
+
+		}
+	}
+
+	return string(buf[:bufLen])
 }
 
 func (d *Device) Mount() error {

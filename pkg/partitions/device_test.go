@@ -613,30 +613,82 @@ func TestDevice_ReReadPartitionTable(t *testing.T) {
 }
 
 func TestDevice_IsMounted(t *testing.T) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
 	tests := []struct {
-		name   string
-		device *Device
-		want   bool
+		name          string
+		device        *Device
+		rootPath      string
+		want          bool
+		wantMountPath string
 	}{
 		{
 			name: "is mounted",
 			device: &Device{
-				MountPath: "/mount/path",
+				Path: "/dev/vda3",
 			},
-			want: true,
+			rootPath:      filepath.Join(pwd, "testdata", "IsMounted", "one"),
+			wantMountPath: "/mnt/hedgehog-identity",
+			want:          true,
+		},
+		{
+			name: "is mounted on path with space",
+			device: &Device{
+				Path: "/dev/vda3",
+			},
+			rootPath:      filepath.Join(pwd, "testdata", "IsMounted", "two"),
+			wantMountPath: "/mnt/t t",
+			want:          true,
+		},
+		{
+			name: "is mounted with bogus line",
+			device: &Device{
+				Path: "/dev/vda3",
+			},
+			rootPath:      filepath.Join(pwd, "testdata", "IsMounted", "three"),
+			wantMountPath: "/mnt/hedgehog-identity",
+			want:          true,
 		},
 		{
 			name: "is not mounted",
 			device: &Device{
-				MountPath: "",
+				Path: "/dev/vda3",
 			},
-			want: false,
+			rootPath: filepath.Join(pwd, "testdata", "IsMounted", "four"),
+			want:     false,
+		},
+		{
+			name:   "has no device node",
+			device: &Device{},
+			want:   false,
+		},
+		{
+			name: "fails to open mounts files",
+			device: &Device{
+				Path: "/dev/vda3",
+			},
+			rootPath: "/does/not/exist",
+			want:     false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.rootPath != "" {
+				oldRootPath := rootPath
+				defer func() {
+					rootPath = oldRootPath
+				}()
+				rootPath = tt.rootPath
+			}
 			if got := tt.device.IsMounted(); got != tt.want {
 				t.Errorf("Device.IsMounted() = %v, want %v", got, tt.want)
+				return
+			}
+			if tt.device.MountPath != tt.wantMountPath {
+				t.Errorf("Device.IsMounted() Device.MountPath = %v, want %v", tt.device.MountPath, tt.wantMountPath)
+				return
 			}
 		})
 	}
@@ -734,12 +786,12 @@ func TestDevice_Mount(t *testing.T) {
 		{
 			name: "already mounted",
 			device: &Device{
-				Path:      "/path/to/device",
-				MountPath: "/path/to/mount/path",
+				Path: "/dev/vda3",
 			},
+			rootPath:      filepath.Join(pwd, "testdata", "IsMounted", "one"),
 			wantErr:       true,
 			wantErrToBe:   ErrAlreadyMounted,
-			wantMountPath: "/path/to/mount/path",
+			wantMountPath: "/mnt/hedgehog-identity",
 		},
 		{
 			name: "hedgehog identity partition fails ensureMount unrecoverably",
@@ -863,6 +915,10 @@ func TestDevice_Mount(t *testing.T) {
 }
 
 func TestDevice_Unmount(t *testing.T) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
 	errUnmountFailed := errors.New("unmount failed")
 	tests := []struct {
 		name          string
@@ -870,16 +926,19 @@ func TestDevice_Unmount(t *testing.T) {
 		wantErr       bool
 		wantErrToBe   error
 		wantMountPath string
+		rootPath      string
 		unixUnmount   func(target string, flags int) error
 	}{
 		{
 			name: "success",
 			device: &Device{
-				MountPath: "/mount/path",
+				Path:      "/dev/vda3",
+				MountPath: "/mnt/hedgehog-identity",
 			},
 			unixUnmount: func(target string, flags int) error {
 				return nil
 			},
+			rootPath:      filepath.Join(pwd, "testdata", "IsMounted", "one"),
 			wantErr:       false,
 			wantMountPath: "",
 		},
@@ -894,18 +953,27 @@ func TestDevice_Unmount(t *testing.T) {
 		{
 			name: "unmount fails",
 			device: &Device{
-				MountPath: "/mount/path",
+				Path:      "/dev/vda3",
+				MountPath: "/mnt/hedgehog-identity",
 			},
 			unixUnmount: func(target string, flags int) error {
 				return errUnmountFailed
 			},
+			rootPath:      filepath.Join(pwd, "testdata", "IsMounted", "one"),
 			wantErr:       true,
 			wantErrToBe:   errUnmountFailed,
-			wantMountPath: "/mount/path",
+			wantMountPath: "/mnt/hedgehog-identity",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.rootPath != "" {
+				oldRootPath := rootPath
+				defer func() {
+					rootPath = oldRootPath
+				}()
+				rootPath = tt.rootPath
+			}
 			if tt.unixUnmount != nil {
 				oldUnixUnmount := unixUnmount
 				defer func() {
@@ -1899,6 +1967,57 @@ func TestDevice_ensureDevicePath(t *testing.T) {
 			if tt.device.Path != tt.wantPath {
 				t.Errorf("Device.Path = %v, want %v", tt.device.Path, tt.wantPath)
 				return
+			}
+		})
+	}
+}
+
+func Test_unescapeMountPath(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{
+			name: "success",
+			path: `/mnt/with/space/\040before`,
+			want: "/mnt/with/space/ before",
+		},
+		{
+			name: "success",
+			path: `/mnt/with/space/\040before/and\134/backslash`,
+			want: `/mnt/with/space/ before/and\/backslash`,
+		},
+		{
+			name: "nothing to escape",
+			path: "/mnt/hedgehog-identity",
+			want: "/mnt/hedgehog-identity",
+		},
+		{
+			name: "escaped octal string not long enough",
+			path: `\4`,
+			want: `\4`,
+		},
+		{
+			name: "does not begin with octal number",
+			path: `\940blah`,
+			want: `\940blah`,
+		},
+		{
+			name: "does not continue with octal number",
+			path: `\090blah`,
+			want: `\090blah`,
+		},
+		{
+			name: "does not end with octal number",
+			path: `\049blah`,
+			want: `\049blah`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := unescapeMountPath(tt.path); got != tt.want {
+				t.Errorf("unescapeMountPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}

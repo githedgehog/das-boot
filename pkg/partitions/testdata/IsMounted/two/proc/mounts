@@ -1,0 +1,15 @@
+rootfs / rootfs rw,size=2001360k,nr_inodes=500340 0 0
+proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+devtmpfs /dev devtmpfs rw,relatime,size=2001368k,nr_inodes=500342,mode=755 0 0
+tmpfs /run tmpfs rw,noatime,size=10240k 0 0
+tmpfs /run/lock tmpfs rw,noatime,size=10240k 0 0
+tmpfs /tmp tmpfs rw,noatime 0 0
+tmpfs /var/tmp tmpfs rw,noatime 0 0
+sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0
+tmpfs /run/shm tmpfs rw,nosuid,nodev,relatime 0 0
+devpts /dev/pts devpts rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000 0 0
+/dev/vda2 /mnt/onie-boot ext4 rw,relatime,errors=remount-ro 0 0
+efivarfs /sys/firmware/efi/efivars efivarfs rw,relatime 0 0
+/dev/vda1 /boot/efi vfat rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro 0 0
+/dev/vda3 /mnt/t\040t ext4 rw,relatime 0 0
+/dev/vda3 /mnt/hedgehog-identity ext4 rw,nodev,noexec,relatime 0 0
