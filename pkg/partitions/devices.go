@@ -93,13 +93,17 @@ func (d Devices) GetHedgehogLocationPartition() *Device {
 // `platform` is expected to be the value of the `onie_platform`
 // environment variable.
 //
-// DeletePartitions will call ReReadPartitionTable on the disk that
+// DeletePartitions will call `ReReadPartitionTable()` on the disk that
 // it operated on.
 //
 // DeletePartitions will also ensure that the BoorOrder has ONIE as
 // the first boot entry because after a call to this function, there
 // is not going to be any NOS available anymore, and a subsequent
-// reboot **MUST** ensure that it boots into ONIE again.
+// reboot **MUST** ensure that it boots into ONIE again. It will also
+// remove any bogus EFI boot variables which are now invalid after the
+// deletion of those partitions.
+// It uses the `MakeONIEDefaultBootEntryAndCleanup()` function for this
+// procedure.
 //
 // NOTE: it is advisable to call `Discover()` again after a call
 // to this to make sure the partitions are gone from the devices
@@ -155,7 +159,8 @@ func (d Devices) deletePartitionsByONIELocation() error {
 		// NOS partitions. This means that we could have an unbootable
 		// system otherwise if things go wrong in the upcoming process.
 		// So we will default back to ONIE to ensure that we are good.
-		if err := MakeONIEDefaultBootEntry(); err != nil {
+		// This will also cleanup any boot entries which are now invalid.
+		if err := MakeONIEDefaultBootEntryAndCleanup(); err != nil {
 			return err
 		}
 	}

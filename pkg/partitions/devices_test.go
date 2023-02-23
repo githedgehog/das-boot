@@ -5,6 +5,9 @@ import (
 	"reflect"
 	"testing"
 
+	efiguid "github.com/0x5a17ed/uefi/efi/efiguid"
+	"github.com/0x5a17ed/uefi/efi/efivario"
+	"github.com/0x5a17ed/uefi/efi/efivars"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -296,6 +299,7 @@ func TestDevices_GetHedgehogLocationPartition(t *testing.T) {
 func TestDevices_DeletePartitions(t *testing.T) {
 	// some error fixtures
 	errDeleteFailed := errors.New("sgdisk -d failed")
+	errMakeONIEDefaultFailed := errors.New("MakeONIEDefaultAndCleanup() failed")
 
 	// create a set of realistic GOOD test data
 	disk := &Device{
@@ -418,12 +422,14 @@ func TestDevices_DeletePartitions(t *testing.T) {
 		platform string
 	}
 	tests := []struct {
-		name        string
-		d           Devices
-		args        args
-		wantErr     bool
-		wantErrToBe error
-		execCommand func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+		name                                         string
+		d                                            Devices
+		args                                         args
+		callsMakeONIEDefaultBootEntryAndCleanup      bool
+		callsMakeONIEDefaultBootEntryAndCleanupFails bool
+		wantErr                                      bool
+		wantErrToBe                                  error
+		execCommand                                  func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
 	}{
 		{
 			name: "success",
@@ -449,7 +455,8 @@ func TestDevices_DeletePartitions(t *testing.T) {
 					return testCmd
 				}
 			},
-			wantErr: false,
+			callsMakeONIEDefaultBootEntryAndCleanup: true,
+			wantErr:                                 false,
 		},
 		{
 			name: "success exercise sort and multiple delete",
@@ -474,7 +481,8 @@ func TestDevices_DeletePartitions(t *testing.T) {
 					return testCmd
 				}
 			},
-			wantErr: false,
+			callsMakeONIEDefaultBootEntryAndCleanup: true,
+			wantErr:                                 false,
 		},
 		{
 			name: "delete failed",
@@ -541,11 +549,90 @@ func TestDevices_DeletePartitions(t *testing.T) {
 			wantErr:     true,
 			wantErrToBe: ErrBrokenDiscovery,
 		},
+		{
+			name: "calling MakeONIEDefaultBootEntryAndCleanup fails",
+			d: Devices{
+				partEFI,
+				partONIE,
+				partDiag,
+				partHHIdentity,
+				partNOS,
+			},
+			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
+				return func(name string, arg ...string) Cmd {
+					cmd := NewMockCmd(ctrl)
+					testCmd := &testCmd{
+						Cmd:             cmd,
+						name:            name,
+						arg:             arg,
+						expectedNameArg: []string{"sgdisk", "-d", "5", "/path/to/disk/device"},
+					}
+					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
+						return testCmd.IsExpectedCommand()
+					})
+					return testCmd
+				}
+			},
+			callsMakeONIEDefaultBootEntryAndCleanup:      true,
+			callsMakeONIEDefaultBootEntryAndCleanupFails: true,
+			wantErr:     true,
+			wantErrToBe: errMakeONIEDefaultFailed,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
+
+			//// START - mock for MakeONIEDefaultBootEntryAndCleanup() call
+			c := NewMockContext(ctrl)
+			oldEfiCtx := efiCtx
+			defer func() {
+				efiCtx = oldEfiCtx
+			}()
+			efiCtx = c
+			if tt.callsMakeONIEDefaultBootEntryAndCleanup {
+				if tt.callsMakeONIEDefaultBootEntryAndCleanupFails {
+					c.EXPECT().GetSizeHint(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable)).Times(1).
+						Return(int64(0), nil)
+					c.EXPECT().Get(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable), gomock.Eq([]byte{})).Times(1).
+						Return(efivario.Attributes(0), 0, errMakeONIEDefaultFailed)
+				} else {
+					c.EXPECT().GetSizeHint(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable)).Times(1).
+						Return(int64(2), nil)
+					c.EXPECT().Get(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable), gomock.Eq([]byte{0, 0})).Times(1).
+						DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
+							for i, b := range []byte{0x07, 0x00} {
+								out[i] = b
+							}
+							return efivario.BootServiceAccess | efivario.RuntimeAccess, 2, nil
+						})
+					c.EXPECT().GetSizeHint(gomock.Eq("Boot0007"), gomock.Eq(efivars.GlobalVariable)).Times(1).
+						Return(int64(len(onieBootContents)-4), nil)
+					c.EXPECT().Get(gomock.Eq("Boot0007"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(onieBootContents)-4))).Times(1).
+						DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
+							for i, b := range onieBootContents[4:] {
+								out[i] = b
+							}
+							return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(onieBootContents) - 4, nil
+						})
+					bootOrderContents := []byte{
+						0x07, 0x00, 0x00, 0x00, 0x07, 0x00, 0x0b, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06, 0x00, 0x02, 0x00,
+						0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x08, 0x00, 0x09, 0x00, 0x0a, 0x00,
+					}
+					c.EXPECT().GetSizeHint(gomock.Eq("BootOrder"), gomock.Eq(efivars.GlobalVariable)).Times(1).
+						Return(int64(len(bootOrderContents)-4), nil)
+					c.EXPECT().Get(gomock.Eq("BootOrder"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(bootOrderContents)-4))).Times(1).
+						DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
+							for i, b := range bootOrderContents[4:] {
+								out[i] = b
+							}
+							return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(bootOrderContents) - 4, nil
+						})
+				}
+			}
+			///// END - for MakeONIEDefaultBootEntryAndCleanup() call
+
 			if tt.execCommand != nil {
 				oldExecCommand := execCommand
 				defer func() {
