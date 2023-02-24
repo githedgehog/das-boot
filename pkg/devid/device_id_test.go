@@ -2,6 +2,7 @@ package devid
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -354,6 +355,146 @@ func Test_idFromMACAddresses(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("idFromMACAddresses() = %v, want %v", got, tt.want)
 				return
+			}
+		})
+	}
+}
+
+func TestID(t *testing.T) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	tests := []struct {
+		name     string
+		want     string
+		rootPath string
+		arch     string
+		cmds     func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc
+	}{
+		{
+			name: "success with ONIE builtins",
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"onie-sysinfo", "-i"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							return []byte("42623"), nil
+						})
+					}),
+					mockexec.MockCommand(t, ctrl, []string{"onie-syseeprom", "-g", "0x23"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							return []byte("42135"), nil
+						})
+					}),
+				}
+			},
+			want: "bda28d62-b2e4-5eba-b490-19ffa25b68ac",
+		},
+		{
+			name: "ONIE builtins fail but success with DMI fallback",
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"onie-sysinfo", "-i"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							return nil, fmt.Errorf("utter failure")
+						})
+					}),
+				}
+			},
+			arch:     "amd64",
+			rootPath: filepath.Join(pwd, "testdata", "ID", "one"),
+			want:     "a56aec4d-100e-4af0-8206-02a50f5e96f4",
+		},
+		{
+			name: "ONIE builtins fail but success with CPU Serial number fallback",
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"onie-sysinfo", "-i"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							return nil, fmt.Errorf("utter failure")
+						})
+					}),
+				}
+			},
+			arch:     "arm64",
+			rootPath: filepath.Join(pwd, "testdata", "ID", "two"),
+			want:     "677b8b78-f321-5e46-b4f8-e8569a025a20",
+		},
+		{
+			name: "ONIE builtins fail, secondary fallback fails, but success with MAC addresses on amd64",
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"onie-sysinfo", "-i"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							return nil, fmt.Errorf("utter failure")
+						})
+					}),
+				}
+			},
+			arch:     "amd64",
+			rootPath: filepath.Join(pwd, "testdata", "ID", "three"),
+			want:     "90286cbb-a0d5-5e4b-9c97-12bb2869389b",
+		},
+		{
+			name: "ONIE builtins fail, secondary fallback fails, but success with MAC addresses on arm64",
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"onie-sysinfo", "-i"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							return nil, fmt.Errorf("utter failure")
+						})
+					}),
+				}
+			},
+			arch:     "arm64",
+			rootPath: filepath.Join(pwd, "testdata", "ID", "three"),
+			want:     "90286cbb-a0d5-5e4b-9c97-12bb2869389b",
+		},
+		{
+			name: "everything fails",
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"onie-sysinfo", "-i"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							return nil, fmt.Errorf("utter failure")
+						})
+					}),
+				}
+			},
+			arch:     "ppc64",
+			rootPath: filepath.Join(pwd, "testdata", "ID", "one"),
+			want:     "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			if tt.cmds != nil {
+				oldCommand := exec.Command
+				defer func() {
+					exec.Command = oldCommand
+				}()
+				cmds := mockexec.NewMockCommands(tt.cmds(t, ctrl))
+				defer cmds.Finish()
+				exec.Command = cmds.Command()
+			}
+			if tt.rootPath != "" {
+				oldRootPath := rootPath
+				defer func() {
+					rootPath = oldRootPath
+				}()
+				rootPath = tt.rootPath
+			}
+			if tt.arch != "" {
+				oldArch := arch
+				defer func() {
+					arch = oldArch
+				}()
+				arch = tt.arch
+			}
+			if got := ID(); got != tt.want {
+				t.Errorf("ID() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -1,0 +1,14 @@
+processor	: 0
+vendor_id	: GenuineIntel
+cpu family	: 6
+model		: 154
+model name	: 12th Gen Intel(R) Core(TM) i7-1280P
+stepping	: 3
+microcode	: 0x429
+cpu MHz		: 1072.061
+cache size	: 24576 KB
+physical id	: 0
+siblings	: 20
+core id		: 0
+cpu cores	: 14
+Serial		: 64355040058f0d000000
