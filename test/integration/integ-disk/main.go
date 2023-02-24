@@ -53,9 +53,9 @@ func main() {
 func integDisk(ctx *cli.Context) error {
 	// discover disks/partitions first
 	l.Info("1. Initial disks/partitions discovery...")
-	devs, err := partitions.Discover()
-	if err != nil {
-		return fmt.Errorf("initial partition discovery failed: %w", err)
+	devs := partitions.Discover()
+	if len(devs) == 0 {
+		return fmt.Errorf("initial partition discovery failed: no devices discovered")
 	}
 
 	// cleanup any partitions which should not be there
@@ -66,9 +66,9 @@ func integDisk(ctx *cli.Context) error {
 
 	// rediscover disks/partitions after deletions
 	l.Info("3. Rediscovering disks/partitions after potential partition deletions...")
-	devs, err = partitions.Discover()
-	if err != nil {
-		return fmt.Errorf("partition rediscovery after deleting partitions failed: %w", err)
+	devs = partitions.Discover()
+	if len(devs) == 0 {
+		return fmt.Errorf("partition rediscovery after deleting partitions failed: no devices discovered")
 	}
 	// check partitions are as expected
 	l.Info("4. Check partitions are as expected after initial discovery...")
@@ -89,9 +89,9 @@ func integDisk(ctx *cli.Context) error {
 
 		// rediscover disks/partitions after creating hedgehog
 		l.Info("5.2 Rediscovering disks/partitions after creating Hedgehog Identity Partition...")
-		devs, err = partitions.Discover()
-		if err != nil {
-			return fmt.Errorf("partition rediscovery after creating Hedgehog Identity Partition failed: %w", err)
+		devs = partitions.Discover()
+		if len(devs) == 0 {
+			return fmt.Errorf("partition rediscovery after creating Hedgehog Identity Partition failed: no devices discovered")
 		}
 
 		// get partition again
@@ -111,9 +111,9 @@ func integDisk(ctx *cli.Context) error {
 	// rediscover disks/partitions after creating filesystem
 	// NOTE: we wouldn't really need to do this step anymore, however, this is to probe the discovery mechanism again
 	l.Info("7. Rediscovering disks/partitions after making filesystem for Hedgehog Identity Partition...")
-	devs, err = partitions.Discover()
-	if err != nil {
-		return fmt.Errorf("partition rediscovery after creating Hedgehog Identity Partition failed: %w", err)
+	devs = partitions.Discover()
+	if len(devs) == 0 {
+		return fmt.Errorf("partition rediscovery after creating Hedgehog Identity Partition failed: no devices discovered")
 	}
 
 	// check partitions are as expected again, this time identity partition must exist
