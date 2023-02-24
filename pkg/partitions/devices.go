@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	"go.githedgehog.com/dasboot/pkg/exec"
+
 	"go.uber.org/zap"
 )
 
@@ -221,7 +223,7 @@ func (d Devices) createHedgehogIdentityPartitionByONIELocation() error {
 	//     --change-name=${created_part}:$volume_label $blk_dev \
 
 	// -t, --typecode=partnum:{hexcode|GUID}                                                           change partition type code
-	if err := execCommand(
+	if err := exec.Command(
 		"sgdisk",
 		fmt.Sprintf("--new=%d::+%dMB", partNum, DefaultPartSizeHedgehogIdentityInMB),
 		fmt.Sprintf("--change-name=%d:%s", partNum, GPTPartNameHedgehogIdentity),

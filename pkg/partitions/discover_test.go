@@ -45,11 +45,8 @@ func TestDiscover(t *testing.T) {
 	part.Disk = disk
 
 	tests := []struct {
-		name        string
-		want        Devices
-		wantErr     bool
-		wantErrToBe error
-		filepathRel func(basepath string, targpath string) (string, error)
+		name string
+		want Devices
 	}{
 		{
 			name: "test",
@@ -61,13 +58,6 @@ func TestDiscover(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.filepathRel != nil {
-				oldFilepathRel := filepathRel
-				defer func() {
-					filepathRel = oldFilepathRel
-				}()
-				filepathRel = tt.filepathRel
-			}
 			got := Discover()
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Discover() got = %v, want %v", got, tt.want)

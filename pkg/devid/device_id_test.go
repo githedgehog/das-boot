@@ -105,11 +105,6 @@ func Test_idFromVendorIDAndSerial(t *testing.T) {
 				defer cmds.Finish()
 				exec.Command = cmds.Command()
 			}
-			// dn := pkix.Name{
-			// 	Organization: []string{"42623"},
-			// 	CommonName:   "42135",
-			// }
-			// t.Logf("dn string: %s", dn.String())
 			got, err := idFromVendorIDAndSerial()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("idFromVendorIDAndSerial() error = %v, wantErr %v", err, tt.wantErr)

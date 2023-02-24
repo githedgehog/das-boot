@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"go.githedgehog.com/dasboot/pkg/exec"
@@ -55,6 +56,9 @@ func (c *TestCmds) Finish() {
 // (which is totally acceptable in a unit test).
 func (c *TestCmds) Command() exec.CommandFunc {
 	return func(name string, arg ...string) exec.Interface {
+		if c.i >= len(c.cmds) {
+			panic(fmt.Errorf("unregistered command trying to run: '%s %s'", name, strings.Join(arg, " ")))
+		}
 		defer func() { c.i += 1 }()
 		return c.cmds[c.i](name, arg...)
 	}
@@ -65,6 +69,9 @@ func (c *TestCmds) Command() exec.CommandFunc {
 // (which is totally acceptable in a unit test).
 func (c *TestCmds) CommandContext() exec.CommandContextFunc {
 	return func(ctx context.Context, name string, arg ...string) exec.Interface {
+		if c.ic >= len(c.cmdsWithContext) {
+			panic(fmt.Errorf("unregistered command with context trying to run: '%s %s'", name, strings.Join(arg, " ")))
+		}
 		defer func() { c.ic += 1 }()
 		return c.cmdsWithContext[c.ic](ctx, name, arg...)
 	}
