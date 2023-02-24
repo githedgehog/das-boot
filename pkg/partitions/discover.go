@@ -1,15 +1,16 @@
 package partitions
 
 import (
-	"fmt"
 	"io/fs"
 	"path/filepath"
 	"strings"
 
+	dbfilepath "go.githedgehog.com/dasboot/pkg/filepath"
+
 	"go.uber.org/zap"
 )
 
-func Discover() (Devices, error) {
+func Discover() Devices {
 	var ret []*Device
 	walkFunc := func(path string, d fs.DirEntry, err error) error {
 		// fmt.Printf("%s\n", path)
@@ -28,9 +29,8 @@ func Discover() (Devices, error) {
 		}
 		return nil
 	}
-	if err := WalkDir(filepath.Join(rootPath, "sys", "block"), walkFunc, 1, "subsystem", "device", "bdi"); err != nil {
-		return nil, fmt.Errorf("partitions: discover: %w", err)
-	}
+	// we don't fail in `walkFunc` so this does not fail
+	_ = dbfilepath.WalkDir(filepath.Join(rootPath, "sys", "block"), walkFunc, 1, "subsystem", "device", "bdi")
 
 	// stupid, but I don't know right now what else to do
 	// this identifies partitions and disks and their relationships
@@ -68,5 +68,5 @@ func Discover() (Devices, error) {
 			}
 		}
 	}
-	return ret, nil
+	return ret
 }

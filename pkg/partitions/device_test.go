@@ -9,6 +9,9 @@ import (
 	"strconv"
 	"testing"
 
+	"go.githedgehog.com/dasboot/pkg/exec"
+	"go.githedgehog.com/dasboot/pkg/exec/mockexec"
+
 	gomock "github.com/golang/mock/gomock"
 	"golang.org/x/sys/unix"
 )
@@ -315,7 +318,7 @@ func TestDevice_Delete(t *testing.T) {
 		device      *Device
 		wantErr     bool
 		wantErrToBe error
-		execCommand func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+		cmds        func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc
 	}{
 		{
 			name: "success",
@@ -328,19 +331,13 @@ func TestDevice_Delete(t *testing.T) {
 					Path: "/path/to/disk/device",
 				},
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"sgdisk", "-d", "6", "/path/to/disk/device"},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						return testCmd.IsExpectedCommand()
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"sgdisk", "-d", "6", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
 				}
 			},
 			wantErr: false,
@@ -401,13 +398,16 @@ func TestDevice_Delete(t *testing.T) {
 					Path: "/path/to/disk/device",
 				},
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						return sgdiskCommandFailed
-					})
-					return cmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"sgdisk", "-d", "6", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							if err := tc.IsExpectedCommand(); err != nil {
+								return err
+							}
+							return sgdiskCommandFailed
+						})
+					}),
 				}
 			},
 			wantErr:     true,
@@ -418,12 +418,14 @@ func TestDevice_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			if tt.execCommand != nil {
-				oldExecCommand := execCommand
+			if tt.cmds != nil {
+				oldCommand := exec.Command
 				defer func() {
-					execCommand = oldExecCommand
+					exec.Command = oldCommand
 				}()
-				execCommand = tt.execCommand(t, ctrl)
+				cmds := mockexec.NewMockCommands(tt.cmds(t, ctrl))
+				defer cmds.Finish()
+				exec.Command = cmds.Command()
 			}
 			err := tt.device.Delete()
 			if (err != nil) != tt.wantErr {
@@ -451,7 +453,7 @@ func TestDevice_ReReadPartitionTable(t *testing.T) {
 		device *Device
 		// NOTE: don't delete! keep for now until we solve the TODO
 		// unixIoctlGetInt func(fd int, req uint) (int, error)
-		execCommand func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+		cmds        func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc
 		wantErr     bool
 		wantErrToBe error
 	}{
@@ -483,19 +485,13 @@ func TestDevice_ReReadPartitionTable(t *testing.T) {
 				},
 				Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device"),
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"partprobe", filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device")},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						return testCmd.IsExpectedCommand()
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"partprobe", filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device")}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
 				}
 			},
 			wantErr: false,
@@ -508,22 +504,16 @@ func TestDevice_ReReadPartitionTable(t *testing.T) {
 				},
 				Path: filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device"),
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"partprobe", filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device")},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						if err := testCmd.IsExpectedCommand(); err != nil {
-							return err
-						}
-						return errIoctlFailed
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"partprobe", filepath.Join(pwd, "testdata", "ReReadPartitionTable", "device")}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							if err := tc.IsExpectedCommand(); err != nil {
+								return err
+							}
+							return errIoctlFailed
+						})
+					}),
 				}
 			},
 			wantErr:     true,
@@ -590,12 +580,14 @@ func TestDevice_ReReadPartitionTable(t *testing.T) {
 			// }
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			if tt.execCommand != nil {
-				oldExecCommand := execCommand
+			if tt.cmds != nil {
+				oldCommand := exec.Command
 				defer func() {
-					execCommand = oldExecCommand
+					exec.Command = oldCommand
 				}()
-				execCommand = tt.execCommand(t, ctrl)
+				cmds := mockexec.NewMockCommands(tt.cmds(t, ctrl))
+				defer cmds.Finish()
+				exec.Command = cmds.Command()
 			}
 			err := tt.device.ReReadPartitionTable()
 			if (err != nil) != tt.wantErr {
@@ -1168,7 +1160,7 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 		args        args
 		wantErr     bool
 		wantErrToBe error
-		execCommand func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+		cmds        func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc
 	}{
 		{
 			name: "success",
@@ -1183,19 +1175,13 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 				Path:        "/path/to/device",
 				Filesystem:  "",
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						return testCmd.IsExpectedCommand()
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
 				}
 			},
 			wantErr: false,
@@ -1214,19 +1200,13 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 				Filesystem:  "ext4",
 				FSLabel:     FSLabelHedgehogIdentity,
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						return testCmd.IsExpectedCommand()
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
 				}
 			},
 			wantErr: false,
@@ -1244,22 +1224,16 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 				Path:        "/path/to/device",
 				Filesystem:  "",
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						if err := testCmd.IsExpectedCommand(); err != nil {
-							return err
-						}
-						return errMkfsCmdFailed
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							if err := tc.IsExpectedCommand(); err != nil {
+								return err
+							}
+							return errMkfsCmdFailed
+						})
+					}),
 				}
 			},
 			wantErr:     true,
@@ -1296,19 +1270,13 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 				Filesystem:  "ext4",
 				FSLabel:     "SONiC",
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						return testCmd.IsExpectedCommand()
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"mkfs.ext4", "-L", FSLabelHedgehogIdentity, "-F", "/path/to/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
 				}
 			},
 			wantErr: false,
@@ -1348,12 +1316,14 @@ func TestDevice_MakeFilesystemForHedgehogIdentityPartition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			if tt.execCommand != nil {
-				oldExecCommand := execCommand
+			if tt.cmds != nil {
+				oldCommand := exec.Command
 				defer func() {
-					execCommand = oldExecCommand
+					exec.Command = oldCommand
 				}()
-				execCommand = tt.execCommand(t, ctrl)
+				cmds := mockexec.NewMockCommands(tt.cmds(t, ctrl))
+				defer cmds.Finish()
+				exec.Command = cmds.Command()
 			}
 			err := tt.device.MakeFilesystemForHedgehogIdentityPartition(tt.args.force)
 			if (err != nil) != tt.wantErr {
@@ -1378,7 +1348,7 @@ func TestDevice_discoverFilesystemLabel(t *testing.T) {
 		wantErr     bool
 		wantErrToBe error
 		wantFSLabel string
-		execCommand func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+		cmds        func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc
 	}{
 		{
 			name: "no device node",
@@ -1393,22 +1363,16 @@ func TestDevice_discoverFilesystemLabel(t *testing.T) {
 			device: &Device{
 				Path: "/path/to/device",
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "fs_label"},
-					}
-					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
-						if err := testCmd.IsExpectedCommand(); err != nil {
-							return nil, err
-						}
-						return nil, errCmdFailed
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"grub-probe", "-d", "/path/to/device", "-t", "fs_label"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							if err := tc.IsExpectedCommand(); err != nil {
+								return nil, err
+							}
+							return nil, errCmdFailed
+						})
+					}),
 				}
 			},
 			wantErr:     true,
@@ -1419,22 +1383,16 @@ func TestDevice_discoverFilesystemLabel(t *testing.T) {
 			device: &Device{
 				Path: "/path/to/device",
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "fs_label"},
-					}
-					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
-						if err := testCmd.IsExpectedCommand(); err != nil {
-							return nil, err
-						}
-						return []byte("my_fancy_fs_label"), nil
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"grub-probe", "-d", "/path/to/device", "-t", "fs_label"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							if err := tc.IsExpectedCommand(); err != nil {
+								return nil, err
+							}
+							return []byte("my_fancy_fs_label"), nil
+						})
+					}),
 				}
 			},
 			wantErr:     false,
@@ -1445,12 +1403,14 @@ func TestDevice_discoverFilesystemLabel(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			if tt.execCommand != nil {
-				oldExecCommand := execCommand
+			if tt.cmds != nil {
+				oldCommand := exec.Command
 				defer func() {
-					execCommand = oldExecCommand
+					exec.Command = oldCommand
 				}()
-				execCommand = tt.execCommand(t, ctrl)
+				cmds := mockexec.NewMockCommands(tt.cmds(t, ctrl))
+				defer cmds.Finish()
+				exec.Command = cmds.Command()
 			}
 			err := tt.device.discoverFilesystemLabel()
 			if (err != nil) != tt.wantErr {
@@ -1481,7 +1441,7 @@ func TestDevice_discoverFilesystem(t *testing.T) {
 		wantErr        bool
 		wantErrToBe    error
 		wantFilesystem string
-		execCommand    func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+		cmds           func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc
 	}{
 		{
 			name: "no device node",
@@ -1496,22 +1456,16 @@ func TestDevice_discoverFilesystem(t *testing.T) {
 			device: &Device{
 				Path: "/path/to/device",
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "fs"},
-					}
-					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
-						if err := testCmd.IsExpectedCommand(); err != nil {
-							return nil, err
-						}
-						return nil, errCmdFailed
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"grub-probe", "-d", "/path/to/device", "-t", "fs"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							if err := tc.IsExpectedCommand(); err != nil {
+								return nil, err
+							}
+							return nil, errCmdFailed
+						})
+					}),
 				}
 			},
 			wantErr:     true,
@@ -1522,22 +1476,16 @@ func TestDevice_discoverFilesystem(t *testing.T) {
 			device: &Device{
 				Path: "/path/to/device",
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "fs"},
-					}
-					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
-						if err := testCmd.IsExpectedCommand(); err != nil {
-							return nil, err
-						}
-						return []byte("unittestfs"), nil
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"grub-probe", "-d", "/path/to/device", "-t", "fs"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							if err := tc.IsExpectedCommand(); err != nil {
+								return nil, err
+							}
+							return []byte("unittestfs"), nil
+						})
+					}),
 				}
 			},
 			wantErr:        false,
@@ -1548,12 +1496,14 @@ func TestDevice_discoverFilesystem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			if tt.execCommand != nil {
-				oldExecCommand := execCommand
+			if tt.cmds != nil {
+				oldCommand := exec.Command
 				defer func() {
-					execCommand = oldExecCommand
+					exec.Command = oldCommand
 				}()
-				execCommand = tt.execCommand(t, ctrl)
+				cmds := mockexec.NewMockCommands(tt.cmds(t, ctrl))
+				defer cmds.Finish()
+				exec.Command = cmds.Command()
 			}
 			err := tt.device.discoverFilesystem()
 			if (err != nil) != tt.wantErr {
@@ -1584,7 +1534,7 @@ func TestDevice_discoverPartitionType(t *testing.T) {
 		wantErr         bool
 		wantErrToBe     error
 		wantGPTPartType string
-		execCommand     func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+		cmds            func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc
 	}{
 		{
 			name: "no device node",
@@ -1599,22 +1549,16 @@ func TestDevice_discoverPartitionType(t *testing.T) {
 			device: &Device{
 				Path: "/path/to/device",
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "gpt_parttype"},
-					}
-					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
-						if err := testCmd.IsExpectedCommand(); err != nil {
-							return nil, err
-						}
-						return nil, errCmdFailed
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"grub-probe", "-d", "/path/to/device", "-t", "gpt_parttype"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							if err := tc.IsExpectedCommand(); err != nil {
+								return nil, err
+							}
+							return nil, errCmdFailed
+						})
+					}),
 				}
 			},
 			wantErr:     true,
@@ -1625,22 +1569,16 @@ func TestDevice_discoverPartitionType(t *testing.T) {
 			device: &Device{
 				Path: "/path/to/device",
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"grub-probe", "-d", "/path/to/device", "-t", "gpt_parttype"},
-					}
-					cmd.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
-						if err := testCmd.IsExpectedCommand(); err != nil {
-							return nil, err
-						}
-						return []byte("very-unique-gpt-partition-type"), nil
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"grub-probe", "-d", "/path/to/device", "-t", "gpt_parttype"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Output().Times(1).DoAndReturn(func() ([]byte, error) {
+							if err := tc.IsExpectedCommand(); err != nil {
+								return nil, err
+							}
+							return []byte("very-unique-gpt-partition-type"), nil
+						})
+					}),
 				}
 			},
 			wantErr:         false,
@@ -1651,12 +1589,14 @@ func TestDevice_discoverPartitionType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			if tt.execCommand != nil {
-				oldExecCommand := execCommand
+			if tt.cmds != nil {
+				oldCommand := exec.Command
 				defer func() {
-					execCommand = oldExecCommand
+					exec.Command = oldCommand
 				}()
-				execCommand = tt.execCommand(t, ctrl)
+				cmds := mockexec.NewMockCommands(tt.cmds(t, ctrl))
+				defer cmds.Finish()
+				exec.Command = cmds.Command()
 			}
 			err := tt.device.discoverPartitionType()
 			if (err != nil) != tt.wantErr {

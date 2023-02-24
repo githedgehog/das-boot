@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"go.githedgehog.com/dasboot/pkg/exec"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -106,7 +108,7 @@ func (d *Device) discoverPartitionType() error {
 	if d.Path == "" {
 		return ErrNoDeviceNode
 	}
-	out, err := execCommand("grub-probe", "-d", d.Path, "-t", "gpt_parttype").Output()
+	out, err := exec.Command("grub-probe", "-d", d.Path, "-t", "gpt_parttype").Output()
 	if err != nil {
 		return fmt.Errorf("device: grub-probe gpt_parttype: %w", err)
 	}
@@ -125,7 +127,7 @@ func (d *Device) discoverFilesystem() error {
 	// ext2 kernel driver.
 	// The filesystems only distinguish themselves by the set of features.
 	// This is not really a problem for us right now
-	out, err := execCommand("grub-probe", "-d", d.Path, "-t", "fs").Output()
+	out, err := exec.Command("grub-probe", "-d", d.Path, "-t", "fs").Output()
 	if err != nil {
 		return fmt.Errorf("device: grub-probe fs: %w", err)
 	}
@@ -137,7 +139,7 @@ func (d *Device) discoverFilesystemLabel() error {
 	if d.Path == "" {
 		return ErrNoDeviceNode
 	}
-	out, err := execCommand("grub-probe", "-d", d.Path, "-t", "fs_label").Output()
+	out, err := exec.Command("grub-probe", "-d", d.Path, "-t", "fs_label").Output()
 	if err != nil {
 		return fmt.Errorf("device: grub-probe fs_label: %w", err)
 	}
@@ -202,7 +204,7 @@ func (d *Device) Delete() error {
 		return ErrNoDeviceNode
 	}
 
-	if err := execCommand("sgdisk", "-d", strconv.Itoa(partNum), disk.Path).Run(); err != nil {
+	if err := exec.Command("sgdisk", "-d", strconv.Itoa(partNum), disk.Path).Run(); err != nil {
 		return fmt.Errorf("device: sgdisk -d failed: %w", err)
 	}
 	return nil
@@ -227,7 +229,7 @@ func (d *Device) ReReadPartitionTable() error {
 	// if _, err = unixIoctlGetInt(int(f.Fd()), blkrrpart); err != nil {
 	// 	return fmt.Errorf("device: unable to re-read partition table: %ww", err)
 	// }
-	if err := execCommand("partprobe", d.Path).Run(); err != nil {
+	if err := exec.Command("partprobe", d.Path).Run(); err != nil {
 		return fmt.Errorf("device: unable to re-read partition table: partprobe: %w", err)
 	}
 	return nil
@@ -439,7 +441,7 @@ func (d *Device) makeFilesystem(fsType, fsLabel string, force bool) error {
 		args = append(args, fsOpts...)
 	}
 	args = append(args, d.Path)
-	if err := execCommand("mkfs."+fsType, args...).Run(); err != nil {
+	if err := exec.Command("mkfs."+fsType, args...).Run(); err != nil {
 		return fmt.Errorf("device: mkfs.%s: %w", fsType, err)
 	}
 	d.Filesystem = fsType

@@ -2,8 +2,12 @@ package partitions
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
+
+	"go.githedgehog.com/dasboot/pkg/exec"
+	"go.githedgehog.com/dasboot/pkg/exec/mockexec"
 
 	efiguid "github.com/0x5a17ed/uefi/efi/efiguid"
 	"github.com/0x5a17ed/uefi/efi/efivario"
@@ -429,7 +433,7 @@ func TestDevices_DeletePartitions(t *testing.T) {
 		callsMakeONIEDefaultBootEntryAndCleanupFails bool
 		wantErr                                      bool
 		wantErrToBe                                  error
-		execCommand                                  func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+		cmds                                         func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc
 	}{
 		{
 			name: "success",
@@ -440,19 +444,47 @@ func TestDevices_DeletePartitions(t *testing.T) {
 				partHHIdentity,
 				partNOS,
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"sgdisk", "-d", "5", "/path/to/disk/device"},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						return testCmd.IsExpectedCommand()
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"sgdisk", "-d", "5", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
+					mockexec.MockCommand(t, ctrl, []string{"partprobe", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
+				}
+			},
+			callsMakeONIEDefaultBootEntryAndCleanup: true,
+			wantErr:                                 false,
+		},
+		{
+			name: "success but rereading partition table failed",
+			d: Devices{
+				partEFI,
+				partONIE,
+				partDiag,
+				partHHIdentity,
+				partNOS,
+			},
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"sgdisk", "-d", "5", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
+					mockexec.MockCommand(t, ctrl, []string{"partprobe", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							if err := tc.IsExpectedCommand(); err != nil {
+								panic(err)
+							}
+							return fmt.Errorf("rereading partition table failed which should be ignored")
+						})
+					}),
 				}
 			},
 			callsMakeONIEDefaultBootEntryAndCleanup: true,
@@ -467,18 +499,28 @@ func TestDevices_DeletePartitions(t *testing.T) {
 				partNOS22,
 				partNOS23,
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:  cmd,
-						name: name,
-						arg:  arg,
-					}
-					// this is a bit confusing: we are registering a new MockCmd 3x with the ctrl
-					// but on each of them we expect the Run command only once
-					cmd.EXPECT().Run().Times(1).Return(nil)
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"sgdisk", "-d", "5", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
+					mockexec.MockCommand(t, ctrl, []string{"sgdisk", "-d", "4", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
+					mockexec.MockCommand(t, ctrl, []string{"sgdisk", "-d", "3", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
+					mockexec.MockCommand(t, ctrl, []string{"partprobe", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
 				}
 			},
 			callsMakeONIEDefaultBootEntryAndCleanup: true,
@@ -493,22 +535,16 @@ func TestDevices_DeletePartitions(t *testing.T) {
 				partHHIdentity,
 				partNOS,
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"sgdisk", "-d", "5", "/path/to/disk/device"},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						if err := testCmd.IsExpectedCommand(); err != nil {
-							return err
-						}
-						return errDeleteFailed
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"sgdisk", "-d", "5", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							if err := tc.IsExpectedCommand(); err != nil {
+								return err
+							}
+							return errDeleteFailed
+						})
+					}),
 				}
 			},
 			wantErr:     true,
@@ -558,19 +594,18 @@ func TestDevices_DeletePartitions(t *testing.T) {
 				partHHIdentity,
 				partNOS,
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:             cmd,
-						name:            name,
-						arg:             arg,
-						expectedNameArg: []string{"sgdisk", "-d", "5", "/path/to/disk/device"},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						return testCmd.IsExpectedCommand()
-					})
-					return testCmd
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl, []string{"sgdisk", "-d", "5", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
+					mockexec.MockCommand(t, ctrl, []string{"partprobe", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
 				}
 			},
 			callsMakeONIEDefaultBootEntryAndCleanup:      true,
@@ -633,12 +668,14 @@ func TestDevices_DeletePartitions(t *testing.T) {
 			}
 			///// END - for MakeONIEDefaultBootEntryAndCleanup() call
 
-			if tt.execCommand != nil {
-				oldExecCommand := execCommand
+			if tt.cmds != nil {
+				oldCommand := exec.Command
 				defer func() {
-					execCommand = oldExecCommand
+					exec.Command = oldCommand
 				}()
-				execCommand = tt.execCommand(t, ctrl)
+				cmds := mockexec.NewMockCommands(tt.cmds(t, ctrl))
+				defer cmds.Finish()
+				exec.Command = cmds.Command()
 			}
 			err := tt.d.DeletePartitions(tt.args.platform)
 			if (err != nil) != tt.wantErr {
@@ -757,7 +794,7 @@ func TestDevices_CreateHedgehogIdentityPartition(t *testing.T) {
 		args        args
 		wantErr     bool
 		wantErrToBe error
-		execCommand func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd
+		cmds        func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc
 	}{
 		{
 			name: "success",
@@ -766,25 +803,62 @@ func TestDevices_CreateHedgehogIdentityPartition(t *testing.T) {
 				partONIE,
 				partDiag,
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:  cmd,
-						name: name,
-						arg:  arg,
-						expectedNameArg: []string{
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl,
+						[]string{
 							"sgdisk",
 							"--new=4::+100MB",
 							"--change-name=4:HEDGEHOG_IDENTITY",
 							"--typecode=4:E982E2BD-867C-4D7A-89A2-9C5A9BC5DFDD",
 							"/path/to/disk/device",
 						},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						return testCmd.IsExpectedCommand()
-					})
-					return testCmd
+						func(tc *mockexec.TestCmd) {
+							tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+								return tc.IsExpectedCommand()
+							})
+						},
+					),
+					mockexec.MockCommand(t, ctrl, []string{"partprobe", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							return tc.IsExpectedCommand()
+						})
+					}),
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "success but rereading partition table failed",
+			d: Devices{
+				partEFI,
+				partONIE,
+				partDiag,
+			},
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl,
+						[]string{
+							"sgdisk",
+							"--new=4::+100MB",
+							"--change-name=4:HEDGEHOG_IDENTITY",
+							"--typecode=4:E982E2BD-867C-4D7A-89A2-9C5A9BC5DFDD",
+							"/path/to/disk/device",
+						},
+						func(tc *mockexec.TestCmd) {
+							tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+								return tc.IsExpectedCommand()
+							})
+						},
+					),
+					mockexec.MockCommand(t, ctrl, []string{"partprobe", "/path/to/disk/device"}, func(tc *mockexec.TestCmd) {
+						tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+							if err := tc.IsExpectedCommand(); err != nil {
+								panic(err)
+							}
+							return fmt.Errorf("rereading partition table failed which should be ignored")
+						})
+					}),
 				}
 			},
 			wantErr: false,
@@ -796,28 +870,25 @@ func TestDevices_CreateHedgehogIdentityPartition(t *testing.T) {
 				partONIE,
 				partDiag,
 			},
-			execCommand: func(t *testing.T, ctrl *gomock.Controller) func(name string, arg ...string) Cmd {
-				return func(name string, arg ...string) Cmd {
-					cmd := NewMockCmd(ctrl)
-					testCmd := &testCmd{
-						Cmd:  cmd,
-						name: name,
-						arg:  arg,
-						expectedNameArg: []string{
+			cmds: func(t *testing.T, ctrl *gomock.Controller) []exec.CommandFunc {
+				return []exec.CommandFunc{
+					mockexec.MockCommand(t, ctrl,
+						[]string{
 							"sgdisk",
 							"--new=4::+100MB",
 							"--change-name=4:HEDGEHOG_IDENTITY",
 							"--typecode=4:E982E2BD-867C-4D7A-89A2-9C5A9BC5DFDD",
 							"/path/to/disk/device",
 						},
-					}
-					cmd.EXPECT().Run().Times(1).DoAndReturn(func() error {
-						if err := testCmd.IsExpectedCommand(); err != nil {
-							return err
-						}
-						return errCreateFailed
-					})
-					return testCmd
+						func(tc *mockexec.TestCmd) {
+							tc.EXPECT().Run().Times(1).DoAndReturn(func() error {
+								if err := tc.IsExpectedCommand(); err != nil {
+									return err
+								}
+								return errCreateFailed
+							})
+						},
+					),
 				}
 			},
 			wantErr:     true,
@@ -878,12 +949,14 @@ func TestDevices_CreateHedgehogIdentityPartition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			if tt.execCommand != nil {
-				oldExecCommand := execCommand
+			if tt.cmds != nil {
+				oldCommand := exec.Command
 				defer func() {
-					execCommand = oldExecCommand
+					exec.Command = oldCommand
 				}()
-				execCommand = tt.execCommand(t, ctrl)
+				cmds := mockexec.NewMockCommands(tt.cmds(t, ctrl))
+				defer cmds.Finish()
+				exec.Command = cmds.Command()
 			}
 			err := tt.d.CreateHedgehogIdentityPartition(tt.args.platform)
 			if (err != nil) != tt.wantErr {
