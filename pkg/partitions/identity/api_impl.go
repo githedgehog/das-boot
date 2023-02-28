@@ -251,11 +251,51 @@ func (a *api) GetLocation() (*location.Info, error) {
 }
 
 // StoreLocation implements IdentityPartition
-func (*api) StoreLocation(*location.Info) error {
-	panic("unimplemented")
+func (a *api) StoreLocation(info *location.Info) error {
+	// uuid
+	f1, err := a.dev.FS.Open(locationUUIDPath)
+	if err != nil {
+		return err
+	}
+	defer f1.Close()
+	if _, err := f1.Write([]byte(info.UUID)); err != nil {
+		return err
+	}
+
+	// uuid.sig
+	f2, err := a.dev.FS.Open(locationUUIDSigPath)
+	if err != nil {
+		return err
+	}
+	defer f2.Close()
+	if _, err := f2.Write(info.UUIDSig); err != nil {
+		return err
+	}
+
+	// metadata
+	f3, err := a.dev.FS.Open(locationMetadataPath)
+	if err != nil {
+		return err
+	}
+	defer f3.Close()
+	if _, err := f3.Write([]byte(info.Metadata)); err != nil {
+		return err
+	}
+
+	// metadata.sig
+	f4, err := a.dev.FS.Open(locationMetadataSigPath)
+	if err != nil {
+		return err
+	}
+	defer f4.Close()
+	if _, err := f4.Write(info.MetadataSig); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// HasClientCSR implements IdentityPartition
+// HasClientCSR im plements IdentityPartition
 func (a *api) HasClientCSR() bool {
 	f, err := a.dev.FS.Open(clientCSRPath)
 	if err != nil {
