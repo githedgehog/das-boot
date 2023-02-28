@@ -24,9 +24,6 @@ func Open(d *partitions.Device) (LocationPartition, error) {
 	if !d.IsHedgehogLocationPartition() {
 		return nil, ErrWrongDevice
 	}
-	if !d.IsMounted() {
-		return nil, ErrNotMounted
-	}
 
 	// read version file
 	f, err := d.FS.Open(versionFilePath)
