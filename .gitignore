@@ -1,4 +1,6 @@
 /cmd/hhdevid/hhdevid
 /test/mock/mockexec/cmd_mock_interface.go
+/test/mock/mockio/io_readwritecloser.go
+/test/mock/mockpartitions/fs_mock.go
 /test/mock/mockuefi/uefi_mock_efictx.go
 /test/integration/integ-disk/integ-disk
