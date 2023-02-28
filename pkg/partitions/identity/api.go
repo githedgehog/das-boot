@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	version1 int64 = 1
+	version1 int = 1
 
 	versionFilePath         = "/version"
 	identityDirPath         = "/identity"
@@ -25,6 +25,13 @@ const (
 	locationMetadataPath    = locationDirPath + "/metadata"
 	locationMetadataSigPath = locationDirPath + "/metadata.sig"
 )
+
+// Version is the contents of the version file.
+type Version struct {
+	// Version is the version number of the partition format. This field
+	// must always be present.
+	Version int `json:"version"`
+}
 
 type IdentityPartition interface {
 	// HasClientKey tests if the partition already holds a valid client key. The implementation needs to validate
@@ -67,6 +74,11 @@ type IdentityPartition interface {
 	// StoreLocation stores the location information to disk on the identity partition. It is going to overwrite any
 	// existing location information on disk if it already exists.
 	StoreLocation(*location.Info) error
+
+	// CopyLocation copies the location information from a location partition and stores it in the identity partition.
+	// It is going to overwrite existing location information on disk if it already exists. The implementation may call
+	// internally `StoreLocation` to persist the information onto the disk.
+	CopyLocation(location.LocationPartition) error
 }
 
 var (

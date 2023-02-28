@@ -1,7 +1,6 @@
 package identity
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -13,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 
 	"go.githedgehog.com/dasboot/pkg/partitions"
 	"go.githedgehog.com/dasboot/pkg/partitions/location"
@@ -50,17 +48,13 @@ func Open(d *partitions.Device) (IdentityPartition, error) {
 		return nil, err
 	}
 	defer f.Close()
-	b, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-	i, err := strconv.ParseInt(string(bytes.TrimSpace(b)), 0, 0)
-	if err != nil {
+	var version Version
+	if err := json.NewDecoder(f).Decode(&version); err != nil {
 		return nil, err
 	}
 
 	// only version one is supported right now
-	if i != version1 {
+	if version.Version != version1 {
 		return nil, ErrUnsupportedVersion
 	}
 
@@ -112,9 +106,13 @@ func Init(d *partitions.Device) (IdentityPartition, error) {
 		return nil, err
 	}
 	defer f.Close()
-	if _, err := f.Write([]byte(strconv.Itoa(int(version1)))); err != nil {
+	version := Version{
+		Version: version1,
+	}
+	if json.NewEncoder(f).Encode(&version); err != nil {
 		return nil, err
 	}
+
 	if err := d.FS.Mkdir(identityDirPath, 0755); err != nil {
 		return nil, err
 	}
@@ -293,6 +291,15 @@ func (a *api) StoreLocation(info *location.Info) error {
 	}
 
 	return nil
+}
+
+// CopyLocation implements IdentityPartition
+func (a *api) CopyLocation(lp location.LocationPartition) error {
+	info, err := lp.GetLocation()
+	if err != nil {
+		return err
+	}
+	return a.StoreLocation(info)
 }
 
 // HasClientCSR im plements IdentityPartition
