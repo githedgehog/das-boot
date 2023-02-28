@@ -30,6 +30,7 @@ func TestDiscover(t *testing.T) {
 			UeventPartname: "EFI system partition",
 		},
 		SysfsPath: filepath.Join(rootPath, "sys", "block", "loop0", "loop0p1"),
+		FS:        &fsOs{},
 	}
 	disk := &Device{
 		Uevent: Uevent{
@@ -40,6 +41,7 @@ func TestDiscover(t *testing.T) {
 			UeventMinor:   "0",
 		},
 		SysfsPath: filepath.Join(rootPath, "sys", "block", "loop0"),
+		FS:        &fsOs{},
 	}
 	disk.Partitions = []*Device{part}
 	part.Disk = disk

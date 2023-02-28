@@ -7,7 +7,8 @@ import (
 	"testing"
 
 	"go.githedgehog.com/dasboot/pkg/exec"
-	"go.githedgehog.com/dasboot/pkg/exec/mockexec"
+	"go.githedgehog.com/dasboot/test/mock/mockexec"
+	"go.githedgehog.com/dasboot/test/mock/mockuefi"
 
 	efiguid "github.com/0x5a17ed/uefi/efi/efiguid"
 	"github.com/0x5a17ed/uefi/efi/efivario"
@@ -620,7 +621,7 @@ func TestDevices_DeletePartitions(t *testing.T) {
 			defer ctrl.Finish()
 
 			//// START - mock for MakeONIEDefaultBootEntryAndCleanup() call
-			c := NewMockContext(ctrl)
+			c := mockuefi.NewMockContext(ctrl)
 			oldEfiCtx := efiCtx
 			defer func() {
 				efiCtx = oldEfiCtx

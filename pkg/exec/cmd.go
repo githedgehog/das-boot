@@ -10,7 +10,7 @@ import (
 // See the `MockCommand` and `MockCommandContext` functions
 // for details.
 //
-//go:generate mockgen -destination mockexec/cmd_mock_interface.go -package mockexec . Interface
+//go:generate mockgen -destination ../../mock/mockexec/cmd_mock_interface.go -package mockexec . Interface
 type Interface interface {
 	Run() error
 	Output() ([]byte, error)

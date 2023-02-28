@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"go.githedgehog.com/dasboot/pkg/exec"
-	"go.githedgehog.com/dasboot/pkg/exec/mockexec"
+	"go.githedgehog.com/dasboot/test/mock/mockexec"
 
 	gomock "github.com/golang/mock/gomock"
 	"golang.org/x/sys/unix"
