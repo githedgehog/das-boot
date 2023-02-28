@@ -2,6 +2,9 @@ package identity
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -126,13 +129,61 @@ func Init(d *partitions.Device) (IdentityPartition, error) {
 }
 
 // GenerateClientCSR implements IdentityPartition
-func (*api) GenerateClientCSR() (*x509.CertificateRequest, error) {
-	panic("unimplemented")
+func (a *api) GenerateClientCSR() (*x509.CertificateRequest, error) {
+	if tpm.HasTPM() {
+		return a.generateClientCSRWithTPM()
+	}
+	return a.generateClientCSRWithoutTPM()
+}
+
+func (a *api) generateClientCSRWithTPM() (*x509.CertificateRequest, error) {
+	// TODO: implement
+	return nil, nil
+}
+
+func (a *api) generateClientCSRWithoutTPM() (*x509.CertificateRequest, error) {
+	return nil, nil
 }
 
 // GenerateClientKeyPair implements IdentityPartition
-func (*api) GenerateClientKeyPair() error {
-	panic("unimplemented")
+func (a *api) GenerateClientKeyPair() error {
+	if tpm.HasTPM() {
+		return a.generateClientKeyPairWithTPM()
+	}
+	return a.generateClientKeyPairWithoutTPM()
+}
+
+func (a *api) generateClientKeyPairWithTPM() error {
+	// TODO: implement
+	return nil
+}
+
+func (a *api) generateClientKeyPairWithoutTPM() error {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return err
+	}
+	keyBytes, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return err
+	}
+	p := &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: keyBytes,
+	}
+	if p == nil {
+		return ErrPEMEncoding
+	}
+	keyPEMBytes := pem.EncodeToMemory(p)
+	f, err := a.dev.FS.OpenFile(clientKeyPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := f.Write(keyPEMBytes); err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetLocation implements IdentityPartition
@@ -197,6 +248,11 @@ func (a *api) GetLocation() (*location.Info, error) {
 		Metadata:    string(metadataBytes),
 		MetadataSig: metadataSigBytes,
 	}, nil
+}
+
+// StoreLocation implements IdentityPartition
+func (*api) StoreLocation(*location.Info) error {
+	panic("unimplemented")
 }
 
 // HasClientCSR implements IdentityPartition
