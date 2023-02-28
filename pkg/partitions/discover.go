@@ -24,6 +24,7 @@ func Discover() Devices {
 			dev := &Device{
 				Uevent:    entry,
 				SysfsPath: filepath.Dir(path),
+				FS:        &fsOs{},
 			}
 			ret = append(ret, dev)
 		}

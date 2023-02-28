@@ -24,6 +24,7 @@ type Device struct {
 	FSLabel     string
 	Disk        *Device
 	Partitions  []*Device
+	FS          FS
 }
 
 const (
@@ -58,6 +59,7 @@ var (
 	ErrBrokenDiscovery           = errors.New("device: broken discovery")
 	ErrUnsupportedMkfsForDevice  = errors.New("device: unsupported device for mkfs")
 	ErrAlreadyMounted            = errors.New("device: already mounted")
+	ErrNotMounted                = errors.New("device: not mounted")
 	ErrUnsupportedMountForDevice = errors.New("device: unsupported device for mount")
 	ErrFilesystemAlreadyCreated  = errors.New("device: filesystem already present")
 )
@@ -272,6 +274,9 @@ func (d *Device) IsMounted() bool {
 		}
 		if split[0] == d.Path {
 			d.MountPath = unescapeMountPath(split[1])
+			if d.FS != nil {
+				d.FS.SetBase(d.MountPath)
+			}
 			return true
 		}
 	}
@@ -349,6 +354,9 @@ func (d *Device) Mount() error {
 			return fmt.Errorf("device: mount: %w", err)
 		}
 		d.MountPath = mountPath
+		if d.FS != nil {
+			d.FS.SetBase(d.MountPath)
+		}
 		return nil
 	}
 
@@ -364,6 +372,9 @@ func (d *Device) Mount() error {
 			return fmt.Errorf("device: mount: %w", err)
 		}
 		d.MountPath = mountPath
+		if d.FS != nil {
+			d.FS.SetBase(d.MountPath)
+		}
 		return nil
 	}
 
@@ -378,6 +389,9 @@ func (d *Device) Unmount() error {
 		return fmt.Errorf("device: umount: %w", err)
 	}
 	d.MountPath = ""
+	if d.FS != nil {
+		d.FS.SetBase(d.MountPath)
+	}
 	return nil
 }
 
