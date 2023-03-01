@@ -1724,6 +1724,7 @@ func Test_api_GenerateClientCSR(t *testing.T) {
 	errCreateCSR := errors.New("x509.CreateCertificateRequest() failed tragically")
 	errReadFailed := errors.New("Read() failed tragically")
 	errOpenFailed := errors.New("Open() failed tragically")
+	errWriteFailed := errors.New("Write() failed tragically")
 	tests := []struct {
 		name                         string
 		wantErr                      bool
@@ -1737,9 +1738,42 @@ func Test_api_GenerateClientCSR(t *testing.T) {
 			wantErr: false,
 			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
 				f := mockio.NewMockReadWriteCloser(ctrl)
-				mfs.EXPECT().Open(clientKeyPath).Times(1).Return(f, nil)
+				mfs.EXPECT().Open(gomock.Eq(clientKeyPath)).Times(1).Return(f, nil)
 				f.EXPECT().Close().Times(1).Return(nil)
 				mockio.ReadAllBytesMock(f, keyValid, 1)
+				f2 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(clientCSRPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f2, nil)
+				f2.EXPECT().Close().Times(1).Return(nil)
+				f2.EXPECT().Write(gomock.Any()).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+			},
+		},
+		{
+			name:        "writing CSR to disk fails",
+			wantErr:     true,
+			wantErrToBe: errWriteFailed,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(gomock.Eq(clientKeyPath)).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				mockio.ReadAllBytesMock(f, keyValid, 1)
+				f2 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(clientCSRPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f2, nil)
+				f2.EXPECT().Close().Times(1).Return(nil)
+				f2.EXPECT().Write(gomock.Any()).Times(1).Return(0, errWriteFailed)
+			},
+		},
+		{
+			name:        "opening CSR file fails",
+			wantErr:     true,
+			wantErrToBe: errOpenFailed,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(gomock.Eq(clientKeyPath)).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				mockio.ReadAllBytesMock(f, keyValid, 1)
+				mfs.EXPECT().OpenFile(gomock.Eq(clientCSRPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(nil, errOpenFailed)
 			},
 		},
 		{
