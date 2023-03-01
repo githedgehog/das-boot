@@ -7,6 +7,8 @@ import (
 
 //go:generate mockgen -destination ../../test/mock/mockpartitions/fs_mock.go -package mockpartitions . FS
 //go:generate mockgen -destination ../../test/mock/mockio/io_readwritecloser.go -package mockio io ReadWriteCloser
+//go:generate mockgen -destination ../../test/mock/mockio/mockfs/fs_fileinfo.go -package mockfs "io/fs" FileInfo
+//go:generate mockgen -destination ../../test/mock/mockio/mockfs/fs_direntry.go -package mockfs "io/fs" DirEntry
 type FS interface {
 	SetBase(basePath string)
 	Path(name string) string
