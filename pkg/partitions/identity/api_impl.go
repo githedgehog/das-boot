@@ -365,6 +365,9 @@ func (a *api) hasClientKeyFromFiles() bool {
 	if p == nil {
 		return false
 	}
+	if p.Type != "EC PRIVATE KEY" {
+		return false
+	}
 	_, err = x509.ParseECPrivateKey(p.Bytes)
 	return err == nil
 }

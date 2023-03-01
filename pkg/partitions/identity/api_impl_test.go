@@ -1289,3 +1289,189 @@ func Test_api_HasClientCSR(t *testing.T) {
 		})
 	}
 }
+
+func Test_api_HasClientCert(t *testing.T) {
+	certValid := readFile("cert-valid.pem")
+	certInvalid := readFile("cert-invalid.pem")
+	certNotACSR := readFile("cert-not-a-cert.pem")
+	certNotAPEM := readFile("cert-not-pem.pem")
+	tests := []struct {
+		name string
+		want bool
+		pre  func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS)
+	}{
+		{
+			name: "success",
+			want: true,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certValid, 3)
+				f.EXPECT().Close().Times(1).Return(nil)
+
+			},
+		},
+		{
+			name: "invalid certificate",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certInvalid, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "PEM not a certificate",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certNotACSR, 2)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "not a PEM file",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certNotAPEM, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "reading PEM file fails",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				f.EXPECT().Read(gomock.Any()).Times(1).Return(0, io.ErrUnexpectedEOF)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "opening PEM file fails",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(nil, os.ErrNotExist)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockfs := mockpartitions.NewMockFS(ctrl)
+			a := &api{
+				dev: &partitions.Device{
+					Uevent: partitions.Uevent{
+						partitions.UeventDevtype: partitions.UeventDevtypePartition,
+					},
+					GPTPartType: partitions.GPTPartTypeHedgehogIdentity,
+					FS:          mockfs,
+				},
+			}
+			if tt.pre != nil {
+				tt.pre(t, ctrl, mockfs)
+			}
+			if got := a.HasClientCert(); got != tt.want {
+				t.Errorf("api.HasClientCert() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_api_HasClientKey(t *testing.T) {
+	keyValid := readFile("key-valid.pem")
+	keyInvalid := readFile("key-invalid.pem")
+	keyNotAKey := readFile("key-not-a-key.pem")
+	keyNotAPEM := readFile("key-not-pem.pem")
+	tests := []struct {
+		name string
+		want bool
+		pre  func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS)
+	}{
+		{
+			name: "success",
+			want: true,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientKeyPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, keyValid, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+
+			},
+		},
+		{
+			name: "invalid key",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientKeyPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, keyInvalid, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "PEM not a key",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientKeyPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, keyNotAKey, 2)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "not a PEM file",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientKeyPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, keyNotAPEM, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "reading PEM file fails",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientKeyPath).Times(1).Return(f, nil)
+				f.EXPECT().Read(gomock.Any()).Times(1).Return(0, io.ErrUnexpectedEOF)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "opening PEM file fails",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				mfs.EXPECT().Open(clientKeyPath).Times(1).Return(nil, os.ErrNotExist)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockfs := mockpartitions.NewMockFS(ctrl)
+			a := &api{
+				dev: &partitions.Device{
+					Uevent: partitions.Uevent{
+						partitions.UeventDevtype: partitions.UeventDevtypePartition,
+					},
+					GPTPartType: partitions.GPTPartTypeHedgehogIdentity,
+					FS:          mockfs,
+				},
+			}
+			if tt.pre != nil {
+				tt.pre(t, ctrl, mockfs)
+			}
+			if got := a.HasClientKey(); got != tt.want {
+				t.Errorf("api.HasClientKey() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
