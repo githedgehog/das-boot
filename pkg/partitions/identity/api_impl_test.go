@@ -16,6 +16,7 @@ import (
 	"go.githedgehog.com/dasboot/test/mock/mockio"
 	"go.githedgehog.com/dasboot/test/mock/mockio/mockfs"
 	"go.githedgehog.com/dasboot/test/mock/mockpartitions"
+	"go.githedgehog.com/dasboot/test/mock/mockpartitions/mocklocation"
 )
 
 func TestOpen(t *testing.T) {
@@ -1074,6 +1075,99 @@ func Test_api_StoreLocation(t *testing.T) {
 			err := a.StoreLocation(tt.args.info)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("api.StoreLocation() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("Open() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+		})
+	}
+}
+
+func Test_api_CopyLocation(t *testing.T) {
+	errFailure := errors.New("GetLocation() failed tragically")
+	tests := []struct {
+		name        string
+		wantErr     bool
+		wantErrToBe error
+		pre         func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS, mlp *mocklocation.MockLocationPartition)
+	}{
+		{
+			name:    "success",
+			wantErr: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS, mlp *mocklocation.MockLocationPartition) {
+				mlp.EXPECT().GetLocation().Times(1).Return(&location.Info{
+					UUID:        "2a59c9f4-9966-4270-b6a2-2313f41d5ce1",
+					UUIDSig:     []byte("uuid-sig"),
+					Metadata:    `{"a":"aa","b":"bb"}`,
+					MetadataSig: []byte("metadata-sig"),
+				}, nil)
+				// uuid
+				f1 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f1, nil)
+				f1.EXPECT().Write(gomock.Eq([]byte("2a59c9f4-9966-4270-b6a2-2313f41d5ce1"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f1.EXPECT().Close().Times(1).Return(nil)
+
+				// uuid.sig
+				f2 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f2, nil)
+				f2.EXPECT().Write(gomock.Eq([]byte("uuid-sig"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f2.EXPECT().Close().Times(1).Return(nil)
+
+				// metadata
+				f3 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationMetadataPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f3, nil)
+				f3.EXPECT().Write(gomock.Eq([]byte(`{"a":"aa","b":"bb"}`))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f3.EXPECT().Close().Times(1).Return(nil)
+
+				// metadata.sig
+				f4 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationMetadataSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f4, nil)
+				f4.EXPECT().Write(gomock.Eq([]byte("metadata-sig"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f4.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name:        "failure",
+			wantErr:     true,
+			wantErrToBe: errFailure,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS, mlp *mocklocation.MockLocationPartition) {
+				mlp.EXPECT().GetLocation().Times(1).Return(nil, errFailure)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockfsTarget := mockpartitions.NewMockFS(ctrl)
+			a := &api{
+				dev: &partitions.Device{
+					Uevent: partitions.Uevent{
+						partitions.UeventDevtype: partitions.UeventDevtypePartition,
+					},
+					GPTPartType: partitions.GPTPartTypeHedgehogIdentity,
+					FS:          mockfsTarget,
+				},
+			}
+			mocklp := mocklocation.NewMockLocationPartition(ctrl)
+			if tt.pre != nil {
+				tt.pre(t, ctrl, mockfsTarget, mocklp)
+			}
+			err := a.CopyLocation(mocklp)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("api.CopyLocation() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
