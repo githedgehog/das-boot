@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"go.githedgehog.com/dasboot/pkg/exec"
-	"go.githedgehog.com/dasboot/pkg/exec/mockexec"
+	"go.githedgehog.com/dasboot/test/mock/mockexec"
 )
 
 func Test_idFromVendorIDAndSerial(t *testing.T) {

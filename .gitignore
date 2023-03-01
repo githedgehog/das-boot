@@ -1,4 +1,9 @@
 /cmd/hhdevid/hhdevid
-/pkg/exec/mockexec/cmd_mock_interface.go
-/pkg/partitions/uefi_mock_efictx_test.go
+/test/mock/mockexec/cmd_mock_interface.go
+/test/mock/mockio/io_readwritecloser.go
+/test/mock/mockio/mockfs/fs_fileinfo.go
+/test/mock/mockio/mockfs/fs_direntry.go
+/test/mock/mockpartitions/fs_mock.go
+/test/mock/mockpartitions/mocklocation/api_mock.go
+/test/mock/mockuefi/uefi_mock_efictx.go
 /test/integration/integ-disk/integ-disk

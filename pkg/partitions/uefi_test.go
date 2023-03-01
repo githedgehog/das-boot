@@ -9,6 +9,7 @@ import (
 	"github.com/0x5a17ed/uefi/efi/efivario"
 	"github.com/0x5a17ed/uefi/efi/efivars"
 	"github.com/golang/mock/gomock"
+	"go.githedgehog.com/dasboot/test/mock/mockuefi"
 )
 
 // contents of /sys/firmware/efi/efivars/Boot0007-8be4df61-93ca-11d2-aa0d-00e098032b8c
@@ -51,11 +52,11 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 		name        string
 		wantErr     bool
 		wantErrToBe error
-		pre         func(t *testing.T, c *MockContext)
+		pre         func(t *testing.T, c *mockuefi.MockContext)
 	}{
 		{
 			name: "success without adjustments",
-			pre: func(t *testing.T, c *MockContext) {
+			pre: func(t *testing.T, c *mockuefi.MockContext) {
 				// BootCurrent - returns 7
 				c.EXPECT().GetSizeHint(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable)).Times(1).
 					Return(int64(2), nil)
@@ -102,7 +103,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 		},
 		{
 			name: "success needing adjustments",
-			pre: func(t *testing.T, c *MockContext) {
+			pre: func(t *testing.T, c *mockuefi.MockContext) {
 				// BootCurrent - returns 7
 				c.EXPECT().GetSizeHint(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable)).Times(1).
 					Return(int64(2), nil)
@@ -169,7 +170,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 		{
 			// no need to delete entries because ONIE is not part of the boot order
 			name: "success and no need to delete entries",
-			pre: func(t *testing.T, c *MockContext) {
+			pre: func(t *testing.T, c *mockuefi.MockContext) {
 				// BootCurrent - returns 7
 				c.EXPECT().GetSizeHint(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable)).Times(1).
 					Return(int64(2), nil)
@@ -232,7 +233,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 		},
 		{
 			name: "set BootOrder fails",
-			pre: func(t *testing.T, c *MockContext) {
+			pre: func(t *testing.T, c *mockuefi.MockContext) {
 				// BootCurrent - returns 7
 				c.EXPECT().GetSizeHint(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable)).Times(1).
 					Return(int64(2), nil)
@@ -296,7 +297,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 		},
 		{
 			name: "BootOrder returns empty",
-			pre: func(t *testing.T, c *MockContext) {
+			pre: func(t *testing.T, c *mockuefi.MockContext) {
 				// BootCurrent - returns 7
 				c.EXPECT().GetSizeHint(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable)).Times(1).
 					Return(int64(2), nil)
@@ -336,7 +337,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 		},
 		{
 			name: "get BootOrder fails",
-			pre: func(t *testing.T, c *MockContext) {
+			pre: func(t *testing.T, c *mockuefi.MockContext) {
 				// BootCurrent - returns 7
 				c.EXPECT().GetSizeHint(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable)).Times(1).
 					Return(int64(2), nil)
@@ -376,7 +377,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 		},
 		{
 			name: "get BootOrder fails",
-			pre: func(t *testing.T, c *MockContext) {
+			pre: func(t *testing.T, c *mockuefi.MockContext) {
 				// BootCurrent - returns 7
 				c.EXPECT().GetSizeHint(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable)).Times(1).
 					Return(int64(2), nil)
@@ -409,7 +410,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 		},
 		{
 			name: "get BootXXXX fails",
-			pre: func(t *testing.T, c *MockContext) {
+			pre: func(t *testing.T, c *mockuefi.MockContext) {
 				// BootCurrent - returns 7
 				c.EXPECT().GetSizeHint(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable)).Times(1).
 					Return(int64(2), nil)
@@ -437,7 +438,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 		},
 		{
 			name: "get BootCurrent fails",
-			pre: func(t *testing.T, c *MockContext) {
+			pre: func(t *testing.T, c *mockuefi.MockContext) {
 				// BootCurrent - returns error
 				c.EXPECT().GetSizeHint(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable)).Times(1).
 					Return(int64(2), nil)
@@ -452,7 +453,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			c := NewMockContext(ctrl)
+			c := mockuefi.NewMockContext(ctrl)
 			oldEfiCtx := efiCtx
 			defer func() {
 				efiCtx = oldEfiCtx

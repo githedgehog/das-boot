@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"go.githedgehog.com/dasboot/pkg/exec"
-	"go.githedgehog.com/dasboot/pkg/exec/mockexec"
+	"go.githedgehog.com/dasboot/test/mock/mockexec"
 
 	gomock "github.com/golang/mock/gomock"
 	"golang.org/x/sys/unix"
@@ -620,6 +620,7 @@ func TestDevice_IsMounted(t *testing.T) {
 			name: "is mounted",
 			device: &Device{
 				Path: "/dev/vda3",
+				FS:   &fsOs{},
 			},
 			rootPath:      filepath.Join(pwd, "testdata", "IsMounted", "one"),
 			wantMountPath: "/mnt/hedgehog-identity",
@@ -713,6 +714,7 @@ func TestDevice_Mount(t *testing.T) {
 				},
 				GPTPartType: GPTPartTypeHedgehogIdentity,
 				Path:        "/path/to/device",
+				FS:          &fsOs{},
 			},
 			rootPath: goodPath,
 			unixMount: func(source, target, fstype string, flags uintptr, data string) error {
@@ -744,6 +746,7 @@ func TestDevice_Mount(t *testing.T) {
 				},
 				GPTPartType: GPTPartTypeHedgehogLocation,
 				Path:        "/path/to/device",
+				FS:          &fsOs{},
 			},
 			rootPath: goodPath,
 			unixMount: func(source, target, fstype string, flags uintptr, data string) error {
@@ -926,6 +929,7 @@ func TestDevice_Unmount(t *testing.T) {
 			device: &Device{
 				Path:      "/dev/vda3",
 				MountPath: "/mnt/hedgehog-identity",
+				FS:        &fsOs{},
 			},
 			unixUnmount: func(target string, flags int) error {
 				return nil

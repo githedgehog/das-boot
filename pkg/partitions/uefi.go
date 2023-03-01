@@ -15,7 +15,7 @@ import (
 // by simply using go mock for this which we can easily replace
 // then for the `efiCtx` variable in a test.
 //
-//go:generate mockgen -destination uefi_mock_efictx_test.go -package partitions github.com/0x5a17ed/uefi/efi/efivario Context
+//go:generate mockgen -destination ../../test/mock/mockuefi/uefi_mock_efictx.go -package mockuefi github.com/0x5a17ed/uefi/efi/efivario Context
 var efiCtx = efivario.NewDefaultContext()
 
 var (
