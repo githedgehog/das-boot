@@ -5,6 +5,7 @@ import (
 	"errors"
 )
 
+//go:generate mockgen -destination ../../../test/mock/mockpartitions/mocklocation/api_mock.go -package mocklocation . LocationPartition
 type LocationPartition interface {
 	// GetLocation reads the location information from the partition, and returns an error otherwise.
 	GetLocation() (*Info, error)
