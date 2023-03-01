@@ -88,5 +88,4 @@ var (
 	ErrUninitializedPartition = errors.New("identity: partition uninitialized")
 	ErrAlreadyInitialized     = errors.New("identity: partition already initialized")
 	ErrNoPEMData              = errors.New("identity: no PEM data")
-	ErrPEMEncoding            = errors.New("identity: PEM encoding error")
 )

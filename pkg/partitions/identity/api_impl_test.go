@@ -1475,3 +1475,243 @@ func Test_api_HasClientKey(t *testing.T) {
 		})
 	}
 }
+
+func Test_api_LoadX509KeyPair(t *testing.T) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	tests := []struct {
+		name        string
+		wantErr     bool
+		wantErrToBe error
+		pre         func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS)
+	}{
+		{
+			name:    "files success",
+			wantErr: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				mfs.EXPECT().Path(gomock.Eq(clientKeyPath)).Times(1).Return(filepath.Join(pwd, "testdata", "key-valid.pem"))
+				mfs.EXPECT().Path(gomock.Eq(clientCertPath)).Times(1).Return(filepath.Join(pwd, "testdata", "cert-valid.pem"))
+			},
+		},
+		{
+			name:    "files failure",
+			wantErr: true,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				mfs.EXPECT().Path(gomock.Eq(clientKeyPath)).Times(1).Return(filepath.Join(pwd, "testdata", "key-invalid.pem"))
+				mfs.EXPECT().Path(gomock.Eq(clientCertPath)).Times(1).Return(filepath.Join(pwd, "testdata", "cert-invalid.pem"))
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockfs := mockpartitions.NewMockFS(ctrl)
+			a := &api{
+				dev: &partitions.Device{
+					Uevent: partitions.Uevent{
+						partitions.UeventDevtype: partitions.UeventDevtypePartition,
+					},
+					GPTPartType: partitions.GPTPartTypeHedgehogIdentity,
+					FS:          mockfs,
+				},
+			}
+			if tt.pre != nil {
+				tt.pre(t, ctrl, mockfs)
+			}
+			_, err := a.LoadX509KeyPair()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("api.LoadX509KeyPair() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("Open() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+		})
+	}
+}
+
+func Test_api_ReadClientCSR(t *testing.T) {
+	csrValid := readFile("csr-valid.pem")
+	csrInvalid := readFile("csr-invalid.pem")
+	csrNotAPEM := readFile("csr-not-pem.pem")
+	tests := []struct {
+		name        string
+		wantErr     bool
+		wantErrToBe error
+		pre         func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS)
+	}{
+		{
+			name:    "success",
+			wantErr: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				mockio.ReadAllBytesMock(f, csrValid, 2)
+			},
+		},
+		{
+			name:    "invalid CSR",
+			wantErr: true,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				mockio.ReadAllBytesMock(f, csrInvalid, 1)
+			},
+		},
+		{
+			name:        "PEM decoding fails",
+			wantErr:     true,
+			wantErrToBe: ErrNoPEMData,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				mockio.ReadAllBytesMock(f, csrNotAPEM, 1)
+			},
+		},
+		{
+			name:        "reading CSR file fails",
+			wantErr:     true,
+			wantErrToBe: io.ErrUnexpectedEOF,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				f.EXPECT().Read(gomock.Any()).Times(1).Return(0, io.ErrUnexpectedEOF)
+				f.EXPECT().Close().Times(1).Return(nil)
+
+			},
+		},
+		{
+			name:        "opening CSR file fails",
+			wantErr:     true,
+			wantErrToBe: os.ErrNotExist,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(nil, os.ErrNotExist)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockfs := mockpartitions.NewMockFS(ctrl)
+			a := &api{
+				dev: &partitions.Device{
+					Uevent: partitions.Uevent{
+						partitions.UeventDevtype: partitions.UeventDevtypePartition,
+					},
+					GPTPartType: partitions.GPTPartTypeHedgehogIdentity,
+					FS:          mockfs,
+				},
+			}
+			if tt.pre != nil {
+				tt.pre(t, ctrl, mockfs)
+			}
+			_, err := a.ReadClientCSR()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("api.ReadClientCSR() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("Open() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+		})
+	}
+}
+
+func Test_api_StoreClientCert(t *testing.T) {
+	type args struct {
+		certBytes []byte
+	}
+	certValid := readFile("cert-valid.der")
+	certValidPEM := readFile("cert-valid.pem")
+	certInvalid := readFile("csr-valid.der")
+	errWriteFailed := errors.New("Write() failed tragically")
+	errOpenFailed := errors.New("Open() failed tragically")
+	tests := []struct {
+		name        string
+		args        args
+		wantErr     bool
+		wantErrToBe error
+		pre         func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS)
+	}{
+		{
+			name:    "success",
+			args:    args{certBytes: certValid},
+			wantErr: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(clientCertPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				f.EXPECT().Write(gomock.Eq(certValidPEM)).Times(1).Return(len(certValidPEM), nil)
+			},
+		},
+		{
+			name:        "write to file fails",
+			args:        args{certBytes: certValid},
+			wantErr:     true,
+			wantErrToBe: errWriteFailed,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(clientCertPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				f.EXPECT().Write(gomock.Eq(certValidPEM)).Times(1).Return(0, errWriteFailed)
+			},
+		},
+		{
+			name:        "opening file fails",
+			args:        args{certBytes: certValid},
+			wantErr:     true,
+			wantErrToBe: errOpenFailed,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				mfs.EXPECT().OpenFile(gomock.Eq(clientCertPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(nil, errOpenFailed)
+			},
+		},
+		{
+			name:    "parsing certificate fails",
+			args:    args{certBytes: certInvalid},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockfs := mockpartitions.NewMockFS(ctrl)
+			a := &api{
+				dev: &partitions.Device{
+					Uevent: partitions.Uevent{
+						partitions.UeventDevtype: partitions.UeventDevtypePartition,
+					},
+					GPTPartType: partitions.GPTPartTypeHedgehogIdentity,
+					FS:          mockfs,
+				},
+			}
+			if tt.pre != nil {
+				tt.pre(t, ctrl, mockfs)
+			}
+			err := a.StoreClientCert(tt.args.certBytes)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("api.StoreClientCert() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("Open() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+		})
+	}
+}

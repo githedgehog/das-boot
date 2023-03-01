@@ -412,14 +412,19 @@ func (a *api) StoreClientCert(certBytes []byte) error {
 	if _, err := x509.ParseCertificate(certBytes); err != nil {
 		return fmt.Errorf("identity: not a valid certificate: %w", err)
 	}
+
 	p := &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: certBytes,
 	}
+	// This can only fail if writing to a memory buffer fails
+	// in which case this would return nil.
+	// All other cases are impossible as this is a static known-to-work
+	// struct definition.
+	// We will accept the risk of this being nil. Nothing will work
+	// anymore anyways if Go runs out of memory here.
 	certPEMBytes := pem.EncodeToMemory(p)
-	if certPEMBytes == nil {
-		return ErrPEMEncoding
-	}
+
 	f, err := a.dev.FS.OpenFile(clientCertPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
