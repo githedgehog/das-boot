@@ -171,6 +171,23 @@ func (a *api) generateClientCSRWithoutTPM() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CSR: %w", err)
 	}
+
+	// save it to disk
+	f2, err := a.dev.FS.OpenFile(clientCSRPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, err
+	}
+	defer f2.Close()
+
+	p2 := pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: csrBytes,
+	}
+	if _, err := f2.Write(pem.EncodeToMemory(&p2)); err != nil {
+		return nil, err
+	}
+
+	// return with the generated CSR
 	return csrBytes, nil
 }
 
