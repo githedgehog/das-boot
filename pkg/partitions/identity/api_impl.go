@@ -69,9 +69,6 @@ func Init(d *partitions.Device) (IdentityPartition, error) {
 	if !d.IsHedgehogIdentityPartition() {
 		return nil, ErrWrongDevice
 	}
-	if !d.IsMounted() {
-		return nil, ErrNotMounted
-	}
 
 	// check it's not initialized already
 	_, err := d.FS.Stat(versionFilePath)
@@ -106,7 +103,9 @@ func Init(d *partitions.Device) (IdentityPartition, error) {
 	version := Version{
 		Version: version1,
 	}
-	if json.NewEncoder(f).Encode(&version); err != nil {
+	b, _ := json.Marshal(version) // cannot fail
+	b = append(b, byte('\n'))
+	if _, err := f.Write(b); err != nil {
 		return nil, err
 	}
 
