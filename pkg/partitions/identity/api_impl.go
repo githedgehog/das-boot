@@ -1,7 +1,6 @@
 package identity
 
 import (
-	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
@@ -153,20 +152,17 @@ func (a *api) generateClientKeyPairWithTPM() error {
 }
 
 func (a *api) generateClientKeyPairWithoutTPM() error {
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	key, err := ecdsaGenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return err
 	}
-	keyBytes, err := x509.MarshalECPrivateKey(key)
+	keyBytes, err := x509MarshalECPrivateKey(key)
 	if err != nil {
 		return err
 	}
 	p := &pem.Block{
 		Type:  "EC PRIVATE KEY",
 		Bytes: keyBytes,
-	}
-	if p == nil {
-		return ErrPEMEncoding
 	}
 	keyPEMBytes := pem.EncodeToMemory(p)
 	f, err := a.dev.FS.OpenFile(clientKeyPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
