@@ -801,3 +801,287 @@ func Test_api_GetLocation(t *testing.T) {
 		})
 	}
 }
+
+func Test_api_StoreLocation(t *testing.T) {
+	info := &location.Info{
+		UUID:        "2a59c9f4-9966-4270-b6a2-2313f41d5ce1",
+		UUIDSig:     []byte("uuid-sig"),
+		Metadata:    `{"a":"aa","b":"bb"}`,
+		MetadataSig: []byte("metadata-sig"),
+	}
+	errF1Open := errors.New("Open() failed tragically")
+	errF1Write := errors.New("Write() failed tragically")
+	errF2Open := errors.New("Open() failed tragically")
+	errF2Write := errors.New("Write() failed tragically")
+	errF3Open := errors.New("Open() failed tragically")
+	errF3Write := errors.New("Write() failed tragically")
+	errF4Open := errors.New("Open() failed tragically")
+	errF4Write := errors.New("Write() failed tragically")
+	type args struct {
+		info *location.Info
+	}
+	tests := []struct {
+		name        string
+		args        args
+		wantErr     bool
+		wantErrToBe error
+		pre         func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS)
+	}{
+		{
+			name:    "success",
+			args:    args{info: info},
+			wantErr: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				// uuid
+				f1 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f1, nil)
+				f1.EXPECT().Write(gomock.Eq([]byte("2a59c9f4-9966-4270-b6a2-2313f41d5ce1"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f1.EXPECT().Close().Times(1).Return(nil)
+
+				// uuid.sig
+				f2 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f2, nil)
+				f2.EXPECT().Write(gomock.Eq([]byte("uuid-sig"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f2.EXPECT().Close().Times(1).Return(nil)
+
+				// metadata
+				f3 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationMetadataPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f3, nil)
+				f3.EXPECT().Write(gomock.Eq([]byte(`{"a":"aa","b":"bb"}`))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f3.EXPECT().Close().Times(1).Return(nil)
+
+				// metadata.sig
+				f4 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationMetadataSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f4, nil)
+				f4.EXPECT().Write(gomock.Eq([]byte("metadata-sig"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f4.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name:        "f4 fails writing",
+			args:        args{info: info},
+			wantErr:     true,
+			wantErrToBe: errF4Write,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				// uuid
+				f1 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f1, nil)
+				f1.EXPECT().Write(gomock.Eq([]byte("2a59c9f4-9966-4270-b6a2-2313f41d5ce1"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f1.EXPECT().Close().Times(1).Return(nil)
+
+				// uuid.sig
+				f2 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f2, nil)
+				f2.EXPECT().Write(gomock.Eq([]byte("uuid-sig"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f2.EXPECT().Close().Times(1).Return(nil)
+
+				// metadata
+				f3 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationMetadataPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f3, nil)
+				f3.EXPECT().Write(gomock.Eq([]byte(`{"a":"aa","b":"bb"}`))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f3.EXPECT().Close().Times(1).Return(nil)
+
+				// metadata.sig
+				f4 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationMetadataSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f4, nil)
+				f4.EXPECT().Write(gomock.Eq([]byte("metadata-sig"))).Times(1).Return(0, errF4Write)
+				f4.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name:        "f4 fails open",
+			args:        args{info: info},
+			wantErr:     true,
+			wantErrToBe: errF4Open,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				// uuid
+				f1 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f1, nil)
+				f1.EXPECT().Write(gomock.Eq([]byte("2a59c9f4-9966-4270-b6a2-2313f41d5ce1"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f1.EXPECT().Close().Times(1).Return(nil)
+
+				// uuid.sig
+				f2 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f2, nil)
+				f2.EXPECT().Write(gomock.Eq([]byte("uuid-sig"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f2.EXPECT().Close().Times(1).Return(nil)
+
+				// metadata
+				f3 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationMetadataPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f3, nil)
+				f3.EXPECT().Write(gomock.Eq([]byte(`{"a":"aa","b":"bb"}`))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f3.EXPECT().Close().Times(1).Return(nil)
+
+				// metadata.sig
+				mfs.EXPECT().OpenFile(gomock.Eq(locationMetadataSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(nil, errF4Open)
+			},
+		},
+		{
+			name:        "f3 fails writing",
+			args:        args{info: info},
+			wantErr:     true,
+			wantErrToBe: errF3Write,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				// uuid
+				f1 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f1, nil)
+				f1.EXPECT().Write(gomock.Eq([]byte("2a59c9f4-9966-4270-b6a2-2313f41d5ce1"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f1.EXPECT().Close().Times(1).Return(nil)
+
+				// uuid.sig
+				f2 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f2, nil)
+				f2.EXPECT().Write(gomock.Eq([]byte("uuid-sig"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f2.EXPECT().Close().Times(1).Return(nil)
+
+				// metadata
+				f3 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationMetadataPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f3, nil)
+				f3.EXPECT().Write(gomock.Eq([]byte(`{"a":"aa","b":"bb"}`))).Times(1).Return(0, errF3Write)
+				f3.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name:        "f3 fails open",
+			args:        args{info: info},
+			wantErr:     true,
+			wantErrToBe: errF3Open,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				// uuid
+				f1 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f1, nil)
+				f1.EXPECT().Write(gomock.Eq([]byte("2a59c9f4-9966-4270-b6a2-2313f41d5ce1"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f1.EXPECT().Close().Times(1).Return(nil)
+
+				// uuid.sig
+				f2 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f2, nil)
+				f2.EXPECT().Write(gomock.Eq([]byte("uuid-sig"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f2.EXPECT().Close().Times(1).Return(nil)
+
+				// metadata
+				mfs.EXPECT().OpenFile(gomock.Eq(locationMetadataPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(nil, errF3Open)
+			},
+		},
+		{
+			name:        "f2 fails writing",
+			args:        args{info: info},
+			wantErr:     true,
+			wantErrToBe: errF2Write,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				// uuid
+				f1 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f1, nil)
+				f1.EXPECT().Write(gomock.Eq([]byte("2a59c9f4-9966-4270-b6a2-2313f41d5ce1"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f1.EXPECT().Close().Times(1).Return(nil)
+
+				// uuid.sig
+				f2 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f2, nil)
+				f2.EXPECT().Write(gomock.Eq([]byte("uuid-sig"))).Times(1).Return(0, errF2Write)
+				f2.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name:        "f2 fails open",
+			args:        args{info: info},
+			wantErr:     true,
+			wantErrToBe: errF2Open,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				// uuid
+				f1 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f1, nil)
+				f1.EXPECT().Write(gomock.Eq([]byte("2a59c9f4-9966-4270-b6a2-2313f41d5ce1"))).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				f1.EXPECT().Close().Times(1).Return(nil)
+
+				// uuid.sig
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDSigPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(nil, errF2Open)
+			},
+		},
+		{
+			name:        "f1 fails writing",
+			args:        args{info: info},
+			wantErr:     true,
+			wantErrToBe: errF1Write,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				// uuid
+				f1 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f1, nil)
+				f1.EXPECT().Write(gomock.Eq([]byte("2a59c9f4-9966-4270-b6a2-2313f41d5ce1"))).Times(1).Return(0, errF1Write)
+				f1.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name:        "f1 fails open",
+			args:        args{info: info},
+			wantErr:     true,
+			wantErrToBe: errF1Open,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				// uuid
+				mfs.EXPECT().OpenFile(gomock.Eq(locationUUIDPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(nil, errF1Open)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockfs := mockpartitions.NewMockFS(ctrl)
+			a := &api{
+				dev: &partitions.Device{
+					Uevent: partitions.Uevent{
+						partitions.UeventDevtype: partitions.UeventDevtypePartition,
+					},
+					GPTPartType: partitions.GPTPartTypeHedgehogIdentity,
+					FS:          mockfs,
+				},
+			}
+			if tt.pre != nil {
+				tt.pre(t, ctrl, mockfs)
+			}
+			err := a.StoreLocation(tt.args.info)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("api.StoreLocation() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr && tt.wantErrToBe != nil {
+				if !errors.Is(err, tt.wantErrToBe) {
+					t.Errorf("Open() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
+					return
+				}
+			}
+		})
+	}
+}

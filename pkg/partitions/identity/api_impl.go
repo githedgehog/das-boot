@@ -243,7 +243,7 @@ func (a *api) GetLocation() (*location.Info, error) {
 // StoreLocation implements IdentityPartition
 func (a *api) StoreLocation(info *location.Info) error {
 	// uuid
-	f1, err := a.dev.FS.Open(locationUUIDPath)
+	f1, err := a.dev.FS.OpenFile(locationUUIDPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -253,7 +253,7 @@ func (a *api) StoreLocation(info *location.Info) error {
 	}
 
 	// uuid.sig
-	f2, err := a.dev.FS.Open(locationUUIDSigPath)
+	f2, err := a.dev.FS.OpenFile(locationUUIDSigPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -263,7 +263,7 @@ func (a *api) StoreLocation(info *location.Info) error {
 	}
 
 	// metadata
-	f3, err := a.dev.FS.Open(locationMetadataPath)
+	f3, err := a.dev.FS.OpenFile(locationMetadataPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -273,7 +273,7 @@ func (a *api) StoreLocation(info *location.Info) error {
 	}
 
 	// metadata.sig
-	f4, err := a.dev.FS.Open(locationMetadataSigPath)
+	f4, err := a.dev.FS.OpenFile(locationMetadataSigPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
