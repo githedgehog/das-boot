@@ -2,7 +2,6 @@ package identity
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 
 	"go.githedgehog.com/dasboot/pkg/partitions/location"
@@ -53,12 +52,13 @@ type IdentityPartition interface {
 	GenerateClientKeyPair() error
 
 	// GenerateClientCSR generates a new CSR using the key pair on disk (or TPM). It overwrites any existing CSR on disk.
-	// Therefore a call to `HasClientCSR` is recommended if overwriting would not be the intention.
-	GenerateClientCSR() (*x509.CertificateRequest, error)
+	// Therefore a call to `HasClientCSR` is recommended if overwriting would not be the intention. The returned CSR is
+	// in DER encoded format.
+	GenerateClientCSR() ([]byte, error)
 
 	// ReadClientCSR reads the client CSR from the partition. It fails if it does not exist yet, in which case the caller
-	// should call `GenerateClientCSR` first.
-	ReadClientCSR() (*x509.CertificateRequest, error)
+	// should call `GenerateClientCSR` first. The returned CSR is in DER encoded format.
+	ReadClientCSR() ([]byte, error)
 
 	// StoreClientCert stores a certificate to disk which is passed in the argument in DER encoding.
 	StoreClientCert([]byte) error
@@ -88,4 +88,5 @@ var (
 	ErrUninitializedPartition = errors.New("identity: partition uninitialized")
 	ErrAlreadyInitialized     = errors.New("identity: partition already initialized")
 	ErrNoPEMData              = errors.New("identity: no PEM data")
+	ErrNoDevID                = errors.New("identity: no device ID")
 )

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -122,20 +123,55 @@ func Init(d *partitions.Device) (IdentityPartition, error) {
 }
 
 // GenerateClientCSR implements IdentityPartition
-func (a *api) GenerateClientCSR() (*x509.CertificateRequest, error) {
+func (a *api) GenerateClientCSR() ([]byte, error) {
 	if tpm.HasTPM() {
 		return a.generateClientCSRWithTPM()
 	}
 	return a.generateClientCSRWithoutTPM()
 }
 
-func (a *api) generateClientCSRWithTPM() (*x509.CertificateRequest, error) {
+func (a *api) generateClientCSRWithTPM() ([]byte, error) {
 	// TODO: implement
 	return nil, nil
 }
 
-func (a *api) generateClientCSRWithoutTPM() (*x509.CertificateRequest, error) {
-	return nil, nil
+func (a *api) generateClientCSRWithoutTPM() ([]byte, error) {
+	// read client key from disk
+	f, err := a.dev.FS.Open(clientKeyPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	p, _ := pem.Decode(b)
+	if p == nil {
+		return nil, ErrNoPEMData
+	}
+	key, err := x509.ParseECPrivateKey(p.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// now generate CSR
+	id := devidID()
+	if id == "" {
+		return nil, ErrNoDevID
+	}
+	// TODO: the Subject needs review
+	csr := &x509.CertificateRequest{
+		PublicKey: key.PublicKey,
+		Subject: pkix.Name{
+			CommonName: id,
+		},
+	}
+	csrBytes, err := x509CreateCertificateRequest(rand.Reader, csr, key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CSR: %w", err)
+	}
+	return csrBytes, nil
 }
 
 // GenerateClientKeyPair implements IdentityPartition
@@ -390,7 +426,7 @@ func (a *api) loadX509KeyPairFromTPM() (tls.Certificate, error) {
 }
 
 // ReadClientCSR implements IdentityPartition
-func (a *api) ReadClientCSR() (*x509.CertificateRequest, error) {
+func (a *api) ReadClientCSR() ([]byte, error) {
 	f, err := a.dev.FS.Open(clientCSRPath)
 	if err != nil {
 		return nil, err
@@ -404,7 +440,10 @@ func (a *api) ReadClientCSR() (*x509.CertificateRequest, error) {
 	if p == nil {
 		return nil, ErrNoPEMData
 	}
-	return x509.ParseCertificateRequest(p.Bytes)
+	if _, err := x509.ParseCertificateRequest(p.Bytes); err != nil {
+		return nil, err
+	}
+	return p.Bytes, nil
 }
 
 // StoreClientCert implements IdentityPartition
