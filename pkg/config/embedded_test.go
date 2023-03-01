@@ -20,6 +20,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"go.githedgehog.com/dasboot/pkg/version"
 )
 
 func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert []byte, caPool *x509.CertPool, caKey *ecdsa.PrivateKey, caCert *x509.Certificate) {
@@ -358,7 +360,6 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 	invalidKey, _, _, _, _ := generateTestKeyMaterial(elliptic.P384())
 
 	var exe = []byte("I'm a binary")
-	strTooBig := strings.Repeat("a", math.MaxUint32)
 
 	type args struct {
 		exe []byte
@@ -370,6 +371,7 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 		args             args
 		wantErr          bool
 		wantErrToBe      error
+		skip             bool
 		cryptoRandReader io.Reader
 		ecdsaSignASN1    func(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) ([]byte, error)
 	}{
@@ -423,16 +425,16 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			// don't rename, or fix the hack below in the execution
 			name: "config too large in size",
 			args: args{
 				key: key,
 				exe: exe,
-				c: &configTest{
-					Field1:  strTooBig,
-					Field2:  1,
-					Version: 1,
-				},
+				// c is being set in the hack below
 			},
+			// skipping this test if the race detector is enabled,
+			// as this is taking too long otherwise (and has no race obviously)
+			skip:        version.RaceEnabled,
 			wantErr:     true,
 			wantErrToBe: ErrConfigTooLarge,
 		},
@@ -490,6 +492,18 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.skip {
+				t.Skipf("Skipping test %q as requested...", tt.name)
+				return
+			}
+			// ugly hack, but otherwise this is slowing down the tests with race detector
+			if tt.name == "config too large in size" {
+				tt.args.c = &configTest{
+					Field1:  strings.Repeat("a", math.MaxUint32),
+					Field2:  1,
+					Version: 1,
+				}
+			}
 			if tt.cryptoRandReader != nil {
 				oldCryptoRandReader := cryptoRandReader
 				cryptoRandReader = tt.cryptoRandReader
