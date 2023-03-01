@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -1175,6 +1176,115 @@ func Test_api_CopyLocation(t *testing.T) {
 					t.Errorf("Open() error = %v, wantErrToBe %v", err, tt.wantErrToBe)
 					return
 				}
+			}
+		})
+	}
+}
+
+func readFile(path string) []byte {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	file, err := os.Open(filepath.Join(pwd, "testdata", path))
+	if err != nil {
+		panic(err)
+	}
+	b, err := io.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func Test_api_HasClientCSR(t *testing.T) {
+	csrValid := readFile("csr-valid.pem")
+	csrInvalid := readFile("csr-invalid.pem")
+	csrNotACSR := readFile("csr-not-a-csr.pem")
+	csrNotAPEM := readFile("csr-not-pem.pem")
+	tests := []struct {
+		name string
+		want bool
+		pre  func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS)
+	}{
+		{
+			name: "success",
+			want: true,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, csrValid, 2)
+				f.EXPECT().Close().Times(1).Return(nil)
+
+			},
+		},
+		{
+			name: "invalid CSR",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, csrInvalid, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "PEM not a CSR",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, csrNotACSR, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "not a PEM file",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, csrNotAPEM, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "reading PEM file fails",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				f.EXPECT().Read(gomock.Any()).Times(1).Return(0, io.ErrUnexpectedEOF)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "opening PEM file fails",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(nil, os.ErrNotExist)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockfs := mockpartitions.NewMockFS(ctrl)
+			a := &api{
+				dev: &partitions.Device{
+					Uevent: partitions.Uevent{
+						partitions.UeventDevtype: partitions.UeventDevtypePartition,
+					},
+					GPTPartType: partitions.GPTPartTypeHedgehogIdentity,
+					FS:          mockfs,
+				},
+			}
+			if tt.pre != nil {
+				tt.pre(t, ctrl, mockfs)
+			}
+			if got := a.HasClientCSR(); got != tt.want {
+				t.Errorf("api.HasClientCSR() = %v, want %v", got, tt.want)
 			}
 		})
 	}
