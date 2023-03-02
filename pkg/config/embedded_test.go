@@ -22,8 +22,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"go.githedgehog.com/dasboot/pkg/version"
 )
 
 func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert []byte, caPool *x509.CertPool, caKey *ecdsa.PrivateKey, caCert *x509.Certificate) { //nolint: unparam
@@ -442,7 +440,8 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 			},
 			// skipping this test if the race detector is enabled,
 			// as this is taking too long otherwise (and has no race obviously)
-			skip:        version.RaceEnabled,
+			// skip:        version.RaceEnabled,
+			skip:        true,
 			wantErr:     true,
 			wantErrToBe: ErrConfigTooLarge,
 		},

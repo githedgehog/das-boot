@@ -120,7 +120,7 @@ test-cover:
 	go tool cover -func=$(BUILD_COVERAGE_DIR)/coverage.profile -o=$(BUILD_COVERAGE_DIR)/coverage.out
 	go tool cover -html=$(BUILD_COVERAGE_DIR)/coverage.profile -o=$(BUILD_COVERAGE_DIR)/coverage.html
 	@echo
-	@echo -n "Total Code Coverage: $(shell tail -n 1 $(BUILD_COVERAGE_DIR)/coverage.out | awk '{ print $$3 }')"
+	@echo -n "Total Code Coverage: "; tail -n 1 $(BUILD_COVERAGE_DIR)/coverage.out | awk '{ print $$3 }'
 	@echo
 
 .PHONY: generate
