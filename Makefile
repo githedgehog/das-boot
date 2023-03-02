@@ -120,7 +120,7 @@ test:
 
 .PHONY: generate
 generate:
-	go generate ./...
+	go generate -v ./...
 
 .PHONY: install-deps
 install-deps:

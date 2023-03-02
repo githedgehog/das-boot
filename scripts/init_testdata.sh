@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # Some testdata must be initialized because they require root privileges
