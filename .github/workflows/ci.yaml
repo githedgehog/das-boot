@@ -42,8 +42,11 @@ jobs:
         run: make generate
       - name: initialize testdata
         run: ./scripts/init_testdata.sh
-      - name: run tests
-        run: make test
+        shell: bash
+      - name: run tests with code coverage
+        run: make test-cover
+      - name: run tests with race detector
+        run: make test-race
   lint:
     runs-on: ubuntu-latest
     steps:

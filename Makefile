@@ -105,11 +105,16 @@ seeder-clean:
 lint:
 	golangci-lint run --verbose ./...
 
-.PHONY: test
-test:
+test: test-race test-cover
+
+.PHONY: test-race
+test-race:
 	@echo "Running tests with race detector..."
 	go test -race ./cmd/... ./pkg/...
 	@echo
+
+.PHONY: test-cover
+test-cover:
 	@echo "Running tests for code coverage..."
 	go test -cover -covermode=count -coverprofile $(BUILD_COVERAGE_DIR)/coverage.profile ./cmd/... ./pkg/...
 	go tool cover -func=$(BUILD_COVERAGE_DIR)/coverage.profile -o=$(BUILD_COVERAGE_DIR)/coverage.out
