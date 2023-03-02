@@ -9,6 +9,7 @@ import (
 func ReadAllBytesMock(f *MockReadWriteCloser, b []byte, times int) {
 	var index int
 	file := b
+
 	f.EXPECT().Read(gomock.Any()).Times(times).DoAndReturn(func(b []byte) (int, error) {
 		l := len(file) - index
 		if len(b) < l {

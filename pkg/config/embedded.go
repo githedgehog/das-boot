@@ -77,7 +77,7 @@ func (e *ValidationError) Unwrap() error {
 }
 
 func (e *ValidationError) Is(target error) bool {
-	_, ok := target.(*ValidationError)
+	_, ok := target.(*ValidationError) //nolint: errorlint
 	return ok
 }
 
@@ -93,7 +93,7 @@ func (e *UnsupportedConfigVersionError) Error() string {
 }
 
 func (e *UnsupportedConfigVersionError) Is(target error) bool {
-	_, ok := target.(*UnsupportedConfigVersionError)
+	_, ok := target.(*UnsupportedConfigVersionError) //nolint: errorlint
 	return ok
 }
 
@@ -147,9 +147,9 @@ func GenerateExecutableWithEmbeddedConfig(exe []byte, c EmbeddedConfig, key *ecd
 		return nil, fmt.Errorf("embedded config: JSON encoding: %w", err)
 	}
 
-	// ensure the configuration is not too big\
+	// ensure the configuration is not too big
 	contentBytesSize := len(contentBytes)
-	if len(contentBytes) > math.MaxUint32 {
+	if contentBytesSize > math.MaxUint32 {
 		return nil, ErrConfigTooLarge
 	}
 
@@ -173,12 +173,14 @@ func GenerateExecutableWithEmbeddedConfig(exe []byte, c EmbeddedConfig, key *ecd
 	if err != nil {
 		return nil, fmt.Errorf("embedded config: ECDSA signature: %w", err)
 	}
+
 	sigLen := len(signature)
 	if sigLen > headerSignatureSize {
 		// this can never fail
 		// for as long as the key size / curve does not change
 		return nil, ErrSignatureSize
 	}
+
 	// pad with zeroes as necessary
 	if sigLen < headerSignatureSize {
 		for i := 0; i < headerSignatureSize-sigLen; i++ {
@@ -231,8 +233,11 @@ const (
 func ReadEmbeddedConfig(exe []byte, config EmbeddedConfig, ca *x509.CertPool, opts ...ReadOption) error {
 	// parse options
 	var ignoreExpiryTime, ignoreSignature bool
+
 	for _, opt := range opts {
 		switch opt {
+		case ReadOptionUndefined:
+			// nothing to do
 		case ReadOptionIgnoreExpiryTime:
 			ignoreExpiryTime = true
 		case ReadOptionIgnoreSignature:

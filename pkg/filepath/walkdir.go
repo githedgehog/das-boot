@@ -23,12 +23,12 @@ func WalkDir(path string, walkFn fs.WalkDirFunc, maxLevel uint, exclusions ...st
 
 func walkDir(filename string, linkDirname string, walkFn fs.WalkDirFunc, maxLevel uint, exclusions []string) error {
 	symWalkFunc := func(path string, info fs.DirEntry, err error) error {
-
 		if fname, err := filepathRel(filename, path); err == nil {
 			path = filepath.Join(linkDirname, fname)
 		} else {
 			return err
 		}
+
 		var excluded bool
 		if err == nil {
 			for _, entry := range exclusions {
@@ -38,6 +38,7 @@ func walkDir(filename string, linkDirname string, walkFn fs.WalkDirFunc, maxLeve
 				}
 			}
 		}
+
 		if err == nil && info.Type()&os.ModeSymlink == os.ModeSymlink && !excluded {
 			finalPath, err := filepathEvalSymlinks(path)
 			if err != nil {

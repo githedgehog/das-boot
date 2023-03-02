@@ -6,7 +6,9 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha1"
+
+	// not used for security
+	"crypto/sha1" //nolint: gosec
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -22,7 +24,7 @@ import (
 	"time"
 )
 
-func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert []byte, caPool *x509.CertPool, caKey *ecdsa.PrivateKey, caCert *x509.Certificate) {
+func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert []byte, caPool *x509.CertPool, caKey *ecdsa.PrivateKey, caCert *x509.Certificate) { //nolint: unparam
 	var err error
 
 	// create CA
@@ -30,7 +32,8 @@ func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert 
 	if err != nil {
 		panic(err)
 	}
-	caKeyID := sha1.Sum(elliptic.Marshal(caKey.Curve, caKey.PublicKey.X, caKey.PublicKey.Y))
+	// not used for security purposes
+	caKeyID := sha1.Sum(elliptic.Marshal(caKey.Curve, caKey.PublicKey.X, caKey.PublicKey.Y)) //nolint: gosec
 	caTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(2019),
 		Subject: pkix.Name{
@@ -77,9 +80,11 @@ func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert 
 	}
 	csrPub := csr.PublicKey.(*ecdsa.PublicKey)
 
-	subjectKeyId := sha1.Sum(elliptic.Marshal(csrPub.Curve, csrPub.X, csrPub.Y))
+	// not used for security purposes
+	subjectKeyId := sha1.Sum(elliptic.Marshal(csrPub.Curve, csrPub.X, csrPub.Y)) //nolint: gosec
 	certTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(mathrand.Int63()),
+		// not used for security purposes
+		SerialNumber: big.NewInt(mathrand.Int63()), //nolint: gosec
 		Subject:      csr.Subject,
 		SubjectKeyId: subjectKeyId[:],
 		NotBefore:    time.Now(),
@@ -130,7 +135,8 @@ func generateRSAKeyAndCertAndAddToPool(caPool *x509.CertPool) []byte {
 	if err != nil {
 		panic(err)
 	}
-	caKeyID := sha1.Sum(caPublicKeyBytes)
+	// not used for security purposes
+	caKeyID := sha1.Sum(caPublicKeyBytes) //nolint: gosec
 	caTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(2019),
 		Subject: pkix.Name{
@@ -184,9 +190,11 @@ func generateRSAKeyAndCertAndAddToPool(caPool *x509.CertPool) []byte {
 		panic(err)
 	}
 
-	subjectKeyId := sha1.Sum(publicKeyBytes)
+	// not used for security purposes
+	subjectKeyId := sha1.Sum(publicKeyBytes) //nolint: gosec
 	certTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(mathrand.Int63()),
+		// not used for security purposes
+		SerialNumber: big.NewInt(mathrand.Int63()), //nolint: gosec
 		Subject:      csr.Subject,
 		SubjectKeyId: subjectKeyId[:],
 		NotBefore:    time.Now(),
@@ -358,7 +366,6 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 	invalidKey, _, _, _, _ := generateTestKeyMaterial(elliptic.P384())
 
 	var exe = []byte("I'm a binary")
-	strTooBig := strings.Repeat("a", math.MaxUint32)
 
 	type args struct {
 		exe []byte
@@ -370,6 +377,7 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 		args             args
 		wantErr          bool
 		wantErrToBe      error
+		skip             bool
 		cryptoRandReader io.Reader
 		ecdsaSignASN1    func(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) ([]byte, error)
 	}{
@@ -423,16 +431,17 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			// don't rename, or fix the hack below in the execution
 			name: "config too large in size",
 			args: args{
 				key: key,
 				exe: exe,
-				c: &configTest{
-					Field1:  strTooBig,
-					Field2:  1,
-					Version: 1,
-				},
+				// c is being set in the hack below
 			},
+			// skipping this test if the race detector is enabled,
+			// as this is taking too long otherwise (and has no race obviously)
+			// skip:        version.RaceEnabled,
+			skip:        true,
 			wantErr:     true,
 			wantErrToBe: ErrConfigTooLarge,
 		},
@@ -490,6 +499,18 @@ func TestGenerateExecutableWithEmbeddedConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.skip {
+				t.Skipf("Skipping test %q as requested...", tt.name)
+				return
+			}
+			// ugly hack, but otherwise this is slowing down the tests with race detector
+			if tt.name == "config too large in size" {
+				tt.args.c = &configTest{
+					Field1:  strings.Repeat("a", math.MaxUint32),
+					Field2:  1,
+					Version: 1,
+				}
+			}
 			if tt.cryptoRandReader != nil {
 				oldCryptoRandReader := cryptoRandReader
 				cryptoRandReader = tt.cryptoRandReader

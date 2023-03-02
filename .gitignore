@@ -1,3 +1,8 @@
+/cover.out
+/build/coverage/**
+!/build/coverage/.keepme
+/build/artifacts/**
+!/build/artifacts/.keepme
 /cmd/hhdevid/hhdevid
 /test/mock/mockexec/cmd_mock_interface.go
 /test/mock/mockio/io_readwritecloser.go

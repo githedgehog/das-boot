@@ -1,0 +1,40 @@
+linters:
+  disable-all: true
+  # Look at this for details: https://golangci-lint.run/usage/linters/
+  enable:
+  - errcheck
+  - gosimple
+  - govet
+  - ineffassign
+  - staticcheck
+  - typecheck
+  - unused
+  - asciicheck
+  - bodyclose
+  - durationcheck
+  - errname
+  - errorlint
+  - errchkjson
+  - gofmt
+  - nilerr
+  - nilnil
+  - nolintlint
+  - musttag
+  - makezero
+  - gocheckcompilerdirectives
+  - exportloopref
+  - exhaustive
+  - contextcheck
+  - bidichk
+  - asasalint
+  - loggercheck
+  - tenv
+  - usestdlibvars
+  - noctx
+  - unconvert
+  - unparam
+  - whitespace
+  - gosec
+  # TODO: Also consider the following linters in the future. They are both questionable, so use with caution.
+  # - wrapcheck
+  # - goerr113

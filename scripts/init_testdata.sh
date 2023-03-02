@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # Some testdata must be initialized because they require root privileges
@@ -23,8 +23,10 @@ if [ $? -ne 0 ]; then
 fi
 
 # pkg/partitions/uevent_test.go
+mkdir -p ${SCRIPT_DIR}/pkg/partitions/testdata/DevicePath/dev
 ${SUDO} ${MKNOD} ${SCRIPT_DIR}/pkg/partitions/testdata/DevicePath/dev/loop0 b 7 0
 ${SUDO} ${MKNOD} ${SCRIPT_DIR}/pkg/partitions/testdata/DevicePath/dev/urandom c 1 0
 
 # pkg/partitions/device_test.go
+mkdir -p ${SCRIPT_DIR}/pkg/partitions/testdata/ensureDevicePath/dev
 ${SUDO} ${MKNOD} ${SCRIPT_DIR}/pkg/partitions/testdata/ensureDevicePath/dev/loop0 b 7 0

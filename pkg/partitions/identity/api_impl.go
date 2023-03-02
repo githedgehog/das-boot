@@ -103,7 +103,8 @@ func Init(d *partitions.Device) (IdentityPartition, error) {
 	version := Version{
 		Version: version1,
 	}
-	b, _ := json.Marshal(version) // cannot fail
+	// cannot fail, we can be certain
+	b, _ := json.Marshal(version) //nolint: errchkjson
 	b = append(b, byte('\n'))
 	if _, err := f.Write(b); err != nil {
 		return nil, err

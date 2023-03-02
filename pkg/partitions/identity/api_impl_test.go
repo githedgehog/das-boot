@@ -239,7 +239,6 @@ func TestInit(t *testing.T) {
 
 				// cleaning up directory
 				mfs.EXPECT().ReadDir(gomock.Eq("")).Times(1).Return(nil, os.ErrPermission)
-
 			},
 		},
 		{
@@ -1216,7 +1215,6 @@ func Test_api_HasClientCSR(t *testing.T) {
 				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
 				mockio.ReadAllBytesMock(f, csrValid, 2)
 				f.EXPECT().Close().Times(1).Return(nil)
-
 			},
 		},
 		{
@@ -1309,7 +1307,6 @@ func Test_api_HasClientCert(t *testing.T) {
 				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
 				mockio.ReadAllBytesMock(f, certValid, 3)
 				f.EXPECT().Close().Times(1).Return(nil)
-
 			},
 		},
 		{
@@ -1402,7 +1399,6 @@ func Test_api_HasClientKey(t *testing.T) {
 				mfs.EXPECT().Open(clientKeyPath).Times(1).Return(f, nil)
 				mockio.ReadAllBytesMock(f, keyValid, 1)
 				f.EXPECT().Close().Times(1).Return(nil)
-
 			},
 		},
 		{
@@ -1587,7 +1583,6 @@ func Test_api_ReadClientCSR(t *testing.T) {
 				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
 				f.EXPECT().Read(gomock.Any()).Times(1).Return(0, io.ErrUnexpectedEOF)
 				f.EXPECT().Close().Times(1).Return(nil)
-
 			},
 		},
 		{

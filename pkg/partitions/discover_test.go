@@ -64,7 +64,6 @@ func TestDiscover(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Discover() got = %v, want %v", got, tt.want)
 				return
-
 			}
 		})
 	}

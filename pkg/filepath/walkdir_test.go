@@ -28,7 +28,6 @@ func (s *symwalkFn) walkedPaths() []string {
 }
 
 func TestWalkDir(t *testing.T) {
-
 	pwd, err := os.Getwd()
 	if err != nil {
 		panic(err)

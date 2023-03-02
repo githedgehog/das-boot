@@ -15,7 +15,7 @@ type LocationPartition interface {
 type Version struct {
 	// Version is the version number of the partition format. This field
 	// must always be present.
-	Version int
+	Version int `json:"version"`
 }
 
 type Info struct {
@@ -30,6 +30,7 @@ func (i *Info) MetadataDecoded() Metadata {
 	if err := json.Unmarshal([]byte(i.Metadata), &ret); err != nil {
 		return nil
 	}
+
 	return ret
 }
 
