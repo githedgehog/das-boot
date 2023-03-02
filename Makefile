@@ -5,18 +5,18 @@ BUILD_DIR := $(MKFILE_DIR)/build
 BUILD_ARTIFACTS_DIR := $(BUILD_DIR)/artifacts
 BUILD_COVERAGE_DIR := $(BUILD_DIR)/coverage
 
-SRC_COMMON := $(shell find pkg)
-SRC_HHDEVID := $(shell find cmd/hhdevid)
-SRC_STAGE0 := $(shell find cmd/stage0)
-SRC_STAGE1 := $(shell find cmd/stage1)
-SRC_STAGE2 := $(shell find cmd/stage2)
-SRC_SEEDER := $(shell find cmd/seeder)
+SRC_COMMON := $(shell find $(MKFILE_DIR)/pkg)
+SRC_HHDEVID := $(shell find $(MKFILE_DIR)/cmd/hhdevid)
+SRC_STAGE0 := $(shell find $(MKFILE_DIR)/cmd/stage0)
+SRC_STAGE1 := $(shell find $(MKFILE_DIR)/cmd/stage1)
+SRC_STAGE2 := $(shell find $(MKFILE_DIR)/cmd/stage2)
+SRC_SEEDER := $(shell find $(MKFILE_DIR)/cmd/seeder)
 
 SEEDER_DEPS := $(BUILD_ARTIFACTS_DIR)/stage0-amd64  $(BUILD_ARTIFACTS_DIR)/stage0-arm64  $(BUILD_ARTIFACTS_DIR)/stage0-arm
 SEEDER_DEPS += $(BUILD_ARTIFACTS_DIR)/stage1-amd64  $(BUILD_ARTIFACTS_DIR)/stage1-arm64  $(BUILD_ARTIFACTS_DIR)/stage1-arm
 SEEDER_DEPS += $(BUILD_ARTIFACTS_DIR)/stage2-amd64  $(BUILD_ARTIFACTS_DIR)/stage2-arm64  $(BUILD_ARTIFACTS_DIR)/stage2-arm
 
-all: build
+all: generate build
 
 build: hhdevid stage0 stage1 stage2 seeder
 
@@ -100,47 +100,10 @@ seeder:  $(BUILD_ARTIFACTS_DIR)/seeder
 seeder-clean:
 	rm -v $(BUILD_ARTIFACTS_DIR)/seeder || true
 
+# Use this target only for local linting. In CI we use a dedicated github action
 .PHONY: lint
 lint:
-	golangci-lint run --disable-all \
-		-E errcheck \
-		-E gosimple \
-		-E govet \
-		-E ineffassign \
-		-E staticcheck \
-		-E typecheck \
-		-E unused \
-		-E asciicheck \
-		-E bodyclose \
-		-E durationcheck \
-		-E errname \
-		-E errorlint \
-		-E errchkjson \
-		-E gofmt \
-		-E nilerr \
-		-E nilnil \
-		-E nolintlint \
-		-E musttag \
-		-E makezero \
-		-E gocheckcompilerdirectives \
-		-E exportloopref \
-		-E exhaustive \
-		-E contextcheck \
-		-E bidichk \
-		-E asasalint \
-		-E loggercheck \
-		-E tenv \
-		-E usestdlibvars \
-		-E noctx \
-		-E unconvert \
-		-E unparam \
-		-E whitespace \
-		-E gosec \
-		./...
-
-# TODO: Also consider the following linters in the future. They are both questionable, so use with caution.
-#		-E wrapcheck \
-#		-E goerr113 \
+	golangci-lint run --verbose ./...
 
 .PHONY: test
 test:
@@ -154,3 +117,12 @@ test:
 	@echo
 	@echo -n "Total Code Coverage: $(shell tail -n 1 $(BUILD_COVERAGE_DIR)/coverage.out | awk '{ print $$3 }')"
 	@echo
+
+.PHONY: generate
+generate:
+	go generate ./...
+
+.PHONY: install-deps
+install-deps:
+	@echo "Installing mockgen..."
+	go install github.com/golang/mock/mockgen@latest
