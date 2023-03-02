@@ -115,18 +115,32 @@ lint:
 		-E durationcheck \
 		-E errname \
 		-E errorlint \
-		-E goerr113 \
+		-E errchkjson \
 		-E gofmt \
 		-E nilerr \
 		-E nilnil \
 		-E nolintlint \
+		-E musttag \
+		-E makezero \
+		-E gocheckcompilerdirectives \
+		-E exportloopref \
+		-E exhaustive \
+		-E contextcheck \
+		-E bidichk \
+		-E asasalint \
+		-E loggercheck \
+		-E tenv \
+		-E usestdlibvars \
 		-E noctx \
 		-E unconvert \
 		-E unparam \
-		-E wrapcheck \
 		-E whitespace \
-		-E wsl \
+		-E gosec \
 		./...
+
+# TODO: Also consider the following linters in the future. They are both questionable, so use with caution.
+#		-E wrapcheck \
+#		-E goerr113 \
 
 .PHONY: test
 test:

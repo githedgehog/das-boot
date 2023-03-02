@@ -6,7 +6,9 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha1"
+
+	// not used for security
+	"crypto/sha1" //nolint: gosec
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -32,7 +34,8 @@ func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert 
 	if err != nil {
 		panic(err)
 	}
-	caKeyID := sha1.Sum(elliptic.Marshal(caKey.Curve, caKey.PublicKey.X, caKey.PublicKey.Y))
+	// not used for security purposes
+	caKeyID := sha1.Sum(elliptic.Marshal(caKey.Curve, caKey.PublicKey.X, caKey.PublicKey.Y)) //nolint: gosec
 	caTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(2019),
 		Subject: pkix.Name{
@@ -79,9 +82,11 @@ func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert 
 	}
 	csrPub := csr.PublicKey.(*ecdsa.PublicKey)
 
-	subjectKeyId := sha1.Sum(elliptic.Marshal(csrPub.Curve, csrPub.X, csrPub.Y))
+	// not used for security purposes
+	subjectKeyId := sha1.Sum(elliptic.Marshal(csrPub.Curve, csrPub.X, csrPub.Y)) //nolint: gosec
 	certTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(mathrand.Int63()),
+		// not used for security purposes
+		SerialNumber: big.NewInt(mathrand.Int63()), //nolint: gosec
 		Subject:      csr.Subject,
 		SubjectKeyId: subjectKeyId[:],
 		NotBefore:    time.Now(),
@@ -132,7 +137,8 @@ func generateRSAKeyAndCertAndAddToPool(caPool *x509.CertPool) []byte {
 	if err != nil {
 		panic(err)
 	}
-	caKeyID := sha1.Sum(caPublicKeyBytes)
+	// not used for security purposes
+	caKeyID := sha1.Sum(caPublicKeyBytes) //nolint: gosec
 	caTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(2019),
 		Subject: pkix.Name{
@@ -186,9 +192,11 @@ func generateRSAKeyAndCertAndAddToPool(caPool *x509.CertPool) []byte {
 		panic(err)
 	}
 
-	subjectKeyId := sha1.Sum(publicKeyBytes)
+	// not used for security purposes
+	subjectKeyId := sha1.Sum(publicKeyBytes) //nolint: gosec
 	certTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(mathrand.Int63()),
+		// not used for security purposes
+		SerialNumber: big.NewInt(mathrand.Int63()), //nolint: gosec
 		Subject:      csr.Subject,
 		SubjectKeyId: subjectKeyId[:],
 		NotBefore:    time.Now(),

@@ -236,6 +236,8 @@ func ReadEmbeddedConfig(exe []byte, config EmbeddedConfig, ca *x509.CertPool, op
 
 	for _, opt := range opts {
 		switch opt {
+		case ReadOptionUndefined:
+			// nothing to do
 		case ReadOptionIgnoreExpiryTime:
 			ignoreExpiryTime = true
 		case ReadOptionIgnoreSignature:
