@@ -24,7 +24,7 @@ import (
 	"go.githedgehog.com/dasboot/pkg/version"
 )
 
-func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert []byte, caPool *x509.CertPool, caKey *ecdsa.PrivateKey, caCert *x509.Certificate) {
+func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert []byte, caPool *x509.CertPool, caKey *ecdsa.PrivateKey, caCert *x509.Certificate) { //nolint: unparam
 	var err error
 
 	// create CA

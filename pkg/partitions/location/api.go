@@ -30,6 +30,7 @@ func (i *Info) MetadataDecoded() Metadata {
 	if err := json.Unmarshal([]byte(i.Metadata), &ret); err != nil {
 		return nil
 	}
+
 	return ret
 }
 

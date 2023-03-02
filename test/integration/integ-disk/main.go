@@ -50,7 +50,7 @@ func main() {
 	}
 }
 
-func integDisk(ctx *cli.Context) error {
+func integDisk(_ *cli.Context) error {
 	// discover disks/partitions first
 	l.Info("1. Initial disks/partitions discovery...")
 	devs := partitions.Discover()

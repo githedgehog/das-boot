@@ -638,18 +638,14 @@ func TestDevices_DeletePartitions(t *testing.T) {
 						Return(int64(2), nil)
 					c.EXPECT().Get(gomock.Eq("BootCurrent"), gomock.Eq(efivars.GlobalVariable), gomock.Eq([]byte{0, 0})).Times(1).
 						DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-							for i, b := range []byte{0x07, 0x00} {
-								out[i] = b
-							}
+							copy(out, []byte{0x07, 0x00})
 							return efivario.BootServiceAccess | efivario.RuntimeAccess, 2, nil
 						})
 					c.EXPECT().GetSizeHint(gomock.Eq("Boot0007"), gomock.Eq(efivars.GlobalVariable)).Times(1).
 						Return(int64(len(onieBootContents)-4), nil)
 					c.EXPECT().Get(gomock.Eq("Boot0007"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(onieBootContents)-4))).Times(1).
 						DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-							for i, b := range onieBootContents[4:] {
-								out[i] = b
-							}
+							copy(out, onieBootContents[4:])
 							return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(onieBootContents) - 4, nil
 						})
 					bootOrderContents := []byte{
@@ -660,9 +656,7 @@ func TestDevices_DeletePartitions(t *testing.T) {
 						Return(int64(len(bootOrderContents)-4), nil)
 					c.EXPECT().Get(gomock.Eq("BootOrder"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(bootOrderContents)-4))).Times(1).
 						DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-							for i, b := range bootOrderContents[4:] {
-								out[i] = b
-							}
+							copy(out, bootOrderContents[4:])
 							return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(bootOrderContents) - 4, nil
 						})
 				}

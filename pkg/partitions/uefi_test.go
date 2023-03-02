@@ -67,9 +67,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 						// - last two bytes are little endian int16
 						// the Get function sets it to the `out` variable
 						// []byte{0x06, 0x00, 0x00, 0x00, 0x07, 0x00}
-						for i, b := range []byte{0x07, 0x00} {
-							out[i] = b
-						}
+						copy(out, []byte{0x07, 0x00})
 						return efivario.BootServiceAccess | efivario.RuntimeAccess, 2, nil
 					})
 
@@ -78,9 +76,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 					Return(int64(len(onieBootContents)-4), nil)
 				c.EXPECT().Get(gomock.Eq("Boot0007"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(onieBootContents)-4))).Times(1).
 					DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-						for i, b := range onieBootContents[4:] {
-							out[i] = b
-						}
+						copy(out, onieBootContents[4:])
 						return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(onieBootContents) - 4, nil
 					})
 
@@ -93,9 +89,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 					Return(int64(len(bootOrderContents)-4), nil)
 				c.EXPECT().Get(gomock.Eq("BootOrder"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(bootOrderContents)-4))).Times(1).
 					DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-						for i, b := range bootOrderContents[4:] {
-							out[i] = b
-						}
+						copy(out, bootOrderContents[4:])
 						return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(bootOrderContents) - 4, nil
 					})
 			},
@@ -114,9 +108,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 						// - last two bytes are little endian int16
 						// the Get function sets it to the `out` variable
 						// []byte{0x06, 0x00, 0x00, 0x00, 0x07, 0x00}
-						for i, b := range []byte{0x07, 0x00} {
-							out[i] = b
-						}
+						copy(out, []byte{0x07, 0x00})
 						return efivario.BootServiceAccess | efivario.RuntimeAccess, 2, nil
 					})
 
@@ -125,9 +117,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 					Return(int64(len(onieBootContents)-4), nil)
 				c.EXPECT().Get(gomock.Eq("Boot0007"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(onieBootContents)-4))).Times(1).
 					DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-						for i, b := range onieBootContents[4:] {
-							out[i] = b
-						}
+						copy(out, onieBootContents[4:])
 						return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(onieBootContents) - 4, nil
 					})
 
@@ -141,9 +131,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 					Return(int64(len(bootOrderContents)-4), nil)
 				c.EXPECT().Get(gomock.Eq("BootOrder"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(bootOrderContents)-4))).Times(1).
 					DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-						for i, b := range bootOrderContents[4:] {
-							out[i] = b
-						}
+						copy(out, bootOrderContents[4:])
 						return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(bootOrderContents) - 4, nil
 					})
 
@@ -181,9 +169,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 						// - last two bytes are little endian int16
 						// the Get function sets it to the `out` variable
 						// []byte{0x06, 0x00, 0x00, 0x00, 0x07, 0x00}
-						for i, b := range []byte{0x07, 0x00} {
-							out[i] = b
-						}
+						copy(out, []byte{0x07, 0x00})
 						return efivario.BootServiceAccess | efivario.RuntimeAccess, 2, nil
 					})
 
@@ -192,9 +178,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 					Return(int64(len(onieBootContents)-4), nil)
 				c.EXPECT().Get(gomock.Eq("Boot0007"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(onieBootContents)-4))).Times(1).
 					DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-						for i, b := range onieBootContents[4:] {
-							out[i] = b
-						}
+						copy(out, onieBootContents[4:])
 						return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(onieBootContents) - 4, nil
 					})
 
@@ -209,9 +193,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 					Return(int64(len(bootOrderContents)-4), nil)
 				c.EXPECT().Get(gomock.Eq("BootOrder"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(bootOrderContents)-4))).Times(1).
 					DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-						for i, b := range bootOrderContents[4:] {
-							out[i] = b
-						}
+						copy(out, bootOrderContents[4:])
 						return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(bootOrderContents) - 4, nil
 					})
 
@@ -244,9 +226,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 						// - last two bytes are little endian int16
 						// the Get function sets it to the `out` variable
 						// []byte{0x06, 0x00, 0x00, 0x00, 0x07, 0x00}
-						for i, b := range []byte{0x07, 0x00} {
-							out[i] = b
-						}
+						copy(out, []byte{0x07, 0x00})
 						return efivario.BootServiceAccess | efivario.RuntimeAccess, 2, nil
 					})
 
@@ -255,9 +235,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 					Return(int64(len(onieBootContents)-4), nil)
 				c.EXPECT().Get(gomock.Eq("Boot0007"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(onieBootContents)-4))).Times(1).
 					DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-						for i, b := range onieBootContents[4:] {
-							out[i] = b
-						}
+						copy(out, onieBootContents[4:])
 						return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(onieBootContents) - 4, nil
 					})
 
@@ -272,9 +250,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 					Return(int64(len(bootOrderContents)-4), nil)
 				c.EXPECT().Get(gomock.Eq("BootOrder"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(bootOrderContents)-4))).Times(1).
 					DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-						for i, b := range bootOrderContents[4:] {
-							out[i] = b
-						}
+						copy(out, bootOrderContents[4:])
 						return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(bootOrderContents) - 4, nil
 					})
 
@@ -308,9 +284,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 						// - last two bytes are little endian int16
 						// the Get function sets it to the `out` variable
 						// []byte{0x06, 0x00, 0x00, 0x00, 0x07, 0x00}
-						for i, b := range []byte{0x07, 0x00} {
-							out[i] = b
-						}
+						copy(out, []byte{0x07, 0x00})
 						return efivario.BootServiceAccess | efivario.RuntimeAccess, 2, nil
 					})
 
@@ -319,9 +293,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 					Return(int64(len(onieBootContents)-4), nil)
 				c.EXPECT().Get(gomock.Eq("Boot0007"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(onieBootContents)-4))).Times(1).
 					DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-						for i, b := range onieBootContents[4:] {
-							out[i] = b
-						}
+						copy(out, onieBootContents[4:])
 						return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(onieBootContents) - 4, nil
 					})
 
@@ -348,9 +320,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 						// - last two bytes are little endian int16
 						// the Get function sets it to the `out` variable
 						// []byte{0x06, 0x00, 0x00, 0x00, 0x07, 0x00}
-						for i, b := range []byte{0x07, 0x00} {
-							out[i] = b
-						}
+						copy(out, []byte{0x07, 0x00})
 						return efivario.BootServiceAccess | efivario.RuntimeAccess, 2, nil
 					})
 
@@ -359,9 +329,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 					Return(int64(len(onieBootContents)-4), nil)
 				c.EXPECT().Get(gomock.Eq("Boot0007"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(onieBootContents)-4))).Times(1).
 					DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-						for i, b := range onieBootContents[4:] {
-							out[i] = b
-						}
+						copy(out, onieBootContents[4:])
 						return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(onieBootContents) - 4, nil
 					})
 
@@ -388,9 +356,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 						// - last two bytes are little endian int16
 						// the Get function sets it to the `out` variable
 						// []byte{0x06, 0x00, 0x00, 0x00, 0x07, 0x00}
-						for i, b := range []byte{0x07, 0x00} {
-							out[i] = b
-						}
+						copy(out, []byte{0x07, 0x00})
 						return efivario.BootServiceAccess | efivario.RuntimeAccess, 2, nil
 					})
 
@@ -399,9 +365,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 					Return(int64(len(shimBootContents)-4), nil)
 				c.EXPECT().Get(gomock.Eq("Boot0007"), gomock.Eq(efivars.GlobalVariable), gomock.Eq(make([]byte, len(shimBootContents)-4))).Times(1).
 					DoAndReturn(func(name string, guid efiguid.GUID, out []byte) (efivario.Attributes, int, error) {
-						for i, b := range shimBootContents[4:] {
-							out[i] = b
-						}
+						copy(out, shimBootContents[4:])
 						return efivario.BootServiceAccess | efivario.RuntimeAccess | efivario.NonVolatile, len(shimBootContents) - 4, nil
 					})
 			},
@@ -421,9 +385,7 @@ func TestMakeONIEDefaultBootEntryAndCleanup(t *testing.T) {
 						// - last two bytes are little endian int16
 						// the Get function sets it to the `out` variable
 						// []byte{0x06, 0x00, 0x00, 0x00, 0x07, 0x00}
-						for i, b := range []byte{0x07, 0x00} {
-							out[i] = b
-						}
+						copy(out, []byte{0x07, 0x00})
 						return efivario.BootServiceAccess | efivario.RuntimeAccess, 2, nil
 					})
 

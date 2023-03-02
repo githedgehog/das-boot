@@ -49,7 +49,7 @@ const (
 
 	DefaultPartSizeHedgehogIdentityInMB int = 100
 
-	blkrrpart = 0x125f
+	blkrrpart = 0x125f //nolint: unused
 )
 
 var (
@@ -67,6 +67,7 @@ var (
 func (d *Device) ensureDevicePath() error {
 	var err error
 	var path string
+
 	path, err = d.Uevent.DevicePath()
 	if err != nil {
 		if errors.Is(err, ErrInvalidUevent) {
@@ -327,7 +328,6 @@ func unescapeMountPath(path string) string {
 			continue
 		default:
 			return path
-
 		}
 	}
 
