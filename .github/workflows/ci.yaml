@@ -26,6 +26,13 @@ jobs:
         run: make generate
       - name: run builds
         run: make build
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            build/artifacts
+            !build/artifacts/.keepme
   test:
     runs-on: ubuntu-latest
     steps:
@@ -44,7 +51,19 @@ jobs:
         run: ./scripts/init_testdata.sh
         shell: bash
       - name: run tests with code coverage
-        run: make test-cover
+        run: |
+          make test-cover
+          echo "### Code Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo -n "Total Code Coverage: " >> $GITHUB_STEP_SUMMARY
+          tail -n 1 ./build/coverage/coverage.out | awk '{ print $3 }' >> $GITHUB_STEP_SUMMARY
+          echo -n "" >> $GITHUB_STEP_SUMMARY
+          echo -n "Look at coverage report in the artifacts for details." >> $GITHUB_STEP_SUMMARY
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v3
+        with:
+          name: code-coverage-report
+          path: build/coverage/coverage.html
       - name: run tests with race detector
         run: make test-race
   lint:
