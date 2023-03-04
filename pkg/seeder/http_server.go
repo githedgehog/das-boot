@@ -1,6 +1,7 @@
 package seeder
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -14,6 +15,8 @@ import (
 var ErrNoCertsAdded = errors.New("httpServer: no certs added to Client CA Pool")
 
 type httpServer struct {
+	done           chan struct{}
+	err            error
 	clientCAPath   string
 	serverKeyPath  string
 	serverCertPath string
@@ -23,7 +26,8 @@ type httpServer struct {
 }
 
 func newHttpServer(addr, serverKeyPath, serverCertPath, clientCAPath string, handler http.Handler) *httpServer {
-	ret := &httpServer{
+	return &httpServer{
+		done:           make(chan struct{}),
 		clientCAPath:   clientCAPath,
 		serverKeyPath:  serverKeyPath,
 		serverCertPath: serverCertPath,
@@ -36,12 +40,6 @@ func newHttpServer(addr, serverKeyPath, serverCertPath, clientCAPath string, han
 			Handler:           handler,
 		},
 	}
-	ret.srv.TLSConfig = &tls.Config{
-		// MinVersion is of no consequence here, but the gosec linter complains, so whatever
-		MinVersion:         tls.VersionTLS12,
-		GetConfigForClient: ret.tlsConfig,
-	}
-	return ret
 }
 
 // tlsConfig will always return an up to date version of the TLS config. This allows us to reload/redo
@@ -96,4 +94,55 @@ func (s *httpServer) ReloadTLSConfig() error {
 	}
 
 	return nil
+}
+
+func (s *httpServer) Done() <-chan struct{} {
+	return s.done
+}
+
+func (s *httpServer) Err() error {
+	return s.err
+}
+
+func (s *httpServer) Start() {
+	// make a TLS config
+	// if we cannot make one at all, we need to abort on startup
+	if err := s.ReloadTLSConfig(); err != nil {
+		s.err = err
+		close(s.done)
+		return
+	}
+
+	// if this has a TLS config set at this point
+	// it means that this needs to run an HTTPS server
+	if s.tlsCfg != nil {
+		s.srv.TLSConfig = s.tlsCfg
+		go s.listenAndServeTLS()
+		return
+	}
+
+	// otherwise we run a plain HTTP server
+	go s.listenAndServe()
+}
+
+func (s *httpServer) listenAndServeTLS() {
+	if err := s.srv.ListenAndServeTLS("", ""); err != nil {
+		s.err = err
+	}
+	close(s.done)
+}
+
+func (s *httpServer) listenAndServe() {
+	if err := s.srv.ListenAndServe(); err != nil {
+		s.err = err
+	}
+	close(s.done)
+}
+
+func (s *httpServer) Shutdown(ctx context.Context) error {
+	return s.srv.Shutdown(ctx)
+}
+
+func (s *httpServer) Close() error {
+	return s.srv.Close()
 }
