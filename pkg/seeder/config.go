@@ -1,5 +1,7 @@
 package seeder
 
+import "go.githedgehog.com/dasboot/pkg/seeder/artifacts"
+
 // Config is passed to a seeder instance. It will initialize the seeder based on this configuration.
 type Config struct {
 	// InsecureServer will instantiate an insecure server if it is not nil. The insecure server serves
@@ -9,6 +11,8 @@ type Config struct {
 	// SecureServer will instantiate a secure server if it is not nil. The secure server serves all artifacts
 	// which must be served over a secure connection.
 	SecureServer *BindInfo
+
+	ArtifactsProvider artifacts.Provider
 }
 
 // BindInfo provides all the necessary information for binding to an address and configuring TLS as necessary.

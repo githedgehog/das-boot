@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"go.githedgehog.com/dasboot/pkg/seeder/artifacts"
+	"go.githedgehog.com/dasboot/pkg/seeder/controlplane"
 	"go.uber.org/zap"
 )
 
@@ -20,14 +22,25 @@ type Interface interface {
 	// but will close the servers if the context timeouts or after 30 seconds if the context did not
 	// timeout before that.
 	Stop(context.Context)
+
+	// Done returns a channel which will be closed once all servers that were started with `Start()`
+	// have finished listening.
+	Done() <-chan struct{}
+
+	// Err returns a channel which will get errors of servers during startup pushed
+	Err() <-chan error
 }
 
 type seeder struct {
-	secureServer   *server
-	insecureServer *server
+	done              chan struct{}
+	err               chan error
+	secureServer      *server
+	insecureServer    *server
+	artifactsProvider artifacts.Provider
 }
 
 var _ Interface = &seeder{}
+var _ controlplane.Client = &seeder{}
 
 var (
 	ErrInvalidConfig = errors.New("seeder: invalid config")
@@ -44,32 +57,85 @@ func New(config *Config) (Interface, error) {
 	if config.InsecureServer == nil && config.SecureServer == nil {
 		return nil, invalidConfigError("neither InsecureServer nor SecureServer are set")
 	}
+	if config.ArtifactsProvider == nil {
+		return nil, invalidConfigError("no artifacts provider")
+	}
 
-	ret := &seeder{}
+	ret := &seeder{
+		done:              make(chan struct{}),
+		artifactsProvider: config.ArtifactsProvider,
+	}
 
+	errChLen := 0
 	if config.InsecureServer != nil {
 		var err error
-		ret.insecureServer, err = newServer(config.InsecureServer, insecureHandler())
+		ret.insecureServer, err = newServer(config.InsecureServer, ret.insecureHandler())
 		if err != nil {
 			return nil, err
 		}
+		errChLen += len(config.InsecureServer.Address)
 	}
 
 	if config.SecureServer != nil {
 		var err error
-		ret.secureServer, err = newServer(config.SecureServer, secureHandler())
+		ret.secureServer, err = newServer(config.SecureServer, ret.secureHandler())
 		if err != nil {
 			return nil, err
 		}
+		errChLen += len(config.SecureServer.Address)
 	}
+	ret.err = make(chan error, errChLen)
 
 	return ret, nil
 }
 
 func (s *seeder) Start() {
 	// fire up our servers
-	go s.insecureServer.Start()
-	go s.secureServer.Start()
+	if s.insecureServer != nil {
+		go s.insecureServer.Start()
+		go func() {
+			for {
+				err, ok := <-s.insecureServer.Err()
+				if !ok {
+					return
+				}
+				s.err <- err
+			}
+		}()
+	}
+
+	if s.secureServer != nil {
+		go s.secureServer.Start()
+		go func() {
+			for {
+				err, ok := <-s.secureServer.Err()
+				if !ok {
+					return
+				}
+				s.err <- err
+			}
+		}()
+	}
+
+	// we're all done once the secure and insecure servers are done
+	go func() {
+		if s.insecureServer != nil {
+			<-s.insecureServer.Done()
+		}
+		if s.secureServer != nil {
+			<-s.secureServer.Done()
+		}
+		close(s.done)
+		close(s.err)
+	}()
+}
+
+func (s *seeder) Done() <-chan struct{} {
+	return s.done
+}
+
+func (s *seeder) Err() <-chan error {
+	return s.err
 }
 
 func (s *seeder) Stop(pctx context.Context) {
