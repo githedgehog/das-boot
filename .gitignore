@@ -3,6 +3,8 @@
 !/build/coverage/.keepme
 /build/artifacts/**
 !/build/artifacts/.keepme
+/pkg/seeder/artifacts/embedded/artifacts/**
+!/pkg/seeder/artifacts/embedded/artifacts/.keepme
 /cmd/hhdevid/hhdevid
 /test/mock/mockexec/cmd_mock_interface.go
 /test/mock/mockio/io_readwritecloser.go
