@@ -3,11 +3,14 @@ package seeder
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"go.githedgehog.com/dasboot/pkg/log"
 )
 
@@ -45,4 +48,20 @@ func readCertFromPath(path string) (*x509.Certificate, []byte, error) {
 		return nil, nil, fmt.Errorf("parsing certficate '%s': %w", path, err)
 	}
 	return cert, p.Bytes, nil
+}
+
+func errorWithJSON(w http.ResponseWriter, r *http.Request, statusCode int, format string, a ...any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	v := struct {
+		ReqID string `json:"request_id,omitempty"`
+		Err   string `json:"error"`
+	}{
+		ReqID: middleware.GetReqID(r.Context()),
+		Err:   fmt.Sprintf(format, a...),
+	}
+	b, err := json.Marshal(&v)
+	if err == nil {
+		w.Write(b) //nolint: errcheck
+	}
 }

@@ -67,6 +67,16 @@ type InstallerSettings struct {
 	ConfigSignatureCAPath string
 
 	// SecureServerName is the host name as it should match the TLS SAN for the server certificates that are used by clients to reach the seeder.
-	// This server name will be used to generate various URLs which are going to be used in embedded configurations.
+	// This server name will be used to generate various URLs which are going to be used in embedded configurations. If the service needs a
+	// different port it needs to be included here (e.g. dasboot.example.com:8080).
 	SecureServerName string
+
+	// DNSServers are the DNS servers which will be configured on clients at installation time
+	DNSServers []string
+
+	// NTPServers are the NTP servers which will be configured on clients at installation time
+	NTPServers []string
+
+	// SyslogServers are the syslog servers which will be configured on clients at installation time
+	SyslogServers []string
 }

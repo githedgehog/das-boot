@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -107,7 +106,13 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := ipam.ProcessRequest(r.Context(), s, &req)
+	set := &ipam.Settings{
+		DNSServers:    s.installerSettings.dnsServers,
+		NTPServers:    s.installerSettings.ntpServers,
+		SyslogServers: s.installerSettings.syslogServers,
+		Stage1URL:     s.installerSettings.stage1URLBase(),
+	}
+	resp, err := ipam.ProcessRequest(r.Context(), set, s, &req)
 	if err != nil {
 		errorWithJSON(w, r, http.StatusInternalServerError, "failed to process IPAM request: %s", err)
 	}
@@ -118,21 +123,5 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 			zap.String("request", middleware.GetReqID(r.Context())),
 			zap.Error(err),
 		)
-	}
-}
-
-func errorWithJSON(w http.ResponseWriter, r *http.Request, statusCode int, format string, a ...any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	v := struct {
-		ReqID string `json:"request_id,omitempty"`
-		Err   string `json:"error"`
-	}{
-		ReqID: middleware.GetReqID(r.Context()),
-		Err:   fmt.Sprintf(format, a...),
-	}
-	b, err := json.Marshal(&v)
-	if err == nil {
-		w.Write(b) //nolint: errcheck
 	}
 }
