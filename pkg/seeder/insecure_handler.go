@@ -1,15 +1,24 @@
 package seeder
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"go.githedgehog.com/dasboot/pkg/seeder/ipam"
 	"go.uber.org/zap"
+
+	"go.githedgehog.com/dasboot/pkg/seeder/ipam"
+	config0 "go.githedgehog.com/dasboot/pkg/stage0/config"
+)
+
+const (
+	ipamPath = "/stage0/ipam"
 )
 
 func (s *seeder) insecureHandler() *chi.Mux {
@@ -23,7 +32,7 @@ func (s *seeder) insecureHandler() *chi.Mux {
 	r.Get("/onie-updater-{arch}", s.getStage0Artifact)
 	r.Get("/onie-updater", s.getStage0Artifact)
 	r.Get("/stage0/{arch}", s.getStage0Artifact)
-	r.Route("/stage0/ipam", func(r chi.Router) {
+	r.Route(ipamPath, func(r chi.Router) {
 		r.Use(middleware.AllowContentType("application/json"))
 		r.Post("/", s.processIPAMRequest)
 	})
@@ -31,6 +40,7 @@ func (s *seeder) insecureHandler() *chi.Mux {
 }
 
 func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
+	// if this hit a fallback URL, we serve the bash script saying that this is not supported on this device
 	archParam := chi.URLParam(r, "arch")
 	if archParam == "" {
 		w.Header().Set("Content-Type", "application/octet-stream")
@@ -39,6 +49,7 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// get the stage0 artifact
 	artifact := "stage0-" + archParam
 	f := s.artifactsProvider.Get(artifact)
 	if f == nil {
@@ -46,9 +57,31 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
+
+	// generate an embedded config for it
+	artifactBytes, err := io.ReadAll(f)
+	if err != nil {
+		errorWithJSON(w, r, http.StatusInternalServerError, "failed to read artifact: %s", err)
+		return
+	}
+	ipamURL := url.URL{
+		Scheme: r.URL.Scheme,
+		Host:   r.Host,
+		Path:   ipamPath,
+	}
+	signedArtifactWithConfig, err := s.ecg.Stage0(artifactBytes, &config0.Stage0{
+		CA:          s.installerSettings.serverCADER,
+		SignatureCA: s.installerSettings.configSignatureCADER,
+		IPAMURL:     ipamURL.String(),
+	})
+	if err != nil {
+		errorWithJSON(w, r, http.StatusInternalServerError, "failed to embed configuration: %s", err)
+		return
+	}
+	src := bufio.NewReader(bytes.NewBuffer(signedArtifactWithConfig))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.WriteHeader(http.StatusOK)
-	if _, err := io.Copy(w, f); err != nil {
+	if _, err := io.Copy(w, src); err != nil {
 		l.Error("failed to write artifact to HTTP response",
 			zap.String("request", middleware.GetReqID(r.Context())),
 			zap.String("artifact", artifact),
@@ -70,15 +103,13 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 
 	var req ipam.Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		errorWithJSON(w, r, "failed to decode JSON request: %s", err)
+		errorWithJSON(w, r, http.StatusUnprocessableEntity, "failed to decode JSON request: %s", err)
 		return
 	}
 
 	resp, err := ipam.ProcessRequest(r.Context(), s, &req)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		errorWithJSON(w, r, "failed to process IPAM request: %s", err)
+		errorWithJSON(w, r, http.StatusInternalServerError, "failed to process IPAM request: %s", err)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -90,7 +121,9 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func errorWithJSON(w http.ResponseWriter, r *http.Request, format string, a ...any) {
+func errorWithJSON(w http.ResponseWriter, r *http.Request, statusCode int, format string, a ...any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
 	v := struct {
 		ReqID string `json:"request_id,omitempty"`
 		Err   string `json:"error"`

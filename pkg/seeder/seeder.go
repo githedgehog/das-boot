@@ -38,7 +38,7 @@ type seeder struct {
 	secureServer      *server
 	insecureServer    *server
 	artifactsProvider artifacts.Provider
-	installerSettings *InstallerSettings
+	installerSettings *loadedInstallerSettings
 }
 
 var _ Interface = &seeder{}
@@ -47,6 +47,7 @@ var _ controlplane.Client = &seeder{}
 var (
 	ErrInvalidConfig           = errors.New("seeder: invalid config")
 	ErrEmbeddedConfigGenerator = errors.New("seeder: embedded config generator")
+	ErrInstallerSettings       = errors.New("seeder: installer settings")
 )
 
 func invalidConfigError(str string) error {
@@ -55,6 +56,10 @@ func invalidConfigError(str string) error {
 
 func embeddedConfigGeneratorError(str string) error {
 	return fmt.Errorf("%w: %s", ErrEmbeddedConfigGenerator, str)
+}
+
+func installerSettingsError(str string) error {
+	return fmt.Errorf("%w: %s", ErrInstallerSettings, str)
 }
 
 func New(config *Config) (Interface, error) {
@@ -74,12 +79,16 @@ func New(config *Config) (Interface, error) {
 	ret := &seeder{
 		done:              make(chan struct{}),
 		artifactsProvider: config.ArtifactsProvider,
-		installerSettings: config.InstallerSettings,
 	}
 
 	// load the embedded configuration generator
 	if err := ret.intializeEmbeddedConfigGenerator(config.EmbeddedConfigGenerator); err != nil {
 		return nil, embeddedConfigGeneratorError(err.Error())
+	}
+
+	// load the installer settings
+	if err := ret.initializeInstallerSettings(config.InstallerSettings); err != nil {
+		return nil, installerSettingsError(err.Error())
 	}
 
 	// this section sets up the servers
