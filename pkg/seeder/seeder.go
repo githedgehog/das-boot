@@ -34,20 +34,27 @@ type Interface interface {
 type seeder struct {
 	done              chan struct{}
 	err               chan error
+	ecg               *embeddedConfigGenerator
 	secureServer      *server
 	insecureServer    *server
 	artifactsProvider artifacts.Provider
+	installerSettings *InstallerSettings
 }
 
 var _ Interface = &seeder{}
 var _ controlplane.Client = &seeder{}
 
 var (
-	ErrInvalidConfig = errors.New("seeder: invalid config")
+	ErrInvalidConfig           = errors.New("seeder: invalid config")
+	ErrEmbeddedConfigGenerator = errors.New("seeder: embedded config generator")
 )
 
 func invalidConfigError(str string) error {
 	return fmt.Errorf("%w: %s", ErrInvalidConfig, str)
+}
+
+func embeddedConfigGeneratorError(str string) error {
+	return fmt.Errorf("%w: %s", ErrEmbeddedConfigGenerator, str)
 }
 
 func New(config *Config) (Interface, error) {
@@ -60,12 +67,22 @@ func New(config *Config) (Interface, error) {
 	if config.ArtifactsProvider == nil {
 		return nil, invalidConfigError("no artifacts provider")
 	}
+	if config.InstallerSettings == nil {
+		return nil, invalidConfigError("no installer settings provided")
+	}
 
 	ret := &seeder{
 		done:              make(chan struct{}),
 		artifactsProvider: config.ArtifactsProvider,
+		installerSettings: config.InstallerSettings,
 	}
 
+	// load the embedded configuration generator
+	if err := ret.intializeEmbeddedConfigGenerator(config.EmbeddedConfigGenerator); err != nil {
+		return nil, embeddedConfigGeneratorError(err.Error())
+	}
+
+	// this section sets up the servers
 	errChLen := 0
 	if config.InsecureServer != nil {
 		var err error
