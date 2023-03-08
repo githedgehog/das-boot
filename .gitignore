@@ -1,3 +1,4 @@
+/dev/**
 /cover.out
 /build/coverage/**
 !/build/coverage/.keepme
