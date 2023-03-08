@@ -5,12 +5,12 @@ BUILD_DIR := $(MKFILE_DIR)/build
 BUILD_ARTIFACTS_DIR := $(BUILD_DIR)/artifacts
 BUILD_COVERAGE_DIR := $(BUILD_DIR)/coverage
 
-SRC_COMMON := $(shell find $(MKFILE_DIR)/pkg)
-SRC_HHDEVID := $(shell find $(MKFILE_DIR)/cmd/hhdevid)
-SRC_STAGE0 := $(shell find $(MKFILE_DIR)/cmd/stage0)
-SRC_STAGE1 := $(shell find $(MKFILE_DIR)/cmd/stage1)
-SRC_STAGE2 := $(shell find $(MKFILE_DIR)/cmd/stage2)
-SRC_SEEDER := $(shell find $(MKFILE_DIR)/cmd/seeder)
+SRC_COMMON := $(shell find $(MKFILE_DIR)/pkg -type f -name "*.go")
+SRC_HHDEVID := $(shell find $(MKFILE_DIR)/cmd/hhdevid -type f -name "*.go")
+SRC_STAGE0 := $(shell find $(MKFILE_DIR)/cmd/stage0 -type f -name "*.go")
+SRC_STAGE1 := $(shell find $(MKFILE_DIR)/cmd/stage1 -type f -name "*.go")
+SRC_STAGE2 := $(shell find $(MKFILE_DIR)/cmd/stage2 -type f -name "*.go")
+SRC_SEEDER := $(shell find $(MKFILE_DIR)/cmd/seeder -type f -name "*.go")
 
 SEEDER_ARTIFACTS_DIR := $(MKFILE_DIR)/pkg/seeder/artifacts/embedded/artifacts
 
