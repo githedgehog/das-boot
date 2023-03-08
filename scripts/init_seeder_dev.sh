@@ -3,6 +3,10 @@ set -e
 
 # NOTE: if you are adding newly generated files, make sure to update DEV_FILES in the Makefile please!
 
+OPENSSL=$(which openssl)
+JQ=$(which jq)
+IP=$(which ip)
+
 echo "Initializing seeder development environment..."
 echo
 
@@ -18,18 +22,18 @@ echo
 
 # create CAs
 echo "Creating CAs..."
-openssl ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/server-ca-key.pem
-openssl req -new -nodes -x509 -days 3600 -config ${SCRIPT_DIR}/openssl.cnf -extensions ca_cert -key ${DEV_DIR}/server-ca-key.pem -out ${DEV_DIR}/server-ca-cert.pem -subj "/C=US/ST=Washington/L=Seattle/O=Hedgehog SONiC Foundation/CN=DAS BOOT Server CA"
+${OPENSSL} ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/server-ca-key.pem
+${OPENSSL} req -new -nodes -x509 -days 3600 -config ${SCRIPT_DIR}/openssl.cnf -extensions ca_cert -key ${DEV_DIR}/server-ca-key.pem -out ${DEV_DIR}/server-ca-cert.pem -subj "/C=US/ST=Washington/L=Seattle/O=Hedgehog SONiC Foundation/CN=DAS BOOT Server CA"
 echo "Server CA created:"
 echo "- ${DEV_DIR}/server-ca-key.pem"
 echo "- ${DEV_DIR}/server-ca-cert.pem"
-openssl ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/client-ca-key.pem
-openssl req -new -nodes -x509 -days 3600 -config ${SCRIPT_DIR}/openssl.cnf -extensions ca_cert -key ${DEV_DIR}/client-ca-key.pem -out ${DEV_DIR}/client-ca-cert.pem -subj "/C=US/ST=Washington/L=Seattle/O=Hedgehog SONiC Foundation/CN=DAS BOOT Client CA"
+${OPENSSL} ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/client-ca-key.pem
+${OPENSSL} req -new -nodes -x509 -days 3600 -config ${SCRIPT_DIR}/openssl.cnf -extensions ca_cert -key ${DEV_DIR}/client-ca-key.pem -out ${DEV_DIR}/client-ca-cert.pem -subj "/C=US/ST=Washington/L=Seattle/O=Hedgehog SONiC Foundation/CN=DAS BOOT Client CA"
 echo "Client CA created:"
 echo "- ${DEV_DIR}/client-ca-key.pem"
 echo "- ${DEV_DIR}/client-ca-cert.pem"
-openssl ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/config-ca-key.pem
-openssl req -new -nodes -x509 -days 3600 -config ${SCRIPT_DIR}/openssl.cnf -extensions ca_cert -key ${DEV_DIR}/config-ca-key.pem -out ${DEV_DIR}/config-ca-cert.pem -subj "/C=US/ST=Washington/L=Seattle/O=Hedgehog SONiC Foundation/CN=DAS BOOT Config Signatures CA"
+${OPENSSL} ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/config-ca-key.pem
+${OPENSSL} req -new -nodes -x509 -days 3600 -config ${SCRIPT_DIR}/openssl.cnf -extensions ca_cert -key ${DEV_DIR}/config-ca-key.pem -out ${DEV_DIR}/config-ca-cert.pem -subj "/C=US/ST=Washington/L=Seattle/O=Hedgehog SONiC Foundation/CN=DAS BOOT Config Signatures CA"
 echo "Config Signature CA created:"
 echo "- ${DEV_DIR}/config-ca-key.pem"
 echo "- ${DEV_DIR}/config-ca-cert.pem"
@@ -38,8 +42,8 @@ echo
 # create a server cert
 echo "Creating certs..."
 SANS="DNS:localhost, DNS:das-boot.hedgehog.svc.cluster.local, IP:127.0.0.1, IP:192.168.42.11"
-openssl ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/server-key.pem
-openssl req -new -nodes -x509 -days 360 \
+${OPENSSL} ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/server-key.pem
+${OPENSSL} req -new -nodes -x509 -days 360 \
   -CAkey ${DEV_DIR}/server-ca-key.pem -CA ${DEV_DIR}/server-ca-cert.pem \
   -key ${DEV_DIR}/server-key.pem -out ${DEV_DIR}/server-cert.pem \
   -config ${SCRIPT_DIR}/openssl.cnf -extensions server_cert \
@@ -51,8 +55,8 @@ echo "- ${DEV_DIR}/server-cert.pem"
 echo "- SANs: ${SANS}"
 
 # create a config signing cert
-openssl ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/config-key.pem
-openssl req -new -nodes -x509 -days 360 \
+${OPENSSL} ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/config-key.pem
+${OPENSSL} req -new -nodes -x509 -days 360 \
   -CAkey ${DEV_DIR}/config-ca-key.pem -CA ${DEV_DIR}/config-ca-cert.pem \
   -key ${DEV_DIR}/config-key.pem -out ${DEV_DIR}/config-cert.pem \
   -config ${SCRIPT_DIR}/openssl.cnf -extensions code_sign_cert \
@@ -69,11 +73,11 @@ servers:
   insecure:
     # adjust these as needed, they should be IPv6 link-local addresses
     addresses:
-$(for i in $(ip addr | grep inet6 | grep "fe80" | awk '{ print $2 }' | sed 's#/[[:digit:]]\+##'); do echo "      - $i"; done)
+$(for i in $(${IP} -j addr show scope link | ${JQ} -r '.[] | select(.addr_info[].family == "inet6" and (.addr_info[].local|tostring|startswith("fe80"))) | [(.addr_info[]|select(has("local"))|.local),.ifname] | join("%")'); do echo "      - \"[$i]:8080\""; done)
   secure:
     # adjust these as needed, they should be the "management vlan" IPs
     addresses:
-$(for i in $(ip addr | grep "inet " | awk '{ print $2 }' | sed 's#/[[:digit:]]\+##'); do echo "      - $i"; done)
+$(for i in $(${IP} addr | grep "inet " | awk '{ print $2 }' | sed 's#/[[:digit:]]\+##'); do echo "      - $i:8443"; done)
     client_ca: ${DEV_DIR}/client-ca-cert.pem
     server_key: ${DEV_DIR}/server-key.pem
     server_cert: ${DEV_DIR}/server-cert.pem
