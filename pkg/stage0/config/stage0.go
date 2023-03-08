@@ -25,16 +25,20 @@ var _ config.EmbeddedConfig = &Stage0{}
 //	  "ipam_url":"https://fe80::4638:39ff:fe00/stage0/ipam"
 //	}
 type Stage0 struct {
-	// CA is a PEM-encoded root certificate with which server connections to the control plane must be validated.
+	// CA is a DER encoded root certificate with which server connections to the control plane must be validated.
 	// This can be empty if it is being dictated to be derived from attached USB sticks.
 	// Either must be present though.
-	CA string `json:"ca,omitempty"`
+	CA []byte `json:"ca,omitempty"`
 
 	// OnieHeaders are the ONIE request headers as they were made by ONIE when downloading the stage 0 installer
 	OnieHeaders *OnieHeaders `json:"onie_headers,omitempty"`
 
 	// IPAMURL is the URL where the installer is going to get its IP and VLAN configuration from.
 	IPAMURL string `json:"ipam_url,omitempty"`
+
+	// SignatureCA holds the optional DER encoded CA certificate which signed 'signature_cert'. This should better
+	// be derived from a different place.
+	SignatureCA []byte `json:"signature_ca,omitempty"`
 
 	// SignatureCert holds the DER encoded X509 certificate with which the signature of the embedded config
 	// can be validated

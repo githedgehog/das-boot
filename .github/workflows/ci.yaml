@@ -47,6 +47,8 @@ jobs:
         run: make install-deps
       - name: Run code generators
         run: make generate
+      - name: run builds
+        run: make build
       - name: initialize testdata
         run: ./scripts/init_testdata.sh
         shell: bash
@@ -80,6 +82,8 @@ jobs:
         run: make install-deps
       - name: Run code generators
         run: make generate
+      - name: run builds
+        run: make build
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:

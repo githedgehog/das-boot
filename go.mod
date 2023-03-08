@@ -4,11 +4,13 @@ go 1.20
 
 require (
 	github.com/0x5a17ed/uefi v0.6.1-0.20221119083023-4a7cfcbe0439
+	github.com/go-chi/chi/v5 v5.0.8
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/urfave/cli/v2 v2.24.4
 	go.uber.org/zap v1.24.0
 	golang.org/x/sys v0.5.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 replace github.com/0x5a17ed/uefi => github.com/githedgehog/uefi v0.0.0-20230222015501-96f18acf01ad
