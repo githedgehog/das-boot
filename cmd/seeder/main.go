@@ -16,7 +16,6 @@ import (
 
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 )
 
 var l = log.L()
@@ -62,7 +61,7 @@ func main() {
 		Action: func(ctx *cli.Context) error {
 			// display reference config if requested
 			if ctx.Bool("reference-config") {
-				b, err := yaml.Marshal(&ReferenceConfig)
+				b, err := marshalReferenceConfig()
 				if err != nil {
 					return err
 				}
