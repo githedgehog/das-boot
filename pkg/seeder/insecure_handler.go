@@ -25,6 +25,7 @@ func (s *seeder) insecureHandler() *chi.Mux {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
+	r.Use(AddResponseRequestID())
 	r.Use(middleware.Heartbeat("/healthz"))
 	r.Get("/onie-installer-{arch}", s.getStage0Artifact)
 	r.Get("/onie-installer", s.getStage0Artifact)
@@ -63,8 +64,12 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 		errorWithJSON(w, r, http.StatusInternalServerError, "failed to read artifact: %s", err)
 		return
 	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
 	ipamURL := url.URL{
-		Scheme: r.URL.Scheme,
+		Scheme: scheme,
 		Host:   r.Host,
 		Path:   ipamPath,
 	}
@@ -100,9 +105,18 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 	// our response will always be JSON
 	w.Header().Set("Content-Type", "application/json")
 
+	if r.ContentLength == 0 {
+		errorWithJSON(w, r, http.StatusBadRequest, "no request data")
+		return
+	}
+
 	var req ipam.Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errorWithJSON(w, r, http.StatusUnprocessableEntity, "failed to decode JSON request: %s", err)
+		errorWithJSON(w, r, http.StatusBadRequest, "failed to decode JSON request: %s", err)
+		return
+	}
+	if err := req.Validate(); err != nil {
+		errorWithJSON(w, r, http.StatusBadRequest, "request validation: %s", err)
 		return
 	}
 

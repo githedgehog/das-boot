@@ -20,10 +20,20 @@ type Settings struct {
 
 var (
 	ErrUnsupportedArch = errors.New("ipam: unsupported architecture")
+	ErrInvalidUUID     = errors.New("ipam: invalid uuid")
+	ErrEmptyValue      = errors.New("ipam: empty value")
 )
 
 func unsupportedArchError(str string) error {
 	return fmt.Errorf("%w: %s", ErrUnsupportedArch, str)
+}
+
+func invalidUUIDError(str string, err error) error {
+	return fmt.Errorf("%w: %s: %w", ErrInvalidUUID, str, err)
+}
+
+func emptyValueError(str string) error {
+	return fmt.Errorf("%w: %s", ErrEmptyValue, str)
 }
 
 // ProcessRequest processes an IPAM request and delivers back a response object.
