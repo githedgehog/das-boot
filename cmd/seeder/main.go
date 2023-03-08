@@ -53,11 +53,10 @@ func main() {
 				Usage: "prints a reference config to stdout and exits",
 			},
 			&cli.PathFlag{
-				Name:     "config",
-				Aliases:  []string{"c"},
-				Usage:    "load configuration from `FILE`",
-				Value:    "/etc/hedgehog/seeder/config.yaml",
-				Required: true,
+				Name:    "config",
+				Aliases: []string{"c"},
+				Usage:   "load configuration from `FILE`",
+				Value:   "/etc/hedgehog/seeder/config.yaml",
 			},
 		},
 		Action: func(ctx *cli.Context) error {
