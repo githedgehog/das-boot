@@ -1,9 +1,10 @@
 VERSION := $(shell git describe --all --tags --long)
 
-MKFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 's#/$$##')
 BUILD_DIR := $(MKFILE_DIR)/build
 BUILD_ARTIFACTS_DIR := $(BUILD_DIR)/artifacts
 BUILD_COVERAGE_DIR := $(BUILD_DIR)/coverage
+DEV_DIR := $(MKFILE_DIR)/dev
 
 SRC_COMMON := $(shell find $(MKFILE_DIR)/pkg -type f -name "*.go")
 SRC_HHDEVID := $(shell find $(MKFILE_DIR)/cmd/hhdevid -type f -name "*.go")
@@ -17,6 +18,18 @@ SEEDER_ARTIFACTS_DIR := $(MKFILE_DIR)/pkg/seeder/artifacts/embedded/artifacts
 SEEDER_DEPS := $(SEEDER_ARTIFACTS_DIR)/stage0-amd64  $(SEEDER_ARTIFACTS_DIR)/stage0-arm64  $(SEEDER_ARTIFACTS_DIR)/stage0-arm
 SEEDER_DEPS += $(SEEDER_ARTIFACTS_DIR)/stage1-amd64  $(SEEDER_ARTIFACTS_DIR)/stage1-arm64  $(SEEDER_ARTIFACTS_DIR)/stage1-arm
 SEEDER_DEPS += $(SEEDER_ARTIFACTS_DIR)/stage2-amd64  $(SEEDER_ARTIFACTS_DIR)/stage2-arm64  $(SEEDER_ARTIFACTS_DIR)/stage2-arm
+
+DEV_FILES := $(DEV_DIR)/client-ca-cert.pem
+DEV_FILES += $(DEV_DIR)/client-ca-key.pem
+DEV_FILES += $(DEV_DIR)/config-ca-cert.pem
+DEV_FILES += $(DEV_DIR)/config-ca-key.pem
+DEV_FILES += $(DEV_DIR)/config-cert.pem
+DEV_FILES += $(DEV_DIR)/config-key.pem
+DEV_FILES += $(DEV_DIR)/seeder.yaml
+DEV_FILES += $(DEV_DIR)/server-ca-cert.pem
+DEV_FILES += $(DEV_DIR)/server-ca-key.pem
+DEV_FILES += $(DEV_DIR)/server-cert.pem
+DEV_FILES += $(DEV_DIR)/server-key.pem
 
 all: generate build
 
@@ -169,3 +182,12 @@ generate:
 install-deps:
 	@echo "Installing mockgen..."
 	go install github.com/golang/mock/mockgen@latest
+
+dev-init-seeder: $(DEV_FILES)
+
+$(DEV_FILES) &:
+	$(MKFILE_DIR)/scripts/init_seeder_dev.sh
+
+.PHONY: dev-run-seeder
+dev-run-seeder: dev-init-seeder seeder
+	$(BUILD_ARTIFACTS_DIR)/seeder --config $(DEV_DIR)/seeder.yaml
