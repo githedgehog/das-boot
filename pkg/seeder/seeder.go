@@ -117,12 +117,15 @@ func New(config *Config) (Interface, error) {
 
 func (s *seeder) Start() {
 	// fire up our servers
+	var wg sync.WaitGroup
+	wg.Add(2)
 	if s.insecureServer != nil {
 		go s.insecureServer.Start()
 		go func() {
 			for {
 				err, ok := <-s.insecureServer.Err()
 				if !ok {
+					wg.Done()
 					return
 				}
 				s.err <- err
@@ -136,6 +139,7 @@ func (s *seeder) Start() {
 			for {
 				err, ok := <-s.secureServer.Err()
 				if !ok {
+					wg.Done()
 					return
 				}
 				s.err <- err
@@ -151,6 +155,7 @@ func (s *seeder) Start() {
 		if s.secureServer != nil {
 			<-s.secureServer.Done()
 		}
+		wg.Wait()
 		close(s.done)
 		close(s.err)
 	}()

@@ -139,8 +139,10 @@ func main() {
 						l.Info("seeder shutdown complete")
 						wg.Done()
 					}(ctx, cancel)
-				case err := <-s.Err():
-					l.Error("error from seeder", zap.Error(err))
+				case err, ok := <-s.Err():
+					if ok {
+						l.Error("error from seeder", zap.Error(err))
+					}
 				case <-s.Done():
 					l.Info("Seeder stopped")
 					break mainLoop
