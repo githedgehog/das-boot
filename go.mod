@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/0x5a17ed/uefi v0.6.1-0.20221119083023-4a7cfcbe0439
+	github.com/beevik/ntp v0.3.0
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
@@ -18,7 +19,6 @@ replace github.com/0x5a17ed/uefi => github.com/githedgehog/uefi v0.0.0-202302220
 
 require (
 	github.com/0x5a17ed/itkit v0.6.0 // indirect
-	github.com/beevik/ntp v0.3.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
