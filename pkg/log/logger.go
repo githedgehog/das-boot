@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -110,7 +111,7 @@ func NewSerialConsole(level zapcore.Level, format string, development bool) (*za
 	return cfg.Build()
 }
 
-func NewSyslog(level zapcore.Level, development bool, server string, facility syslog.Priority) (*zap.Logger, error) {
+func NewSyslog(ctx context.Context, level zapcore.Level, development bool, facility syslog.Priority, server string, writerOptions ...syslog.WriterOption) (*zap.Logger, error) {
 	// we enable callers, stacktraces and functions in development mode only
 	callerKey := zapcore.OmitKey
 	stacktraceKey := zapcore.OmitKey
@@ -157,7 +158,11 @@ func NewSyslog(level zapcore.Level, development bool, server string, facility sy
 		App:      app,
 	})
 
-	sink, err := syslog.NewConnSyncer("udp", server+":514")
+	dialAddr := server
+	if !strings.Contains(dialAddr, ":") {
+		dialAddr = server + ":514"
+	}
+	sink, err := syslog.NewUDPWriter(ctx, dialAddr, writerOptions...)
 	if err != nil {
 		return nil, err
 	}
