@@ -187,7 +187,11 @@ func (w *Writer) Sync() error {
 }
 
 func (w *Writer) loop(ctx context.Context) {
-	defer close(w.recvCh)
+	defer func() {
+		w.syncLock.Lock()
+		close(w.recvCh)
+		w.syncLock.Unlock()
+	}()
 
 	for {
 		var conn net.Conn = nil
