@@ -17,5 +17,6 @@
 /test/mock/mockpartitions/mocklocation/api_mock.go
 /test/mock/mockuefi/uefi_mock_efictx.go
 /test/integration/integ-disk/integ-disk
+/test/integration/integ-log/integ-log
 /test/integration/integ-netdev/integ-netdev
 /test/integration/integ-ntp/integ-ntp
