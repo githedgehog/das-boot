@@ -265,3 +265,77 @@ func TestWriter_Write(t *testing.T) {
 		})
 	}
 }
+
+func TestWriter_Sync(t *testing.T) {
+	tests := []struct {
+		name    string
+		options func(t *testing.T, ctrl *gomock.Controller) []WriterOption
+		pre     func(t *testing.T, w *Writer)
+		wantErr bool
+	}{
+		{
+			name: "success nothing queued",
+		},
+		{
+			name: "success slow dequeue",
+			options: func(t *testing.T, ctrl *gomock.Controller) []WriterOption {
+				conn := mocknet.NewMockConn(ctrl)
+				conn.EXPECT().SetWriteDeadline(gomock.Any()).AnyTimes()
+				conn.EXPECT().Write(gomock.Any()).AnyTimes()
+				conn.EXPECT().Close().AnyTimes()
+				connect := func(ctx context.Context, connTimeout time.Duration, addr string, internalLogger *zap.Logger) net.Conn {
+					// wait a couple of sync polls before connecting
+					time.Sleep(syncPollTimeout * 2)
+					return conn
+				}
+				return []WriterOption{
+					BufferMsgs(2),
+					ConnectFunction(connect),
+				}
+			},
+			pre: func(t *testing.T, w *Writer) {
+				// queue some messages for syncing
+				w.recvCh <- []byte("msg1")
+				w.recvCh <- []byte("msg2")
+			},
+		},
+		{
+			name: "sync timeout",
+			options: func(t *testing.T, ctrl *gomock.Controller) []WriterOption {
+				return []WriterOption{
+					BufferMsgs(2),
+					SyncTimeout(syncPollTimeout * 2),
+					ConnectFunction(func(ctx context.Context, connTimeout time.Duration, addr string, internalLogger *zap.Logger) net.Conn {
+						// never connect
+						return nil
+					}),
+				}
+			},
+			pre: func(t *testing.T, w *Writer) {
+				// queue some messages for syncing
+				w.recvCh <- []byte("msg1")
+				w.recvCh <- []byte("msg2")
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			var opts []WriterOption
+			if tt.options != nil {
+				opts = tt.options(t, ctrl)
+			}
+			w := NewWriter(ctx, "", opts...)
+			if tt.pre != nil {
+				tt.pre(t, w)
+			}
+			if err := w.Sync(); (err != nil) != tt.wantErr {
+				t.Errorf("Writer.Sync() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

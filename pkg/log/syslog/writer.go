@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -16,12 +17,14 @@ const (
 	DefaultBufferMsgs        = 100
 	DefaultConnectionTimeout = time.Second * 5
 	DefaultWriteTimeout      = time.Second * 5
+	DefaultSyncTimeout       = time.Second * 10
 )
 
 var (
 	ErrInvalidIPAddressPort = errors.New("syslog: invalid IP address or port")
 	ErrBufferFull           = errors.New("syslog: buffer full")
 	ErrWriterClosed         = errors.New("syslog: writer closed")
+	ErrSyncTimeout          = errors.New("syslog: sync timeout expired")
 )
 
 func writerClosedError(e any) error {
@@ -67,6 +70,15 @@ func WriteTimeout(d time.Duration) WriterOption {
 	}
 }
 
+// SyncTimeout allows to change the maximum amount of time that an internal call to `Sync()` can take before it will
+// return with an error. This allows to gracefully sync all buffered messages, but still provide that functionality
+// with a reasonable timeout.
+func SyncTimeout(d time.Duration) WriterOption {
+	return func(w *Writer) {
+		w.syncTimeout = d
+	}
+}
+
 // ConnectFunction allows to replace the default connection function which is using syslog UDP. The passed connection
 // timeout is derived from ConnectionTimeout option. It is up to the implementor to decide what arguments to use
 // reuse.
@@ -87,8 +99,14 @@ type Writer struct {
 	connect        ConnectFunc
 	connTimeout    time.Duration
 	writeTimeout   time.Duration
+	syncTimeout    time.Duration
 	recvCh         chan []byte
 	internalLogger *zap.Logger
+	// we're making use of a RWLock here even though this has nothing to do with ReadWrite
+	// however, the use-case fits exactly what we need a RWLock for:
+	// - multiple `Write()` calls are read locked
+	// - while a `Sync()` call needs to acquire a write lock
+	syncLock sync.RWMutex
 }
 
 // NewWriter returns a new network-based zap WriteSyncer for syslog messages. If a `ConnectionFunction` is missing in
@@ -105,6 +123,7 @@ func NewWriter(ctx context.Context, dialAddr string, options ...WriterOption) *W
 		recvCh:       make(chan []byte, DefaultBufferMsgs),
 		connTimeout:  DefaultConnectionTimeout,
 		writeTimeout: DefaultWriteTimeout,
+		syncTimeout:  DefaultSyncTimeout,
 	}
 
 	// apply options
@@ -120,6 +139,8 @@ func NewWriter(ctx context.Context, dialAddr string, options ...WriterOption) *W
 
 // Write implements zapcore.WriteSyncer
 func (w *Writer) Write(p []byte) (n int, err error) {
+	w.syncLock.RLock()
+	defer w.syncLock.RUnlock()
 	defer func() {
 		if e := recover(); e != nil {
 			err = writerClosedError(e)
@@ -133,10 +154,36 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 	}
 }
 
+const syncPollTimeout = time.Millisecond * 10
+
 // Sync implements zapcore.WriteSyncer
-func (*Writer) Sync() error {
-	// TODO: should get a draining logic which is what this function is good for
-	return nil
+func (w *Writer) Sync() error {
+	w.syncLock.Lock()
+	defer w.syncLock.Unlock()
+
+	// short circuit if really nothing needs to happen
+	if len(w.recvCh) == 0 {
+		return nil
+	}
+
+	// otherwise fire a sync timeout
+	// and regularly poll for updates
+	ch := make(chan struct{})
+	go func() {
+		<-time.After(w.syncTimeout)
+		close(ch)
+	}()
+
+	for {
+		select {
+		case <-ch:
+			return ErrSyncTimeout
+		case <-time.After(syncPollTimeout):
+			if len(w.recvCh) == 0 {
+				return nil
+			}
+		}
+	}
 }
 
 func (w *Writer) loop(ctx context.Context) {
