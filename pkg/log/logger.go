@@ -116,9 +116,13 @@ func NewSyslog(ctx context.Context, level zapcore.Level, development bool, facil
 	callerKey := zapcore.OmitKey
 	stacktraceKey := zapcore.OmitKey
 	functionKey := zapcore.OmitKey
+	// stacktraces aren't very pleasant in production - neither on the console nor in syslog
+	// so we essentially disable them except for panics and above
+	stackLevel := zapcore.PanicLevel
 	if development {
-		callerKey = "s"
-		stacktraceKey = "c"
+		stackLevel = zapcore.WarnLevel
+		callerKey = "c"
+		stacktraceKey = "s"
 		functionKey = "f"
 	}
 
@@ -168,6 +172,8 @@ func NewSyslog(ctx context.Context, level zapcore.Level, development bool, facil
 			zap.NewAtomicLevelAt(level),
 		),
 		zap.ErrorOutput(out),
+		zap.WithCaller(development),
+		zap.AddStacktrace(stackLevel),
 	)
 
 	return logger, nil
