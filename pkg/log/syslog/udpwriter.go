@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -27,45 +28,56 @@ func writerClosedError(e any) error {
 	return fmt.Errorf("%w: %v", ErrWriterClosed, e)
 }
 
-type WriterOption func(*UDPWriter)
+//go:generate mockgen -destination ../../../test/mock/mocknet/net_conn.go -package mocknet "net" Conn
+type ConnectFunc func(ctx context.Context, connTimeout time.Duration, addr string, internalLogger *zap.Logger) net.Conn
+
+type WriterOption func(*Writer)
 
 func BufferMsgs(no int) WriterOption {
-	return func(w *UDPWriter) {
+	return func(w *Writer) {
 		w.recvCh = make(chan []byte, no)
 	}
 }
 
 func InternalLogger(logger *zap.Logger) WriterOption {
-	return func(w *UDPWriter) {
+	return func(w *Writer) {
 		w.internalLogger = logger
 	}
 }
 
 func ConnectionTimeout(d time.Duration) WriterOption {
-	return func(w *UDPWriter) {
+	return func(w *Writer) {
 		w.connTimeout = d
 	}
 }
 
 func WriteTimeout(d time.Duration) WriterOption {
-	return func(w *UDPWriter) {
+	return func(w *Writer) {
 		w.writeTimeout = d
 	}
 }
 
-var _ zapcore.WriteSyncer = &UDPWriter{}
+func ConnectFunction(t ConnectFunc) WriterOption {
+	return func(w *Writer) {
+		w.connect = t
+	}
+}
 
-type UDPWriter struct {
+var _ zapcore.WriteSyncer = &Writer{}
+
+type Writer struct {
 	addr           string
+	connect        ConnectFunc
 	connTimeout    time.Duration
 	writeTimeout   time.Duration
 	recvCh         chan []byte
 	internalLogger *zap.Logger
 }
 
-func NewUDPWriter(ctx context.Context, dialAddr string, options ...WriterOption) (*UDPWriter, error) {
-	ret := &UDPWriter{
+func NewWriter(ctx context.Context, dialAddr string, options ...WriterOption) *Writer {
+	ret := &Writer{
 		addr:         dialAddr,
+		connect:      defaultUDPConnect,
 		recvCh:       make(chan []byte, DefaultBufferMsgs),
 		connTimeout:  DefaultConnectionTimeout,
 		writeTimeout: DefaultWriteTimeout,
@@ -79,11 +91,11 @@ func NewUDPWriter(ctx context.Context, dialAddr string, options ...WriterOption)
 	// start the processor
 	go ret.loop(ctx)
 
-	return ret, nil
+	return ret
 }
 
 // Write implements zapcore.WriteSyncer
-func (w *UDPWriter) Write(p []byte) (n int, err error) {
+func (w *Writer) Write(p []byte) (n int, err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = writerClosedError(e)
@@ -98,12 +110,12 @@ func (w *UDPWriter) Write(p []byte) (n int, err error) {
 }
 
 // Sync implements zapcore.WriteSyncer
-func (*UDPWriter) Sync() error {
+func (*Writer) Sync() error {
 	// TODO: should get a draining logic which is what this function is good for
 	return nil
 }
 
-func (w *UDPWriter) loop(ctx context.Context) {
+func (w *Writer) loop(ctx context.Context) {
 	defer close(w.recvCh)
 
 	for {
@@ -124,7 +136,7 @@ func (w *UDPWriter) loop(ctx context.Context) {
 			default:
 				// try to connect
 				beforeConnect := time.Now()
-				conn = w.connect(ctx)
+				conn = w.connect(ctx, w.connTimeout, w.addr, w.internalLogger)
 				if conn != nil {
 					break connectLoop
 				}
@@ -166,13 +178,22 @@ func (w *UDPWriter) loop(ctx context.Context) {
 	}
 }
 
-func (w *UDPWriter) connect(ctx context.Context) net.Conn {
+func defaultUDPConnect(ctx context.Context, connTimeout time.Duration, addr string, internalLogger *zap.Logger) net.Conn {
+	// check the address
+	// if it doesn't has a port, we'll add the default UDP port
+	if addr == "" {
+		return nil
+	}
+	dialAddr := addr
+	if !strings.Contains(addr, ":") {
+		dialAddr = addr + ":514"
+	}
 	d := &net.Dialer{}
-	subctx, cancel := context.WithTimeout(ctx, w.connTimeout)
+	subctx, cancel := context.WithTimeout(ctx, connTimeout)
 	defer cancel()
-	conn, err := d.DialContext(subctx, "udp", w.addr)
-	if err != nil && w.internalLogger != nil {
-		w.internalLogger.Error("connecting to syslog server", zap.Error(err))
+	conn, err := d.DialContext(subctx, "udp", dialAddr)
+	if err != nil && internalLogger != nil {
+		internalLogger.Error("connecting to syslog server", zap.Error(err))
 	}
 	return conn
 }

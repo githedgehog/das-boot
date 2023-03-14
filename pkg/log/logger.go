@@ -158,14 +158,7 @@ func NewSyslog(ctx context.Context, level zapcore.Level, development bool, facil
 		App:      app,
 	})
 
-	dialAddr := server
-	if !strings.Contains(dialAddr, ":") {
-		dialAddr = server + ":514"
-	}
-	sink, err := syslog.NewUDPWriter(ctx, dialAddr, writerOptions...)
-	if err != nil {
-		return nil, err
-	}
+	sink := syslog.NewWriter(ctx, server, writerOptions...)
 	out := zapcore.Lock(sink)
 
 	logger := zap.New(

@@ -12,6 +12,7 @@
 /test/mock/mockio/io_readwritecloser.go
 /test/mock/mockio/mockfs/fs_fileinfo.go
 /test/mock/mockio/mockfs/fs_direntry.go
+/test/mock/mocknet/net_conn.go
 /test/mock/mockpartitions/fs_mock.go
 /test/mock/mockpartitions/mocklocation/api_mock.go
 /test/mock/mockuefi/uefi_mock_efictx.go
