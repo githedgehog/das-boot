@@ -28,35 +28,48 @@ func writerClosedError(e any) error {
 	return fmt.Errorf("%w: %v", ErrWriterClosed, e)
 }
 
+// ConnectFunc is the connect function type which is being called by a `*Writer` internally when connecting to a
+// syslog server.
+//
 //go:generate mockgen -destination ../../../test/mock/mocknet/net_conn.go -package mocknet "net" Conn
 type ConnectFunc func(ctx context.Context, connTimeout time.Duration, addr string, internalLogger *zap.Logger) net.Conn
 
+// WriterOption is an option for the writer. Use those when creating the writer.
 type WriterOption func(*Writer)
 
+// BufferMsgs allows to change the buffer size. The buffer messages queued syslog messages - NOT message sizes
 func BufferMsgs(no int) WriterOption {
 	return func(w *Writer) {
 		w.recvCh = make(chan []byte, no)
 	}
 }
 
+// InternalLogger allows to pass a logger for the writer, to allow it to inform over writer internal errors
 func InternalLogger(logger *zap.Logger) WriterOption {
 	return func(w *Writer) {
 		w.internalLogger = logger
 	}
 }
 
+// ConnectionTimeout allows to change the default connection timeout to the server. Note that this is rather pointless
+// for the default implementation which connects to a UDP server (and therefore simply binds the address).
 func ConnectionTimeout(d time.Duration) WriterOption {
 	return func(w *Writer) {
 		w.connTimeout = d
 	}
 }
 
+// WriteTimeout allows to change the default write timeout to the server. Note that this is rather pointless for the
+// dfeault implementation which is UDP based. This is useful though if one passes one's own `ConnectFunction`.
 func WriteTimeout(d time.Duration) WriterOption {
 	return func(w *Writer) {
 		w.writeTimeout = d
 	}
 }
 
+// ConnectFunction allows to replace the default connection function which is using syslog UDP. The passed connection
+// timeout is derived from ConnectionTimeout option. It is up to the implementor to decide what arguments to use
+// reuse.
 func ConnectFunction(t ConnectFunc) WriterOption {
 	return func(w *Writer) {
 		w.connect = t
@@ -65,6 +78,10 @@ func ConnectFunction(t ConnectFunc) WriterOption {
 
 var _ zapcore.WriteSyncer = &Writer{}
 
+// Writer is a network-based zap WriteSyncer. It buffers writes and writes them to a network destination on its own
+// speed. Note that write failures or partially written messages are *NOT* being retried, and will simply be discarded.
+// Similarly to an overflowing buffer which will fail to the zap API with an error, but it will not recover log messages
+// that have failed to being queued.
 type Writer struct {
 	addr           string
 	connect        ConnectFunc
@@ -74,6 +91,13 @@ type Writer struct {
 	internalLogger *zap.Logger
 }
 
+// NewWriter returns a new network-based zap WriteSyncer for syslog messages. If a `ConnectionFunction` is missing in
+// the `options`, then this is trying to attempt to write UDP-based syslog messages to `dialAddr` which can be an IP
+// address or a hostname. If `dialAddr` is not specifying a port by separating it with a colon, then the default
+// implementation of the connect function will append `:514` to `dialAddr`.
+// This function cannot fail, and all retry mechanisms are internally to the writer. For example, temporary write
+// failures will try to reestablish a new connection to the same `dialAddr`. See the documentation for `Writer` on
+// message delivery guarantees (which are essentially not in place on purpose).
 func NewWriter(ctx context.Context, dialAddr string, options ...WriterOption) *Writer {
 	ret := &Writer{
 		addr:         dialAddr,
