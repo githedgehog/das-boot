@@ -19,6 +19,7 @@ var (
 	ErrNoServers              = errors.New("ntp: empty server list")
 	ErrNTPQueriesUnsuccessful = errors.New("ntp: all query attempts unsuccessful")
 	ErrUpdateSystemClock      = errors.New("ntp: updating system clock")
+	ErrHWClockSync            = errors.New("ntp: syncing system clock with hardware clock")
 )
 
 func updateSystemClockError(err error) error {
