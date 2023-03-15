@@ -47,7 +47,7 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute the "standard" getStageArtifact handler now
-	s.getStageArtifact("stage0", s.embedStage0Config)(w, r)
+	s.getStageArtifact("stage0", s.stage0Authz, s.embedStage0Config)(w, r)
 }
 
 var stage0Fallback = []byte(`#!/bin/sh
@@ -56,6 +56,12 @@ echo "ERROR: Hedgehog SONiC is not supported on this platform ($onie_platform)" 
 
 exit 1
 `)
+
+func (s *seeder) stage0Authz(*http.Request) error {
+	// stage 0 is literally the *only* artifact which does *not* require any other
+	// additional authorization
+	return nil
+}
 
 func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []byte) ([]byte, error) {
 	scheme := "http"
