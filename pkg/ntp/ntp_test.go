@@ -3,14 +3,25 @@ package ntp
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"syscall"
 	"testing"
+	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 func TestSyncClock(t *testing.T) {
 	canceledCtx, canceledCtxCancel := context.WithCancel(context.Background())
 	canceledCtxCancel()
 	errSettimeofday := errors.New("settimeofday() failed")
+	tempFile, err := os.CreateTemp("", "TestSyncClock-")
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(tempFile.Name())
+
 	type args struct {
 		ctx     context.Context
 		servers []string
@@ -21,6 +32,9 @@ func TestSyncClock(t *testing.T) {
 		wantErr             bool
 		wantErrToBe         error
 		syscallSettimeofday func(tv *syscall.Timeval) error
+		unixIoctlGetRTCTime func(fd int) (*unix.RTCTime, error)
+		unixIoctlSetRTCTime func(fd int, value *unix.RTCTime) error
+		osOpen              func(name string) (*os.File, error)
 	}{
 		{
 			name: "success",
@@ -33,6 +47,16 @@ func TestSyncClock(t *testing.T) {
 			},
 			syscallSettimeofday: func(tv *syscall.Timeval) error {
 				// simulate success here
+				return nil
+			},
+			osOpen: func(name string) (*os.File, error) {
+				return tempFile, nil
+			},
+			unixIoctlGetRTCTime: func(int) (*unix.RTCTime, error) {
+				t := time.Now().Add(-60 * time.Second)
+				return timeToRTCTime(&t), nil
+			},
+			unixIoctlSetRTCTime: func(fd int, value *unix.RTCTime) error {
 				return nil
 			},
 		},
@@ -48,6 +72,17 @@ func TestSyncClock(t *testing.T) {
 			syscallSettimeofday: func(tv *syscall.Timeval) error {
 				// simulate failure here
 				return errSettimeofday
+			},
+			osOpen: func(name string) (*os.File, error) {
+				// should not reach here
+				return nil, fmt.Errorf("in os.Open even though we should not be here")
+			},
+			unixIoctlGetRTCTime: func(fd int) (*unix.RTCTime, error) {
+				// should not reach here
+				return nil, fmt.Errorf("in unix.IoctlGetRTCTime even though we should not be here")
+			},
+			unixIoctlSetRTCTime: func(fd int, value *unix.RTCTime) error {
+				return fmt.Errorf("in unix.IoctlSetRTCTime even though we should not be here")
 			},
 			wantErr:     true,
 			wantErrToBe: errSettimeofday,
@@ -66,6 +101,17 @@ func TestSyncClock(t *testing.T) {
 			syscallSettimeofday: func(tv *syscall.Timeval) error {
 				return nil
 			},
+			osOpen: func(name string) (*os.File, error) {
+				// should not reach here
+				return nil, fmt.Errorf("in os.Open even though we should not be here")
+			},
+			unixIoctlGetRTCTime: func(fd int) (*unix.RTCTime, error) {
+				// should not reach here
+				return nil, fmt.Errorf("in unix.IoctlGetRTCTime even though we should not be here")
+			},
+			unixIoctlSetRTCTime: func(fd int, value *unix.RTCTime) error {
+				return fmt.Errorf("in unix.IoctlSetRTCTime even though we should not be here")
+			},
 		},
 		{
 			name: "no servers",
@@ -79,6 +125,17 @@ func TestSyncClock(t *testing.T) {
 			syscallSettimeofday: func(tv *syscall.Timeval) error {
 				return nil
 			},
+			osOpen: func(name string) (*os.File, error) {
+				// should not reach here
+				return nil, fmt.Errorf("in os.Open even though we should not be here")
+			},
+			unixIoctlGetRTCTime: func(fd int) (*unix.RTCTime, error) {
+				// should not reach here
+				return nil, fmt.Errorf("in unix.IoctlGetRTCTime even though we should not be here")
+			},
+			unixIoctlSetRTCTime: func(fd int, value *unix.RTCTime) error {
+				return fmt.Errorf("in unix.IoctlSetRTCTime even though we should not be here")
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -91,6 +148,27 @@ func TestSyncClock(t *testing.T) {
 					syscallSettimeofday = oldSyscallSettimeofday
 				}()
 				syscallSettimeofday = tt.syscallSettimeofday
+			}
+			if tt.unixIoctlGetRTCTime != nil {
+				oldUnixIoctlGetRTCTime := unixIoctlGetRTCTime
+				defer func() {
+					unixIoctlGetRTCTime = oldUnixIoctlGetRTCTime
+				}()
+				unixIoctlGetRTCTime = tt.unixIoctlGetRTCTime
+			}
+			if tt.unixIoctlSetRTCTime != nil {
+				oldUnixIoctlSetRTCTime := unixIoctlSetRTCTime
+				defer func() {
+					unixIoctlSetRTCTime = oldUnixIoctlSetRTCTime
+				}()
+				unixIoctlSetRTCTime = tt.unixIoctlSetRTCTime
+			}
+			if tt.osOpen != nil {
+				oldOsOpen := osOpen
+				defer func() {
+					osOpen = oldOsOpen
+				}()
+				osOpen = tt.osOpen
 			}
 			err := SyncClock(ctx, tt.args.servers)
 			if (err != nil) != tt.wantErr {
