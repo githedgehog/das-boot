@@ -80,8 +80,7 @@ func runStage0(ctx *cli.Context) error {
 		}
 	}
 
-	// set up logging
-	// CLI flags
+	// CLI flags for log settings
 	var syslogServers []string
 	syslogServer := ctx.String("syslog-server")
 	if syslogServer != "" {
