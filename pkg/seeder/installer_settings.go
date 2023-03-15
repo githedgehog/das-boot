@@ -52,6 +52,22 @@ func (lis *loadedInstallerSettings) stage1URL(arch string) string {
 	return (&url.URL{
 		Scheme: "https",
 		Host:   lis.secureServerName,
-		Path:   path.Join(stage1PathBase, arch),
+		Path:   path.Join("/", stage1PathBase, arch),
+	}).String()
+}
+
+func (lis *loadedInstallerSettings) stage2URL(arch string) string {
+	return (&url.URL{
+		Scheme: "https",
+		Host:   lis.secureServerName,
+		Path:   path.Join("/", stage2PathBase, arch),
+	}).String()
+}
+
+func (lis *loadedInstallerSettings) registerURL() string {
+	return (&url.URL{
+		Scheme: "https",
+		Host:   lis.secureServerName,
+		Path:   path.Join("/", registerPath),
 	}).String()
 }

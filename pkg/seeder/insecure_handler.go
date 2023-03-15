@@ -1,10 +1,7 @@
 package seeder
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/url"
 
@@ -49,23 +46,18 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get the stage0 artifact
-	artifact := "stage0-" + archParam
-	f := s.artifactsProvider.Get(artifact)
-	if f == nil {
-		w.Header().Set("Content-Type", "application/json")
-		errorWithJSON(w, r, http.StatusNotFound, "artifact '%s' not found", artifact)
-		return
-	}
-	defer f.Close()
+	// execute the "standard" getStageArtifact handler now
+	s.getStageArtifact("stage0", s.embedStage0Config)(w, r)
+}
 
-	// generate an embedded config for it
-	artifactBytes, err := io.ReadAll(f)
-	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		errorWithJSON(w, r, http.StatusInternalServerError, "failed to read artifact: %s", err)
-		return
-	}
+var stage0Fallback = []byte(`#!/bin/sh
+
+echo "ERROR: Hedgehog SONiC is not supported on this platform ($onie_platform)" 1>&2
+
+exit 1
+`)
+
+func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []byte) ([]byte, error) {
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
@@ -75,34 +67,12 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 		Host:   r.Host,
 		Path:   ipamPath,
 	}
-	signedArtifactWithConfig, err := s.ecg.Stage0(artifactBytes, &config0.Stage0{
+	return s.ecg.Stage0(artifactBytes, &config0.Stage0{
 		CA:          s.installerSettings.serverCADER,
 		SignatureCA: s.installerSettings.configSignatureCADER,
 		IPAMURL:     ipamURL.String(),
 	})
-	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		errorWithJSON(w, r, http.StatusInternalServerError, "failed to embed configuration: %s", err)
-		return
-	}
-	src := bufio.NewReader(bytes.NewBuffer(signedArtifactWithConfig))
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.WriteHeader(http.StatusOK)
-	if _, err := io.Copy(w, src); err != nil {
-		l.Error("failed to write artifact to HTTP response",
-			zap.String("request", middleware.GetReqID(r.Context())),
-			zap.String("artifact", artifact),
-			zap.Error(err),
-		)
-	}
 }
-
-var stage0Fallback = []byte(`#!/bin/sh
-
-echo "ERROR: Hedgehog SONiC is not supported on this platform ($onie_platform)" 1>&2
-
-exit 1
-`)
 
 func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 	// our response will always be JSON
