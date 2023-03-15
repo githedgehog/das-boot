@@ -3,7 +3,7 @@ package stage
 import (
 	"encoding/json"
 	"fmt"
-	"io"
+	"net/http"
 )
 
 // HTTPError is the error structure as it is always being returned for any unsuccessful HTTP requests
@@ -28,15 +28,34 @@ func (e *HTTPError) Is(target error) bool {
 	return ok
 }
 
-func NewHTTPError(statusCode int, body io.Reader) error {
+func NewHTTPErrorFromBody(resp *http.Response) error {
 	var v HTTPError
-	if err := json.NewDecoder(body).Decode(&v); err != nil {
+	reqID := "<unknown>"
+	if headerReqID := resp.Header.Get("Request-ID"); headerReqID != "" {
+		reqID = headerReqID
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
 		return &HTTPError{
-			StatusCode: statusCode,
-			ReqID:      "<unknown>",
+			StatusCode: resp.StatusCode,
+			ReqID:      reqID,
 			Err:        fmt.Sprintf("failed to parse HTTP error from body: %s", err),
 		}
 	}
-	v.StatusCode = statusCode
+	if v.ReqID == "" {
+		v.ReqID = reqID
+	}
+	v.StatusCode = resp.StatusCode
 	return &v
+}
+
+func NewHTTPErrorf(resp *http.Response, format string, args ...any) error {
+	reqID := "<unknown>"
+	if headerReqID := resp.Header.Get("Request-ID"); headerReqID != "" {
+		reqID = headerReqID
+	}
+	return &HTTPError{
+		StatusCode: resp.StatusCode,
+		ReqID:      reqID,
+		Err:        fmt.Sprintf(format, args...),
+	}
 }

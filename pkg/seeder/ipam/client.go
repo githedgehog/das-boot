@@ -43,7 +43,7 @@ func DoRequest(ctx context.Context, hc *http.Client, ipamReq *Request, ipamURL s
 	// parse response
 	// if it was an error, return as such
 	if httpResp.StatusCode != http.StatusOK {
-		return nil, stage.NewHTTPError(httpResp.StatusCode, httpResp.Body)
+		return nil, stage.NewHTTPErrorFromBody(httpResp)
 	}
 
 	// otherwise we parse it as an IPAM response

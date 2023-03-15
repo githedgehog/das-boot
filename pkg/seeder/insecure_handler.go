@@ -53,7 +53,8 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 	artifact := "stage0-" + archParam
 	f := s.artifactsProvider.Get(artifact)
 	if f == nil {
-		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		errorWithJSON(w, r, http.StatusNotFound, "artifact '%s' not found", artifact)
 		return
 	}
 	defer f.Close()
@@ -61,6 +62,7 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 	// generate an embedded config for it
 	artifactBytes, err := io.ReadAll(f)
 	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		errorWithJSON(w, r, http.StatusInternalServerError, "failed to read artifact: %s", err)
 		return
 	}
@@ -79,6 +81,7 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 		IPAMURL:     ipamURL.String(),
 	})
 	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		errorWithJSON(w, r, http.StatusInternalServerError, "failed to embed configuration: %s", err)
 		return
 	}
@@ -124,7 +127,8 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 		DNSServers:    s.installerSettings.dnsServers,
 		NTPServers:    s.installerSettings.ntpServers,
 		SyslogServers: s.installerSettings.syslogServers,
-		Stage1URL:     s.installerSettings.stage1URLBase(),
+		// as the architecture has been validated by this point, we can rely on this value
+		Stage1URL: s.installerSettings.stage1URL(req.Arch),
 	}
 	resp, err := ipam.ProcessRequest(r.Context(), set, s, &req)
 	if err != nil {
