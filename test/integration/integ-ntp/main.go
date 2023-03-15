@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"go.githedgehog.com/dasboot/pkg/log"
-	"go.githedgehog.com/dasboot/pkg/stage0/ntp"
+	"go.githedgehog.com/dasboot/pkg/ntp"
 	"go.githedgehog.com/dasboot/pkg/version"
 	"go.uber.org/zap"
 
