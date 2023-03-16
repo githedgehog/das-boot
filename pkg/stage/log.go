@@ -11,11 +11,11 @@ import (
 )
 
 type LogSettings struct {
-	Level          zapcore.Level
-	Development    bool
-	Format         string
-	SyslogServers  []string
-	SyslogFacility syslog.Priority
+	Level          zapcore.Level   `json:"level,omitempty"`
+	Development    bool            `json:"development,omitempty"`
+	Format         string          `json:"format,omitempty"`
+	SyslogServers  []string        `json:"syslog_servers,omitempty"`
+	SyslogFacility syslog.Priority `json:"syslog_facility,omitempty"`
 }
 
 func InitializeGlobalLogger(ctx context.Context, settings *LogSettings) error {
