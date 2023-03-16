@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
+	"time"
 
 	"go.githedgehog.com/dasboot/pkg/config"
 	"go.githedgehog.com/dasboot/pkg/devid"
@@ -21,6 +23,7 @@ import (
 	"go.githedgehog.com/dasboot/pkg/stage"
 	configstage "go.githedgehog.com/dasboot/pkg/stage0/config"
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 )
 
 var l = log.L()
@@ -87,6 +90,7 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	if err := stage.InitializeGlobalLogger(ctx, logSettings); err != nil {
 		return fmt.Errorf("stage0: failed to initialize logger: %w", err)
 	}
+	l = log.L()
 
 	// read the embedded configuration first
 	embedded, err := ReadConfig()
@@ -173,7 +177,7 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	return nil
 }
 
-func runWith(ctx context.Context, logSettings *stage.LogSettings, httpClient *http.Client, ipamResp *ipam.Response, netdev string, ipAddresses []string) error {
+func runWith(ctx context.Context, logSettings *stage.LogSettings, httpClient *http.Client, ipamResp *ipam.Response, netdev string, ipAddresses []string) (runWithErr error) {
 	// first things first: configure network interface
 	ipaddrnets, err := net.StringsToIPNets(ipAddresses)
 	if err != nil {
@@ -188,11 +192,56 @@ func runWith(ctx context.Context, logSettings *stage.LogSettings, httpClient *ht
 	localLogSettings.SyslogServers = ipamResp.SyslogServers
 	if err := stage.InitializeGlobalLogger(ctx, &localLogSettings); err != nil {
 		l.Warn("failed to reinitialize global logger with new settings", zap.Error(err))
+	} else {
+		l = log.L()
 	}
 
 	// now run NTP - we only fail if NTP fails, not if hardware clock sync fails
 	if err := ntp.SyncClock(ctx, ipamResp.NTPServers); err != nil && !errors.Is(err, ntp.ErrHWClockSync) {
 		return fmt.Errorf("failed to sync clock with NTP: %w", err)
+	}
+
+	// prepare staging area
+	stagingDir, err := os.MkdirTemp("", "das-boot-")
+	if err != nil {
+		// we can only reuse /tmp at this point
+		stagingDir = os.TempDir()
+		l.Warn("failed to create temporary directory, reusing system temporary directory, and not mounting a tmpfs either", zap.String("stagingDir", stagingDir))
+	} else {
+		// otherwise we mount a dedicated tmpfs
+		// and we will try to unmount it if this function returns with an error
+		if err := unix.Mount("das-boot", stagingDir, "tmpfs", 0, ""); err != nil {
+			l.Warn("failed to mount tmpfs onto dedicated temporary staging directory", zap.String("stagingDir", stagingDir), zap.Error(err))
+			// we will try to clean up on error all files in here
+			defer func() {
+				if runWithErr != nil {
+					os.RemoveAll(stagingDir)
+				}
+			}()
+		} else {
+			// unmount staging dir and remove it
+			defer func() {
+				if runWithErr != nil {
+					if err := unix.Unmount(stagingDir, 0); err == nil {
+						os.Remove(stagingDir)
+					}
+				}
+			}()
+		}
+	}
+	if err := os.Chdir(stagingDir); err != nil {
+		// very silly that this could fail, but we cannot recover from this
+		return fmt.Errorf("failed to change directory to staging area directory: %s", stagingDir)
+	}
+	if err := os.Setenv("dasboot_staging_area", stagingDir); err != nil {
+		// very silly that this could fail, but we cannot recover from this
+		return fmt.Errorf("failed to set 'dasboot_staging_area' environment variable: %w", err)
+	}
+
+	// now try to download stage 1
+	stage1Path := filepath.Join(stagingDir, "stage1")
+	if err := stage.DownloadExecutable(ctx, httpClient, ipamResp.Stage1URL, stage1Path, 60*time.Second); err != nil {
+		return fmt.Errorf("downloading stage 1 failed: %w", err)
 	}
 
 	return nil
