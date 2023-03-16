@@ -51,12 +51,9 @@ func SyncClock(ctx context.Context, servers []string) error {
 	}
 
 	// now set the system clock
-	tv := syscall.Timeval{
-		Sec:  t.Unix(), // might be int32 on 32 bit architectures
-		Usec: t.UnixNano() / 1000 % 1000,
-	}
+	tv := TimevalFromTime(t)
 	l.Info("Updating system time with time from NTP server", zap.Timep("ntp", t), zap.Time("systemTime", time.Now()))
-	if err := syscallSettimeofday(&tv); err != nil {
+	if err := syscallSettimeofday(tv); err != nil {
 		return updateSystemClockError(err)
 	}
 
