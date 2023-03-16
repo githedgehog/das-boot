@@ -148,8 +148,8 @@ func GenerateExecutableWithEmbeddedConfig(exe []byte, c EmbeddedConfig, key *ecd
 	}
 
 	// ensure the configuration is not too big
-	contentBytesSize := len(contentBytes)
-	if contentBytesSize > math.MaxUint32 {
+	contentBytesSize := uint(len(contentBytes))
+	if contentBytesSize > uint(math.MaxUint32) {
 		return nil, ErrConfigTooLarge
 	}
 
