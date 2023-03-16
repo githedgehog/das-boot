@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
+	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/log/syslog"
 	"go.githedgehog.com/dasboot/pkg/stage"
 	"go.githedgehog.com/dasboot/pkg/stage0"
@@ -11,6 +13,7 @@ import (
 	"go.githedgehog.com/dasboot/pkg/version"
 
 	"github.com/urfave/cli/v2"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -22,9 +25,9 @@ var (
 func main() {
 	app := &cli.App{
 		Name:                 "stage0",
-		Usage:                "configures system network and basic operating functionalities",
+		Usage:                "configures system network and basic operating system functionalities",
 		UsageText:            "stage0",
-		Description:          "Should be running in ONIE, and is the first of a series of installer stages withing DAS BOOT",
+		Description:          "Should be running in ONIE, and is the first of a series of installer stages within DAS BOOT",
 		Version:              version.Version,
 		EnableBashCompletion: true,
 		Flags: []cli.Flag{
@@ -63,6 +66,9 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
+		if errors.Is(err, stage0.ErrExecution) {
+			log.L().Fatal("runtime error", zap.Error(err))
+		}
 		fmt.Fprintf(os.Stderr, "FATAL: failed to run stage 0: %s\n", err)
 		os.Exit(1)
 	}
