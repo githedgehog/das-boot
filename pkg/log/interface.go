@@ -23,4 +23,5 @@ type Interface interface {
 	Panicf(template string, args ...interface{})
 	Fatal(msg string, fields ...zapcore.Field)
 	Fatalf(template string, args ...interface{})
+	Sync() error
 }

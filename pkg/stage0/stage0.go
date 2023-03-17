@@ -104,6 +104,11 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 		return fmt.Errorf("stage0: failed to initialize logger: %w", err)
 	}
 	l = log.L()
+	defer func() {
+		if err := l.Sync(); err != nil {
+			l.Debug("Flushing logger failed", zap.Error(err))
+		}
+	}()
 	stagingInfo.LogSettings = *logSettings
 	if err := stagingInfo.Export(); err != nil {
 		l.Warn("Failed to export staging area information", zap.Error(err))

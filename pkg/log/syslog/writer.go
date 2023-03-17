@@ -146,9 +146,17 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 			err = writerClosedError(e)
 		}
 	}()
+
+	// we need to copy out the message
+	// as the same pointer is being reused by zap
+	// this is the only way to really preserve the message
+	// because we are sending the pointers over a channel
+	send := make([]byte, len(p))
+	copy(send, p)
+
 	select {
-	case w.recvCh <- p:
-		return len(p), nil
+	case w.recvCh <- send:
+		return len(send), nil
 	default:
 		return 0, ErrBufferFull
 	}

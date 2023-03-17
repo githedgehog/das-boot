@@ -1,6 +1,8 @@
 package log
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -122,4 +124,30 @@ func (l *zapWrapperLogger) Warnf(template string, args ...interface{}) {
 	for _, sugaredLogger := range l.sugaredLoggers {
 		sugaredLogger.Warnf(template, args...)
 	}
+}
+
+func (l *zapWrapperLogger) Sync() error {
+	var errs []error
+	for _, logger := range l.loggers {
+		if err := logger.Sync(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	for _, sugaredLogger := range l.sugaredLoggers {
+		if err := sugaredLogger.Sync(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) > 0 {
+		reterr := errs[0]
+		if len(errs) > 1 {
+			for _, err := range errs[1:] {
+				reterr = fmt.Errorf("%w %w", reterr, err)
+			}
+		}
+		return reterr
+	}
+	return nil
 }
