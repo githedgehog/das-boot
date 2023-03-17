@@ -51,8 +51,8 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 		return nil, unsupportedArchError(req.Arch)
 	}
 
-	if !strings.HasSuffix(settings.Stage1URL, "/") {
-		settings.Stage1URL += "/"
+	if !strings.HasSuffix(settings.Stage1URL, arch) {
+		return nil, fmt.Errorf("invalid Stage 1 URL '%s', must end in '%s'", settings.Stage1URL, arch)
 	}
 
 	// MOCKED VALUES
@@ -65,7 +65,7 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 		DNSServers:    settings.DNSServers,
 		NTPServers:    settings.NTPServers,
 		SyslogServers: settings.SyslogServers,
-		Stage1URL:     settings.Stage1URL + arch,
+		Stage1URL:     settings.Stage1URL,
 	}, nil
 }
 
@@ -94,5 +94,5 @@ func nextIP() []string {
 
 	ip := net.IPv4(192, 168, 42, curIP)
 
-	return []string{ip.String()}
+	return []string{ip.String() + "/24"}
 }
