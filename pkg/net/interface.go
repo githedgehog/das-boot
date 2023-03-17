@@ -14,6 +14,20 @@ func notAVlanDeviceError(str string) error {
 	return fmt.Errorf("%w: %s", ErrNotAVlanDevice, str)
 }
 
+// StringsToIPNets is a convenience function to convert between the two formats
+func StringsToIPNets(ipaddrs []string) ([]*net.IPNet, error) {
+	var ipnets []*net.IPNet
+	for _, ipaddrstr := range ipaddrs {
+		ipaddr, ipnet, err := net.ParseCIDR(ipaddrstr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse IP address and netmask: %w", err)
+		}
+		ipnet.IP = ipaddr
+		ipnets = append(ipnets, ipnet)
+	}
+	return ipnets, nil
+}
+
 // AddVLANDeviceWithIP will create a new VLAN network interface called `vlanName` with VLAN ID `vid` and add it to
 // the parent network interface `device`. It will also add all IP addresses as given with `ipaddrnets`, and, last
 // but not least, it will set the interface UP.
@@ -74,4 +88,22 @@ func DeleteVLANDevice(device string) error {
 		return err
 	}
 	return nil
+}
+
+// GetInterfaces will return a list of interface names for all network interfaces which are "real devices".
+// Being a "real device" means that its netlink type is a "device" and its encapsulation type is "ether".
+func GetInterfaces() ([]string, error) {
+	ll, err := netlink.LinkList()
+	if err != nil {
+		return nil, err
+	}
+
+	var ret []string
+	for _, link := range ll {
+		la := link.Attrs()
+		if link.Type() == "device" && la.EncapType == "ether" {
+			ret = append(ret, la.Name)
+		}
+	}
+	return ret, nil
 }

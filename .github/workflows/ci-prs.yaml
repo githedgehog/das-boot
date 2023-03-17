@@ -1,10 +1,7 @@
 ---
-name: Continuous Integration (main branch + manual trigger)
+name: Continuous Integration (PRs)
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  pull_request:
 concurrency:
   group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
   cancel-in-progress: true
@@ -25,13 +22,14 @@ jobs:
         run: make generate
       - name: run builds
         run: make build
-      - name: Archive build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: build-artifacts
-          path: |
-            build/artifacts
-            !build/artifacts/.keepme
+      # NOTE: disable uploading of build artifacts in PRs
+      # - name: Archive build artifacts
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: build-artifacts
+      #     path: |
+      #       build/artifacts
+      #       !build/artifacts/.keepme
   test:
     runs-on: ubuntu-latest
     steps:

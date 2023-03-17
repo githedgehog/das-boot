@@ -28,51 +28,51 @@ type Stage0 struct {
 	// CA is a DER encoded root certificate with which server connections to the control plane must be validated.
 	// This can be empty if it is being dictated to be derived from attached USB sticks.
 	// Either must be present though.
-	CA []byte `json:"ca,omitempty"`
+	CA []byte `json:"ca,omitempty" yaml:"ca,omitempty"`
 
 	// OnieHeaders are the ONIE request headers as they were made by ONIE when downloading the stage 0 installer
-	OnieHeaders *OnieHeaders `json:"onie_headers,omitempty"`
+	OnieHeaders *OnieHeaders `json:"onie_headers,omitempty" yaml:"onie_headers,omitempty"`
 
 	// IPAMURL is the URL where the installer is going to get its IP and VLAN configuration from.
-	IPAMURL string `json:"ipam_url,omitempty"`
+	IPAMURL string `json:"ipam_url,omitempty" yaml:"ipam_url,omitempty"`
 
 	// SignatureCA holds the optional DER encoded CA certificate which signed 'signature_cert'. This should better
 	// be derived from a different place.
-	SignatureCA []byte `json:"signature_ca,omitempty"`
+	SignatureCA []byte `json:"signature_ca,omitempty" yaml:"signature_ca,omitempty"`
 
 	// SignatureCert holds the DER encoded X509 certificate with which the signature of the embedded config
 	// can be validated
-	SignatureCert []byte `json:"signature_cert,omitempty"`
+	SignatureCert []byte `json:"signature_cert,omitempty" yaml:"signature_cert,omitempty"`
 
 	// Version is tracking the format of this structure itself
-	Version config.ConfigVersion `json:"version,omitempty"`
+	Version config.ConfigVersion `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // OnieHeaders is being included by the control plane (seeder) when generating the
 type OnieHeaders struct {
 	// SerialNumber is the serial number as stored in the EEPROM
-	SerialNumber string `json:"ONIE-SERIAL-NUMBER,omitempty"`
+	SerialNumber string `json:"ONIE-SERIAL-NUMBER,omitempty" yaml:"ONIE-SERIAL-NUMBER,omitempty"`
 
 	// EthAddr is the management MAC address
-	EthAddr string `json:"ONIE-ETH-ADDR,omitempty"`
+	EthAddr string `json:"ONIE-ETH-ADDR,omitempty" yaml:"ONIE-ETH-ADDR,omitempty"`
 
 	// VendorID corresponds to the IANA enterprise number
-	VendorID uint `json:"ONIE-VENDOR-ID,omitempty"`
+	VendorID uint `json:"ONIE-VENDOR-ID,omitempty" yaml:"ONIE-VENDOR-ID,omitempty"`
 
 	// Machine represents vendor and machine as a string. The format is <vendor>_<machine>
-	Machine string `json:"ONIE-MACHINE,omitempty"`
+	Machine string `json:"ONIE-MACHINE,omitempty" yaml:"ONIE-MACHINE,omitempty"`
 
 	// MachineRev refers to the machine revision (<machine_revision> in ONIE docs). The number 0 is a valid machine revision.
-	MachineRev uint `json:"ONIE-MACHINE-REV"` // don't use omitempty here
+	MachineRev uint `json:"ONIE-MACHINE-REV" yaml:"ONIE-MACHINE-REV"` // don't use omitempty here
 
 	// Arch is the CPU architecture of the calling device. E.g. "x86_64"
-	Arch string `json:"ONIE-ARCH,omitempty"`
+	Arch string `json:"ONIE-ARCH,omitempty" yaml:"ONIE-ARCH,omitempty"`
 
 	// SecurityKey is the security key as can be set in ONIE.
-	SecurityKey string `json:"ONIE-SECURITY-KEY,omitempty"`
+	SecurityKey string `json:"ONIE-SECURITY-KEY,omitempty" yaml:"ONIE-SECURITY-KEY,omitempty"`
 
 	// Operation will be either "install" or "onie-update".
-	Operation string `json:"ONIE-OPERATION,omitempty"`
+	Operation string `json:"ONIE-OPERATION,omitempty" yaml:"ONIE-OPERATION,omitempty"`
 }
 
 // Cert implements config.EmbeddedConfig

@@ -3,6 +3,7 @@ package seeder
 import (
 	"fmt"
 	"net/url"
+	"path"
 )
 
 type loadedInstallerSettings struct {
@@ -47,10 +48,26 @@ func (s *seeder) initializeInstallerSettings(config *InstallerSettings) error {
 	return nil
 }
 
-func (lis *loadedInstallerSettings) stage1URLBase() string {
+func (lis *loadedInstallerSettings) stage1URL(arch string) string {
 	return (&url.URL{
 		Scheme: "https",
 		Host:   lis.secureServerName,
-		Path:   stage1PathBase,
+		Path:   path.Join("/", stage1PathBase, arch),
+	}).String()
+}
+
+func (lis *loadedInstallerSettings) stage2URL(arch string) string {
+	return (&url.URL{
+		Scheme: "https",
+		Host:   lis.secureServerName,
+		Path:   path.Join("/", stage2PathBase, arch),
+	}).String()
+}
+
+func (lis *loadedInstallerSettings) registerURL() string {
+	return (&url.URL{
+		Scheme: "https",
+		Host:   lis.secureServerName,
+		Path:   path.Join("/", registerPath),
 	}).String()
 }

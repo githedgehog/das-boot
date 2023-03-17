@@ -1,12 +1,10 @@
 package seeder
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -49,21 +47,28 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get the stage0 artifact
-	artifact := "stage0-" + archParam
-	f := s.artifactsProvider.Get(artifact)
-	if f == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	defer f.Close()
+	// execute the "standard" getStageArtifact handler now
+	s.getStageArtifact("stage0", s.stage0Authz, s.embedStage0Config)(w, r)
+}
 
-	// generate an embedded config for it
-	artifactBytes, err := io.ReadAll(f)
-	if err != nil {
-		errorWithJSON(w, r, http.StatusInternalServerError, "failed to read artifact: %s", err)
-		return
-	}
+var stage0Fallback = []byte(`#!/bin/sh
+
+source /etc/machine.conf
+echo "FATAL: Hedgehog SONiC is not supported on this platform ($onie_platform)" 1>&2
+
+exit 1
+`)
+
+func (s *seeder) stage0Authz(*http.Request) error {
+	// stage 0 is literally the *only* artifact which does *not* require any other
+	// additional authorization
+	return nil
+}
+
+func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []byte) ([]byte, error) {
+	// build IPAM URL
+	// we are going to send back the same host
+	// that we are using for serving this stage 0 artifact
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
@@ -73,33 +78,29 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 		Host:   r.Host,
 		Path:   ipamPath,
 	}
-	signedArtifactWithConfig, err := s.ecg.Stage0(artifactBytes, &config0.Stage0{
+	parseUint := func(s string) uint {
+		n, err := strconv.ParseUint(s, 0, 0)
+		if err != nil {
+			return 0
+		}
+		return uint(n)
+	}
+	return s.ecg.Stage0(artifactBytes, &config0.Stage0{
 		CA:          s.installerSettings.serverCADER,
 		SignatureCA: s.installerSettings.configSignatureCADER,
 		IPAMURL:     ipamURL.String(),
+		OnieHeaders: &config0.OnieHeaders{
+			SerialNumber: r.Header.Get("ONIE-SERIAL-NUMBER"),
+			EthAddr:      r.Header.Get("ONIE-ETH-ADDR"),
+			VendorID:     parseUint(r.Header.Get("ONIE-VENDOR-ID")),
+			Machine:      r.Header.Get("ONIE-MACHINE"),
+			MachineRev:   parseUint(r.Header.Get("ONIE-MACHINE-REV")),
+			Arch:         r.Header.Get("ONIE-ARCH"),
+			SecurityKey:  r.Header.Get("ONIE-SECURITY-KEY"),
+			Operation:    r.Header.Get("ONIE-OPERATION"),
+		},
 	})
-	if err != nil {
-		errorWithJSON(w, r, http.StatusInternalServerError, "failed to embed configuration: %s", err)
-		return
-	}
-	src := bufio.NewReader(bytes.NewBuffer(signedArtifactWithConfig))
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.WriteHeader(http.StatusOK)
-	if _, err := io.Copy(w, src); err != nil {
-		l.Error("failed to write artifact to HTTP response",
-			zap.String("request", middleware.GetReqID(r.Context())),
-			zap.String("artifact", artifact),
-			zap.Error(err),
-		)
-	}
 }
-
-var stage0Fallback = []byte(`#!/bin/sh
-
-echo "ERROR: Hedgehog SONiC is not supported on this platform ($onie_platform)" 1>&2
-
-exit 1
-`)
 
 func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 	// our response will always be JSON
@@ -124,7 +125,8 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 		DNSServers:    s.installerSettings.dnsServers,
 		NTPServers:    s.installerSettings.ntpServers,
 		SyslogServers: s.installerSettings.syslogServers,
-		Stage1URL:     s.installerSettings.stage1URLBase(),
+		// as the architecture has been validated by this point, we can rely on this value
+		Stage1URL: s.installerSettings.stage1URL(req.Arch),
 	}
 	resp, err := ipam.ProcessRequest(r.Context(), set, s, &req)
 	if err != nil {
