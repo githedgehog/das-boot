@@ -30,13 +30,15 @@ func (r *Request) Validate() error {
 	}
 
 	// location uuid
-	if _, err := uuid.Parse(r.LocationUUID); err != nil {
-		return invalidUUIDError("location_uuid", err)
-	}
+	if r.LocationUUID != "" {
+		if _, err := uuid.Parse(r.LocationUUID); err != nil {
+			return invalidUUIDError("location_uuid", err)
+		}
 
-	// location uuid signature
-	if len(r.LocationUUIDSignature) == 0 {
-		return emptyValueError("location_uuid_signature")
+		// location uuid signature
+		if len(r.LocationUUIDSignature) == 0 {
+			return emptyValueError("location_uuid_signature")
+		}
 	}
 
 	// interfaces
