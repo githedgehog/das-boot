@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -65,6 +66,9 @@ func (s *seeder) stage0Authz(*http.Request) error {
 }
 
 func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []byte) ([]byte, error) {
+	// build IPAM URL
+	// we are going to send back the same host
+	// that we are using for serving this stage 0 artifact
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
@@ -74,10 +78,27 @@ func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []by
 		Host:   r.Host,
 		Path:   ipamPath,
 	}
+	parseUint := func(s string) uint {
+		n, err := strconv.ParseUint(s, 0, 0)
+		if err != nil {
+			return 0
+		}
+		return uint(n)
+	}
 	return s.ecg.Stage0(artifactBytes, &config0.Stage0{
 		CA:          s.installerSettings.serverCADER,
 		SignatureCA: s.installerSettings.configSignatureCADER,
 		IPAMURL:     ipamURL.String(),
+		OnieHeaders: &config0.OnieHeaders{
+			SerialNumber: r.Header.Get("ONIE-SERIAL-NUMBER"),
+			EthAddr:      r.Header.Get("ONIE-ETH-ADDR"),
+			VendorID:     parseUint(r.Header.Get("ONIE-VENDOR-ID")),
+			Machine:      r.Header.Get("ONIE-MACHINE"),
+			MachineRev:   parseUint(r.Header.Get("ONIE-MACHINE-REV")),
+			Arch:         r.Header.Get("ONIE-ARCH"),
+			SecurityKey:  r.Header.Get("ONIE-SECURITY-KEY"),
+			Operation:    r.Header.Get("ONIE-OPERATION"),
+		},
 	})
 }
 
