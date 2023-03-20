@@ -19,17 +19,17 @@ SEEDER_DEPS := $(SEEDER_ARTIFACTS_DIR)/stage0-amd64  $(SEEDER_ARTIFACTS_DIR)/sta
 SEEDER_DEPS += $(SEEDER_ARTIFACTS_DIR)/stage1-amd64  $(SEEDER_ARTIFACTS_DIR)/stage1-arm64  $(SEEDER_ARTIFACTS_DIR)/stage1-arm
 SEEDER_DEPS += $(SEEDER_ARTIFACTS_DIR)/stage2-amd64  $(SEEDER_ARTIFACTS_DIR)/stage2-arm64  $(SEEDER_ARTIFACTS_DIR)/stage2-arm
 
-DEV_FILES := $(DEV_DIR)/client-ca-cert.pem
-DEV_FILES += $(DEV_DIR)/client-ca-key.pem
-DEV_FILES += $(DEV_DIR)/config-ca-cert.pem
-DEV_FILES += $(DEV_DIR)/config-ca-key.pem
-DEV_FILES += $(DEV_DIR)/config-cert.pem
-DEV_FILES += $(DEV_DIR)/config-key.pem
-DEV_FILES += $(DEV_DIR)/seeder.yaml
-DEV_FILES += $(DEV_DIR)/server-ca-cert.pem
-DEV_FILES += $(DEV_DIR)/server-ca-key.pem
-DEV_FILES += $(DEV_DIR)/server-cert.pem
-DEV_FILES += $(DEV_DIR)/server-key.pem
+DEV_FILES := $(DEV_DIR)/seeder/client-ca-cert.pem
+DEV_FILES += $(DEV_DIR)/seeder/client-ca-key.pem
+DEV_FILES += $(DEV_DIR)/seeder/config-ca-cert.pem
+DEV_FILES += $(DEV_DIR)/seeder/config-ca-key.pem
+DEV_FILES += $(DEV_DIR)/seeder/config-cert.pem
+DEV_FILES += $(DEV_DIR)/seeder/config-key.pem
+DEV_FILES += $(DEV_DIR)/seeder/seeder.yaml
+DEV_FILES += $(DEV_DIR)/seeder/server-ca-cert.pem
+DEV_FILES += $(DEV_DIR)/seeder/server-ca-key.pem
+DEV_FILES += $(DEV_DIR)/seeder/server-cert.pem
+DEV_FILES += $(DEV_DIR)/seeder/server-key.pem
 
 all: generate build
 
@@ -190,4 +190,4 @@ $(DEV_FILES) &:
 
 .PHONY: dev-run-seeder
 dev-run-seeder: dev-init-seeder seeder
-	$(BUILD_ARTIFACTS_DIR)/seeder --config $(DEV_DIR)/seeder.yaml
+	$(BUILD_ARTIFACTS_DIR)/seeder --config $(DEV_DIR)/seeder/seeder.yaml
