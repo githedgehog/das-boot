@@ -19,17 +19,17 @@ SEEDER_DEPS := $(SEEDER_ARTIFACTS_DIR)/stage0-amd64  $(SEEDER_ARTIFACTS_DIR)/sta
 SEEDER_DEPS += $(SEEDER_ARTIFACTS_DIR)/stage1-amd64  $(SEEDER_ARTIFACTS_DIR)/stage1-arm64  $(SEEDER_ARTIFACTS_DIR)/stage1-arm
 SEEDER_DEPS += $(SEEDER_ARTIFACTS_DIR)/stage2-amd64  $(SEEDER_ARTIFACTS_DIR)/stage2-arm64  $(SEEDER_ARTIFACTS_DIR)/stage2-arm
 
-DEV_FILES := $(DEV_DIR)/seeder/client-ca-cert.pem
-DEV_FILES += $(DEV_DIR)/seeder/client-ca-key.pem
-DEV_FILES += $(DEV_DIR)/seeder/config-ca-cert.pem
-DEV_FILES += $(DEV_DIR)/seeder/config-ca-key.pem
-DEV_FILES += $(DEV_DIR)/seeder/config-cert.pem
-DEV_FILES += $(DEV_DIR)/seeder/config-key.pem
-DEV_FILES += $(DEV_DIR)/seeder/seeder.yaml
-DEV_FILES += $(DEV_DIR)/seeder/server-ca-cert.pem
-DEV_FILES += $(DEV_DIR)/seeder/server-ca-key.pem
-DEV_FILES += $(DEV_DIR)/seeder/server-cert.pem
-DEV_FILES += $(DEV_DIR)/seeder/server-key.pem
+DEV_SEEDER_FILES := $(DEV_DIR)/seeder/client-ca-cert.pem
+DEV_SEEDER_FILES += $(DEV_DIR)/seeder/client-ca-key.pem
+DEV_SEEDER_FILES += $(DEV_DIR)/seeder/config-ca-cert.pem
+DEV_SEEDER_FILES += $(DEV_DIR)/seeder/config-ca-key.pem
+DEV_SEEDER_FILES += $(DEV_DIR)/seeder/config-cert.pem
+DEV_SEEDER_FILES += $(DEV_DIR)/seeder/config-key.pem
+DEV_SEEDER_FILES += $(DEV_DIR)/seeder/seeder.yaml
+DEV_SEEDER_FILES += $(DEV_DIR)/seeder/server-ca-cert.pem
+DEV_SEEDER_FILES += $(DEV_DIR)/seeder/server-ca-key.pem
+DEV_SEEDER_FILES += $(DEV_DIR)/seeder/server-cert.pem
+DEV_SEEDER_FILES += $(DEV_DIR)/seeder/server-key.pem
 
 .PHONY: help
 help: ## Display this help.
@@ -187,9 +187,9 @@ install-deps: ## Installs development tool dependencies
 	@echo "Installing mockgen..."
 	go install github.com/golang/mock/mockgen@latest
 
-dev-init-seeder: $(DEV_FILES) ## Generates development files (keys, certs, etc.pp.) for running the seeder locally
+dev-init-seeder: $(DEV_SEEDER_FILES) ## Generates development files (keys, certs, etc.pp.) for running the seeder locally
 
-$(DEV_FILES) &:
+$(DEV_SEEDER_FILES) &:
 	$(MKFILE_DIR)/scripts/init_seeder_dev.sh
 
 .PHONY: dev-run-seeder
