@@ -204,6 +204,15 @@ init-control-node: ## Prepares a QEMU VM to run the control node
 run-control-node: ## Runs the control node VM
 	$(MKFILE_DIR)/scripts/run_control_node.sh
 
+.PHONY: access-control-node-kubeconfig
+access-control-node-kubeconfig: ## Displays the kubeconfig to use to be able to reach the Kubernetes cluster (NOTE: 127.0.0.1 is fine, port-forwarding is used)
+	@ssh -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1 "sudo kubectl config view --raw=true" | tee $(DEV_DIR)/control-node-1/kubeconfig
+	@echo
+	@echo "NOTE: a copy is also stored now at $(DEV_DIR)/control-node-1/kubeconfig" 1>&2
+	@echo "Run the following command in your shell to get access to it immediately:" 1>&2
+	@echo 1>&2
+	@echo "export KUBECONFIG=\"$(DEV_DIR)/control-node-1/kubeconfig\"" 1>&2
+
 .PHONY: access-control-node-ssh
 access-control-node-ssh: ## SSH into control node VM
 	ssh -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1

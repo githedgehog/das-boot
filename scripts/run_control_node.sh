@@ -20,6 +20,7 @@ VM_UUID=$(<${DEV_DIR}/uuid)
 VM_NCPUS=4
 VM_MEMORY=8192
 SSH_PORT=2201
+KUBE_PORT=6443
 
 # run the TPM in the background if it is not already running
 if ! [ -f $DEV_DIR/tpm.pid ]; then
@@ -58,13 +59,17 @@ echo "     vncviewer unix $DEV_DIR/vnc.sock"
 echo
 echo "3. SSH:"
 echo "     make access-control-node-ssh"
-echo "     ssh -i core-ssh-key -p 2201 core@127.0.0.1"
+echo "     ssh -i $DEV_DIR/core-ssh-key -p 2201 core@127.0.0.1"
 echo
-echo "4. QEMU monitor"
+echo "4. kubeconfig:"
+echo "     make access-control-node-kubeconfig"
+echo "     ssh -i $DEV_DIR/core-ssh-key -p 2201 core@127.0.0.1 \"sudo kubectl config view --raw=true\""
+echo
+echo "5. QEMU monitor"
 echo "     make access-control-node-monitor"
 echo "     nc -U $DEV_DIR/monitor.sock"
 echo
-echo "5. QEMU QNP: $DEV_DIR/qnp.sock"
+echo "6. QEMU QNP: $DEV_DIR/qnp.sock"
 echo "     nc -U $DEV_DIR/qnp.sock"
 echo
 $QEMU_SYSTEM_X86_64 \
@@ -72,10 +77,10 @@ $QEMU_SYSTEM_X86_64 \
   -uuid "$VM_UUID" \
   -m "$VM_MEMORY" \
   -machine q35,accel=kvm,smm=on -cpu host -smp "$VM_NCPUS" \
-  -netdev user,id=eth0,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22,hostname="$VM_NAME" \
+  -netdev user,id=eth0,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22,hostfwd=tcp:127.0.0.1:"$KUBE_PORT"-:6443,hostname="$VM_NAME" \
   -device virtio-net-pci,netdev=eth0 \
   -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-pci,rng=rng0 \
-  -chardev socket,id=chrtpm,path=$DEV_DIR/tpm.sock.ctrl -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
+  -chardev socket,id=chrtpm,path="$DEV_DIR/tpm.sock.ctrl" -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
   -fw_cfg name=opt/org.flatcar-linux/config,file="$DEV_DIR/ignition.json" \
   -drive if=virtio,file="$DEV_DIR/os.img" \
   -drive if=pflash,file="$DEV_DIR/efi_code.fd",format=raw,readonly=on \
