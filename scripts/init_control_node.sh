@@ -100,9 +100,13 @@ $SWTPM_SETUP \
   --display
 echo
 
+# now export all docker images that we want to import
+mkdir -p $DEV_DIR/docker-images
+docker image save -o $DEV_DIR/docker-images/docker-seeder.tar ghcr.io/githedgehog/das-boot:latest
+
 # generate ignition config
 # we could just pipe everything, but for better debugability, keep it in separate files
 echo "Generating ignition config for virtual machine..."
 eval "echo \"$(< $SCRIPT_DIR/control-node-ignition.butane.yml)\"" > ${DEV_DIR}/ignition.butane.yml
-$BUTANE -o ${DEV_DIR}/ignition.json ${DEV_DIR}/ignition.butane.yml
+$BUTANE --files-dir ${DEV_DIR} -o ${DEV_DIR}/ignition.json ${DEV_DIR}/ignition.butane.yml
 echo

@@ -1,9 +1,12 @@
 VERSION := $(shell git describe --all --tags --long)
 
+DOCKER_REPO ?= ghcr.io/githedgehog/das-boot
+
 MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 's#/$$##')
 BUILD_DIR := $(MKFILE_DIR)/build
 BUILD_ARTIFACTS_DIR := $(BUILD_DIR)/artifacts
 BUILD_COVERAGE_DIR := $(BUILD_DIR)/coverage
+BUILD_DOCKER_DIR := $(BUILD_DIR)/docker
 DEV_DIR := $(MKFILE_DIR)/dev
 
 SRC_COMMON := $(shell find $(MKFILE_DIR)/pkg -type f -name "*.go")
@@ -146,14 +149,22 @@ stage2-clean: ## Cleans all 'stage2' golang binaries
 	rm -v $(BUILD_ARTIFACTS_DIR)/stage2-arm64 || true
 	rm -v $(BUILD_ARTIFACTS_DIR)/stage2-arm || true
 
-seeder:  $(BUILD_ARTIFACTS_DIR)/seeder ## Builds the 'seeder' for x86_64
+seeder: $(BUILD_ARTIFACTS_DIR)/seeder $(BUILD_DOCKER_DIR)/seeder ## Builds the 'seeder' for x86_64
 
 $(BUILD_ARTIFACTS_DIR)/seeder: $(SRC_COMMON) $(SRC_SEEDER) $(SEEDER_DEPS)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_ARTIFACTS_DIR)/seeder -ldflags="-w -s -buildmode=pie -X 'go.githedgehog.com/dasboot/pkg/version.Version=$(VERSION)'" ./cmd/seeder
 
+$(BUILD_DOCKER_DIR)/seeder: $(BUILD_ARTIFACTS_DIR)/seeder
+	cp -v $(BUILD_ARTIFACTS_DIR)/seeder $(BUILD_DOCKER_DIR)/seeder
+
 .PHONY: seeder-clean
 seeder-clean: ## Cleans the 'seeder' x86_64 golang binary
 	rm -v $(BUILD_ARTIFACTS_DIR)/seeder || true
+	rm -v $(BUILD_DOCKER_DIR)/seeder || true
+
+.PHONY: docker
+docker: seeder ## Builds a docker image for the seeder
+	cd $(BUILD_DOCKER_DIR) && docker build -t $(DOCKER_REPO):latest .
 
 # Use this target only for local linting. In CI we use a dedicated github action
 .PHONY: lint
@@ -206,7 +217,7 @@ run-control-node: ## Runs the control node VM
 
 .PHONY: access-control-node-kubeconfig
 access-control-node-kubeconfig: ## Displays the kubeconfig to use to be able to reach the Kubernetes cluster (NOTE: 127.0.0.1 is fine, port-forwarding is used)
-	@ssh -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1 "sudo kubectl config view --raw=true" | tee $(DEV_DIR)/control-node-1/kubeconfig
+	@ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1 "sudo kubectl config view --raw=true" | tee $(DEV_DIR)/control-node-1/kubeconfig
 	@echo
 	@echo "NOTE: a copy is also stored now at $(DEV_DIR)/control-node-1/kubeconfig" 1>&2
 	@echo "Run the following command in your shell to get access to it immediately:" 1>&2
@@ -215,7 +226,7 @@ access-control-node-kubeconfig: ## Displays the kubeconfig to use to be able to 
 
 .PHONY: access-control-node-ssh
 access-control-node-ssh: ## SSH into control node VM
-	ssh -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1
+	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1
 
 .PHONY: access-control-node-serial
 access-control-node-serial: ## Access the serial console of the control node VM

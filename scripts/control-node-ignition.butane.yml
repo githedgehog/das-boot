@@ -31,6 +31,23 @@ systemd:
         
         [Install]
         WantedBy=multi-user.target
+    - name: docker-image-import.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Imports docker images
+        Requisite=k3s-install.service k3s.service
+        After=k3s-install.service k3s.service
+        ConditionPathExists=/opt/docker-image-import.sh
+        ConditionPathExists=!/opt/docker-images-imported
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/bin/bash -c "/opt/docker-image-import.sh"
+
+        [Install]
+        WantedBy=multi-user.target
 storage:
   files:
     - path: /etc/hostname
@@ -40,5 +57,23 @@ storage:
         inline: control-node-1
     - path: /opt/k3s-install.sh
       mode: 0755
+      overwrite: true
       contents:
         source: https://get.k3s.io
+    - path: /opt/docker-images/docker-seeder.tar
+      mode: 0644
+      contents:
+        source: http://10.0.2.100:8899/docker-seeder.tar
+    - path: /opt/docker-image-import.sh
+      mode: 0755
+      contents:
+        inline: |-
+          #!/bin/bash
+          set -e
+          cd /opt/docker-images
+          IMAGES=\$(ls -1)
+          for i in \$IMAGES; do
+            /opt/bin/k3s ctr images import \$i
+          done
+          # let the systemd unit know that we don't need to start this again
+          touch /opt/docker-images-imported

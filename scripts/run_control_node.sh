@@ -23,19 +23,24 @@ SSH_PORT=2201
 KUBE_PORT=6443
 
 # run the TPM in the background if it is not already running
+runs_tpm=''
 if ! [ -f $DEV_DIR/tpm.pid ]; then
-  function on_exit() {
-      if [ -f $DEV_DIR/tpm.pid ]; then
-          kill $(< $DEV_DIR/tpm.pid) &>/dev/null || true
-      fi
-  }
-  $SCRIPT_DIR/run_control_node_tpm.sh &
-  trap on_exit EXIT
-  sleep 1
-  if ! [ -S $DEV_DIR/tpm.sock.ctrl ]; then
-      echo "ERROR: software TPM failed to start control channel $DEV_DIR/tpm.sock.ctrl" 1>&2
-      exit 1
-  fi
+    function on_exit() {
+        if [ -f $DEV_DIR/tpm.pid ]; then
+            kill $(< $DEV_DIR/tpm.pid) &>/dev/null || true
+        fi
+        if [ -n $python_webserver_pid ]; then
+            kill $python_webserver_pid
+        fi
+    }
+    $SCRIPT_DIR/run_control_node_tpm.sh &
+    trap on_exit EXIT
+    runs_tpm='yes'
+    sleep 1
+    if ! [ -S $DEV_DIR/tpm.sock.ctrl ]; then
+        echo "ERROR: software TPM failed to start control channel $DEV_DIR/tpm.sock.ctrl" 1>&2
+        exit 1
+    fi
 fi
 
 # This is an ugly workaround in a bug in swtpm:
@@ -43,6 +48,20 @@ fi
 # then it exits if you start with QEMU directly. If you run a command,
 # then it will continue to work.
 TPM2TOOLS_TCTI="swtpm:path=$DEV_DIR/tpm.sock" $TPM2 startup
+
+# run an HTTP file server in the background
+# we use this to serve files through the ignition configuration
+python3 -m http.server --bind 127.0.0.1 --directory $DEV_DIR/docker-images 8899 &
+python_webserver_pid=$!
+if [ -z $runs_tpm ]; then
+    function on_exit() {
+        if [ -n $python_webserver_pid ]; then
+            kill $python_webserver_pid
+        fi
+    }
+    trap on_exit EXIT
+fi
+sleep 1
 
 echo
 echo "Running control-node-1 VM now..."
@@ -77,7 +96,8 @@ $QEMU_SYSTEM_X86_64 \
   -uuid "$VM_UUID" \
   -m "$VM_MEMORY" \
   -machine q35,accel=kvm,smm=on -cpu host -smp "$VM_NCPUS" \
-  -netdev user,id=eth0,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22,hostfwd=tcp:127.0.0.1:"$KUBE_PORT"-:6443,hostname="$VM_NAME" \
+  -chardev socket,id=webdev,host=127.0.0.1,port=8899,server=off,reconnect=5 \
+  -netdev user,id=eth0,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22,hostfwd=tcp:127.0.0.1:"$KUBE_PORT"-:6443,guestfwd=tcp:10.0.2.100:8899-chardev:webdev,hostname="$VM_NAME" \
   -device virtio-net-pci,netdev=eth0 \
   -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-pci,rng=rng0 \
   -chardev socket,id=chrtpm,path="$DEV_DIR/tpm.sock.ctrl" -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
