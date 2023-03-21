@@ -48,15 +48,20 @@ echo "Running control-node-1 VM now..."
 echo
 echo "You can access this VM through several mechanisms:"
 echo "1. Serial port:"
+echo "     make access-control-node-serial"
+echo "     socat -,rawer,escape=0x1d unix-connect:$DEV_DIR/serial.sock"
 echo "     nc -U $DEV_DIR/serial.sock"
 echo
 echo "2. VNC:"
+echo "     make access-control-node-vnc"
 echo "     vncviewer unix $DEV_DIR/vnc.sock"
 echo
 echo "3. SSH:"
+echo "     make access-control-node-ssh"
 echo "     ssh -i core-ssh-key -p 2201 core@127.0.0.1"
 echo
 echo "4. QEMU monitor"
+echo "     make access-control-node-monitor"
 echo "     nc -U $DEV_DIR/monitor.sock"
 echo
 echo "5. QEMU QNP: $DEV_DIR/qnp.sock"

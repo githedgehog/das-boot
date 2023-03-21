@@ -201,9 +201,30 @@ init-control-node: ## Prepares a QEMU VM to run the control node
 	$(MKFILE_DIR)/scripts/init_control_node.sh
 
 .PHONY: run-control-node
-run-control-node: ## Runs the control node virtual machine
+run-control-node: ## Runs the control node VM
 	$(MKFILE_DIR)/scripts/run_control_node.sh
 
+.PHONY: access-control-node-ssh
+access-control-node-ssh: ## SSH into control node VM
+	ssh -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1
+
+.PHONY: access-control-node-serial
+access-control-node-serial: ## Access the serial console of the control node VM
+	@echo "Use ^] to disconnect from serial console"
+	socat -,rawer,escape=0x1d unix-connect:$(DEV_DIR)/control-node-1/serial.sock
+
+.PHONY: access-control-node-vnc
+access-control-node-vnc: ## Access the VGA display of the control node VM
+	vncviewer unix $(DEV_DIR)/control-node-1/vnc.sock
+
+.PHONY: access-control-node-monitor
+access-control-node-monitor: ## Access the QEMU monitor (control interface) of the control node VM
+	nc -U $(DEV_DIR)/control-node-1/monitor.sock
+
+.PHONY: access-control-node-qnp
+access-control-node-qnp:
+	nc -U $(DEV_DIR)/control-node-1/qnp.sock
+
 .PHONY: run-control-node-tpm
-run-control-node-tpm: ## Runs the software TPM for the control node virtual machine
+run-control-node-tpm: ## Runs the software TPM for the control node virtual machine (NOTE: not needed to run separately, will be started automatically)
 	$(MKFILE_DIR)/scripts/run_control_node_tpm.sh
