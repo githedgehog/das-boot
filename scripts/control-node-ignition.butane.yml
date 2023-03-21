@@ -1,0 +1,44 @@
+variant: flatcar
+version: 1.0.0
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - $(< ${DEV_DIR}/core-ssh-key.pub)
+      groups:
+        - wheel
+      shell: /bin/bash
+systemd:
+  units:
+    - name: k3s-install.service
+      enabled: true 
+      contents: |
+        [Unit]
+        Description=Run k3s installation script
+        Wants=network-online.target
+        After=network.target network-online.target
+        ConditionPathExists=/opt/k3s-install.sh
+        ConditionPathExists=!/opt/bin/k3s
+
+        [Service]
+        Type=oneshot
+        TimeoutStartSec=180
+        RemainAfterExit=yes
+        KillMode=process
+        Environment="K3S_TOKEN=secret_edgecluster_token"
+        Environment="INSTALL_K3S_EXEC=--cluster-init"
+        ExecStart=/usr/bin/sh -c "/opt/k3s-install.sh"
+        
+        [Install]
+        WantedBy=multi-user.target
+storage:
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      overwrite: true
+      contents:
+        inline: control-node-1
+    - path: /opt/k3s-install.sh
+      mode: 0755
+      contents:
+        source: https://get.k3s.io

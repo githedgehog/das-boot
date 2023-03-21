@@ -195,3 +195,15 @@ $(DEV_SEEDER_FILES) &:
 .PHONY: dev-run-seeder
 dev-run-seeder: dev-init-seeder seeder ## Runs the seeder locally
 	$(BUILD_ARTIFACTS_DIR)/seeder --config $(DEV_DIR)/seeder/seeder.yaml
+
+.PHONY: init-control-node
+init-control-node: ## Prepares a QEMU VM to run the control node
+	$(MKFILE_DIR)/scripts/init_control_node.sh
+
+.PHONY: run-control-node
+run-control-node: ## Runs the control node virtual machine
+	$(MKFILE_DIR)/scripts/run_control_node.sh
+
+.PHONY: run-control-node-tpm
+run-control-node-tpm: ## Runs the software TPM for the control node virtual machine
+	$(MKFILE_DIR)/scripts/run_control_node_tpm.sh
