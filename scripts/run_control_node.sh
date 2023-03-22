@@ -33,8 +33,11 @@ if ! [ -f $DEV_DIR/tpm.pid ]; then
         if [ -f $DEV_DIR/tpm.pid ]; then
             kill $(< $DEV_DIR/tpm.pid) &>/dev/null || true
         fi
-        if [ -n $python_webserver_pid ]; then
-            kill $python_webserver_pid
+        if [ -n $python_webserver1_pid ]; then
+            kill $python_webserver1_pid
+        fi
+        if [ -n $python_webserver2_pid ]; then
+            kill $python_webserver2_pid
         fi
     }
     $SCRIPT_DIR/run_control_node_tpm.sh &
@@ -53,14 +56,21 @@ fi
 # then it will continue to work.
 TPM2TOOLS_TCTI="swtpm:path=$DEV_DIR/tpm.sock" $TPM2 startup
 
-# run an HTTP file server in the background
-# we use this to serve files through the ignition configuration
-$PYTHON -m http.server --bind 127.0.0.1 --directory $DEV_DIR/docker-images 8899 &
-python_webserver_pid=$!
+# run two HTTP file servers in the background
+# we use these to serve files through the ignition configuration
+# - one for serving extra scripts (which would be to cumbersome to maintain inline, and will be on an OEM partition anyways)
+# - another one for serving the docker images to import
+$PYTHON -m http.server --bind 127.0.0.1 --directory $SCRIPT_DIR/ignition_files 8888 &
+python_webserver1_pid=$!
+$PYTHON -m http.server --bind 127.0.0.1 --directory $DEV_DIR/docker-images 8889 &
+python_webserver2_pid=$!
 if [ -z $runs_tpm ]; then
     function on_exit() {
-        if [ -n $python_webserver_pid ]; then
-            kill $python_webserver_pid
+        if [ -n $python_webserver1_pid ]; then
+            kill $python_webserver1_pid
+        fi
+        if [ -n $python_webserver2_pid ]; then
+            kill $python_webserver2_pid
         fi
     }
     trap on_exit EXIT
@@ -100,9 +110,10 @@ $QEMU_SYSTEM_X86_64 \
   -uuid "$VM_UUID" \
   -m "$VM_MEMORY" \
   -machine q35,accel=kvm,smm=on -cpu host -smp "$VM_NCPUS" \
-  -chardev socket,id=webdev,host=127.0.0.1,port=8899,server=off,reconnect=5 \
+  -chardev socket,id=webdev1,host=127.0.0.1,port=8888,server=off,reconnect=5 \
+  -chardev socket,id=webdev2,host=127.0.0.1,port=8889,server=off,reconnect=5 \
   -chardev socket,id=dockerregistrydev,host=127.0.0.1,port=5000,server=off,reconnect=5 \
-  -netdev user,id=eth0,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22,hostfwd=tcp:127.0.0.1:"$KUBE_PORT"-:6443,guestfwd=tcp:10.0.2.100:8899-chardev:webdev,guestfwd=tcp:10.0.2.100:5000-chardev:dockerregistrydev,hostname="$VM_NAME" \
+  -netdev user,id=eth0,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22,hostfwd=tcp:127.0.0.1:"$KUBE_PORT"-:6443,guestfwd=tcp:10.0.2.100:8888-chardev:webdev1,guestfwd=tcp:10.0.2.100:8889-chardev:webdev2,guestfwd=tcp:10.0.2.100:5000-chardev:dockerregistrydev,hostname="$VM_NAME",domainname=local,dnssearch=local \
   -device virtio-net-pci,netdev=eth0 \
   -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-pci,rng=rng0 \
   -chardev socket,id=chrtpm,path="$DEV_DIR/tpm.sock.ctrl" -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \

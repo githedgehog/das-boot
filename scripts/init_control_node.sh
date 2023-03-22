@@ -102,8 +102,10 @@ $SWTPM_SETUP \
 echo
 
 # now export all docker images that we want to import
+echo "Exporting all docker images for import at ignition time..."
 mkdir -p $DEV_DIR/docker-images
-$DOCKER image save -o $DEV_DIR/docker-images/docker-seeder.tar ghcr.io/githedgehog/das-boot:latest
+$DOCKER image save -o $DEV_DIR/docker-images/docker-seeder.tar ${DOCKER_REPO:=registry.local:5000/githedgehog/das-boot:latest}
+echo
 
 # generate ignition config
 # we could just pipe everything, but for better debugability, keep it in separate files

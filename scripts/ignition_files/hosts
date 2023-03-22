@@ -1,0 +1,6 @@
+# IPv4 and IPv6 localhost aliases
+127.0.0.1       localhost localhost.local
+::1             localhost localhost.local
+
+# used for our local development registry
+10.0.2.100      registry registry.local

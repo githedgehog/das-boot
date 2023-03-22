@@ -55,25 +55,20 @@ storage:
       overwrite: true
       contents:
         inline: control-node-1
+    - path: /etc/hosts
+      mode: 0644
+      overwrite: true
+      contents:
+        source: http://10.0.2.100:8888/hosts
     - path: /opt/k3s-install.sh
       mode: 0755
-      overwrite: true
       contents:
         source: https://get.k3s.io
     - path: /opt/docker-images/docker-seeder.tar
       mode: 0644
       contents:
-        source: http://10.0.2.100:8899/docker-seeder.tar
+        source: http://10.0.2.100:8889/docker-seeder.tar
     - path: /opt/docker-image-import.sh
       mode: 0755
       contents:
-        inline: |-
-          #!/bin/bash
-          set -e
-          cd /opt/docker-images
-          IMAGES=\$(ls -1)
-          for i in \$IMAGES; do
-            /opt/bin/k3s ctr images import \$i
-          done
-          # let the systemd unit know that we don't need to start this again
-          touch /opt/docker-images-imported
+        source: http://10.0.2.100:8888/docker-image-import.sh

@@ -1,6 +1,6 @@
 VERSION := $(shell git describe --all --tags --long)
 
-DOCKER_REPO ?= ghcr.io/githedgehog/das-boot
+DOCKER_REPO ?= registry.local:5000/githedgehog/das-boot
 
 MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 's#/$$##')
 BUILD_DIR := $(MKFILE_DIR)/build
@@ -165,6 +165,13 @@ seeder-clean: ## Cleans the 'seeder' x86_64 golang binary
 .PHONY: docker
 docker: seeder ## Builds a docker image for the seeder
 	cd $(BUILD_DOCKER_DIR) && docker build -t $(DOCKER_REPO):latest .
+
+.PHONY: docker-push
+docker-push: docker ## Builds AND pushes a docker image for the seeder
+	@echo
+	@[ "$(DOCKER_REPO)" = "registry.local:5000/githedgehog/das-boot" ] && $(MKFILE_DIR)/scripts/run_registry.sh || echo "Not trying to run local registry, different docker repository..."
+	@echo
+	docker push $(DOCKER_REPO):latest
 
 # Use this target only for local linting. In CI we use a dedicated github action
 .PHONY: lint
