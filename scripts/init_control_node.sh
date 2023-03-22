@@ -16,6 +16,7 @@ UUIDGEN=$(which uuidgen)
 WGET=$(which wget)
 BUNZIP2=$(which bunzip2)
 SWTPM_SETUP=$(which swtpm_setup)
+DOCKER=$(which docker)
 
 # let's make a dev folder where we are going to store images
 echo -n "Making development folder for storing images: "
@@ -102,7 +103,7 @@ echo
 
 # now export all docker images that we want to import
 mkdir -p $DEV_DIR/docker-images
-docker image save -o $DEV_DIR/docker-images/docker-seeder.tar ghcr.io/githedgehog/das-boot:latest
+$DOCKER image save -o $DEV_DIR/docker-images/docker-seeder.tar ghcr.io/githedgehog/das-boot:latest
 
 # generate ignition config
 # we could just pipe everything, but for better debugability, keep it in separate files
