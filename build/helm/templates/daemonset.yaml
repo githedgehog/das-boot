@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "das-boot.fullname" . }}
+  labels:
+    {{- include "das-boot.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "das-boot.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "das-boot.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "das-boot.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      hostNetwork: true
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.ports.insecure.targetPort }}
+              protocol: TCP
+            - name: https
+              containerPort: {{ .Values.service.ports.secure.targetPort }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: "/etc/hedgehog/seeder"
+              readOnly: true
+            - name: clientCA
+              mountPath: "/etc/hedgehog/seeder-certs/client-ca"
+              readOnly: true
+            - name: serverCA
+              mountPath: "/etc/hedgehog/seeder-certs/server-ca"
+              readOnly: true
+            - name: configCA
+              mountPath: "/etc/hedgehog/seeder-certs/config-ca"
+              readOnly: true
+            - name: serverCert
+              mountPath: "/etc/hedgehog/seeder-certs/server"
+              readOnly: true
+            - name: configCert
+              mountPath: "/etc/hedgehog/seeder-certs/config"
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "das-boot.fullname" . }}
+        - name: clientCA
+          secret:
+            secretName: {{ .Values.secrets.clientCA.name }}
+        - name: serverCA
+          secret:
+            secretName: {{ .Values.secrets.serverCA.name }}
+        - name: configCA
+          secret:
+            secretName: {{ .Values.secrets.configCA.name }}
+        - name: serverCert
+          secret:
+            secretName: {{ .Values.secrets.server.name }}
+        - name: configCert
+          secret:
+            secretName: {{ .Values.secrets.config.name }}
