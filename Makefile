@@ -225,6 +225,7 @@ run-control-node: ## Runs the control node VM
 .PHONY: access-control-node-kubeconfig
 access-control-node-kubeconfig: ## Displays the kubeconfig to use to be able to reach the Kubernetes cluster (NOTE: 127.0.0.1 is fine, port-forwarding is used)
 	@ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1 "sudo kubectl config view --raw=true" | tee $(DEV_DIR)/control-node-1/kubeconfig
+	@chmod 600 $(DEV_DIR)/control-node-1/kubeconfig
 	@echo
 	@echo "NOTE: a copy is also stored now at $(DEV_DIR)/control-node-1/kubeconfig" 1>&2
 	@echo "Run the following command in your shell to get access to it immediately:" 1>&2
