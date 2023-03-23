@@ -160,8 +160,9 @@ stage2-clean: ## Cleans all 'stage2' golang binaries
 
 seeder: $(BUILD_ARTIFACTS_DIR)/seeder $(BUILD_DOCKER_DIR)/seeder ## Builds the 'seeder' for x86_64
 
+# TODO: removing "-buildmode=pie" from the ldflags for now, as it requires a dynamic linker
 $(BUILD_ARTIFACTS_DIR)/seeder: $(SRC_COMMON) $(SRC_SEEDER) $(SEEDER_DEPS)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_ARTIFACTS_DIR)/seeder -ldflags="-w -s -buildmode=pie -X 'go.githedgehog.com/dasboot/pkg/version.Version=$(VERSION)'" ./cmd/seeder
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_ARTIFACTS_DIR)/seeder -ldflags="-w -s -X 'go.githedgehog.com/dasboot/pkg/version.Version=$(VERSION)'" ./cmd/seeder
 
 $(BUILD_DOCKER_DIR)/seeder: $(BUILD_ARTIFACTS_DIR)/seeder
 	cp -v $(BUILD_ARTIFACTS_DIR)/seeder $(BUILD_DOCKER_DIR)/seeder
@@ -198,7 +199,9 @@ docker-push: docker ## Builds AND pushes a docker image for the seeder
 .PHONY: helm
 helm: ## Builds a helm chart for the seeder
 	helm lint $(BUILD_HELM_DIR)
-	helm package $(BUILD_HELM_DIR) --version $(HELM_CHART_VERSION) --app-version $(VERSION) -d $(BUILD_ARTIFACTS_DIR)
+# TODO: at some point we need valid app versions too
+#	helm package $(BUILD_HELM_DIR) --version $(HELM_CHART_VERSION) --app-version $(VERSION) -d $(BUILD_ARTIFACTS_DIR)
+	helm package $(BUILD_HELM_DIR) --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION) -d $(BUILD_ARTIFACTS_DIR)
 
 .PHONY: helm-clean
 helm-clean: ## Cleans the packaged helm chart for the seeder from the artifacts build directory

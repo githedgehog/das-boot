@@ -31,6 +31,26 @@ systemd:
         
         [Install]
         WantedBy=multi-user.target
+    - name: helm-install.service
+      enabled: true 
+      contents: |
+        [Unit]
+        Description=Run helm installation script
+        Wants=network-online.target
+        After=network.target network-online.target
+        ConditionPathExists=/opt/helm-install.sh
+        ConditionPathExists=!/opt/bin/helm
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        Environment="HELM_INSTALL_DIR=/opt/bin"
+        Environment="USE_SUDO=false"
+        Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/opt/bin"
+        ExecStart=/usr/bin/sh -c "/opt/helm-install.sh"
+        
+        [Install]
+        WantedBy=multi-user.target
     - name: import-ca-certs.service
       enabled: true 
       contents: |
@@ -65,6 +85,24 @@ systemd:
 
         [Install]
         WantedBy=multi-user.target
+    - name: seeder-install.service
+      enabled: true 
+      contents: |
+        [Unit]
+        Description=Run seeder helm installation script
+        Requisite=k3s-install.service k3s.service helm-install.service import-ca-certs.service docker-image-import.service
+        After=network.target network-online.target
+        ConditionPathExists=/opt/install_seeder.sh
+        ConditionPathExists=!/opt/seeder/installed
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/opt/bin"
+        ExecStart=/usr/bin/sh -c "/opt/install_seeder.sh"
+        
+        [Install]
+        WantedBy=multi-user.target
 storage:
   files:
     - path: /etc/hostname
@@ -81,6 +119,10 @@ storage:
       mode: 0755
       contents:
         source: https://get.k3s.io
+    - path: /opt/helm-install.sh
+      mode: 0755
+      contents:
+        source: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
     - path: /opt/docker-images/docker-seeder.tar
       mode: 0644
       contents:
@@ -97,3 +139,31 @@ storage:
       mode: 0644
       contents:
         source: http://10.0.2.2:8889/oci-repo-ca-cert.pem
+    - path: /opt/install_seeder.sh
+      mode: 0755
+      contents:
+        source: http://10.0.2.2:8888/install_seeder.sh
+    - path: /opt/seeder/das-boot-seeder-values.yaml
+      mode: 0644
+      contents:
+        source: http://10.0.2.2:8888/das-boot-seeder-values.yaml
+    - path: /opt/seeder/das-boot-client-ca-secret.yaml
+      mode: 0600
+      contents:
+        source: http://10.0.2.2:8889/das-boot-client-ca-secret.yaml
+    - path: /opt/seeder/das-boot-config-ca-secret.yaml
+      mode: 0600
+      contents:
+        source: http://10.0.2.2:8889/das-boot-config-ca-secret.yaml
+    - path: /opt/seeder/das-boot-config-cert-secret.yaml
+      mode: 0600
+      contents:
+        source: http://10.0.2.2:8889/das-boot-config-cert-secret.yaml
+    - path: /opt/seeder/das-boot-server-ca-secret.yaml
+      mode: 0600
+      contents:
+        source: http://10.0.2.2:8889/das-boot-server-ca-secret.yaml
+    - path: /opt/seeder/das-boot-server-cert-secret.yaml
+      mode: 0600
+      contents:
+        source: http://10.0.2.2:8889/das-boot-server-cert-secret.yaml

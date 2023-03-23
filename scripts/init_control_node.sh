@@ -17,6 +17,7 @@ WGET=$(which wget)
 BUNZIP2=$(which bunzip2)
 SWTPM_SETUP=$(which swtpm_setup)
 DOCKER=$(which docker)
+KUBECTL=$(which kubectl)
 
 # let's make a dev folder where we are going to store images
 echo -n "Making development folder for storing images: "
@@ -102,9 +103,9 @@ $SWTPM_SETUP \
 echo
 
 # Ensure OCI CA has been generated before already
+mkdir -p $DEV_DIR/docker-images
 mkdir -p ${SCRIPT_DIR}/../dev/oci
 OCI_CERT_DIR=$( cd -- "${SCRIPT_DIR}/../dev/oci" &> /dev/null && pwd )
-mkdir -p $DEV_DIR/docker-images
 if [ ! -f $OCI_CERT_DIR/oci-repo-ca-cert.pem ] ; then
     $SCRIPT_DIR/init_repo_certs.sh
 else
@@ -117,6 +118,16 @@ echo
 echo "Exporting all docker images for import at ignition time..."
 $DOCKER image save -o $DEV_DIR/docker-images/docker-seeder.tar ${DOCKER_REPO:=registry.local:5000/githedgehog/das-boot:latest}
 echo
+
+# now exporting all seeder secrets
+echo "Exporting all seeder secrets for import at ignition time..."
+mkdir -p ${SCRIPT_DIR}/../dev/seeder
+SEEDER_DEV_DIR=$( cd -- "${SCRIPT_DIR}/../dev/seeder" &> /dev/null && pwd )
+$KUBECTL create secret generic das-boot-server-cert --dry-run=client -o yaml --from-file=key.pem=$SEEDER_DEV_DIR/server-key.pem --from-file=cert.pem=$SEEDER_DEV_DIR/server-cert.pem > $DEV_DIR/docker-images/das-boot-server-cert-secret.yaml
+$KUBECTL create secret generic das-boot-config-cert --dry-run=client -o yaml --from-file=key.pem=$SEEDER_DEV_DIR/config-key.pem --from-file=cert.pem=$SEEDER_DEV_DIR/config-cert.pem > $DEV_DIR/docker-images/das-boot-config-cert-secret.yaml
+$KUBECTL create secret generic das-boot-client-ca --dry-run=client -o yaml --from-file=cert.pem=$SEEDER_DEV_DIR/client-ca-cert.pem > $DEV_DIR/docker-images/das-boot-client-ca-secret.yaml
+$KUBECTL create secret generic das-boot-server-ca --dry-run=client -o yaml --from-file=cert.pem=$SEEDER_DEV_DIR/server-ca-cert.pem > $DEV_DIR/docker-images/das-boot-server-ca-secret.yaml
+$KUBECTL create secret generic das-boot-config-ca --dry-run=client -o yaml --from-file=cert.pem=$SEEDER_DEV_DIR/config-ca-cert.pem > $DEV_DIR/docker-images/das-boot-config-ca-secret.yaml
 
 # generate ignition config
 # we could just pipe everything, but for better debugability, keep it in separate files

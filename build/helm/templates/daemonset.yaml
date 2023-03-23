@@ -48,19 +48,19 @@ spec:
             - name: config
               mountPath: "/etc/hedgehog/seeder"
               readOnly: true
-            - name: clientCA
+            - name: client-ca
               mountPath: "/etc/hedgehog/seeder-certs/client-ca"
               readOnly: true
-            - name: serverCA
+            - name: server-ca
               mountPath: "/etc/hedgehog/seeder-certs/server-ca"
               readOnly: true
-            - name: configCA
+            - name: config-ca
               mountPath: "/etc/hedgehog/seeder-certs/config-ca"
               readOnly: true
-            - name: serverCert
+            - name: server-cert
               mountPath: "/etc/hedgehog/seeder-certs/server"
               readOnly: true
-            - name: configCert
+            - name: config-cert
               mountPath: "/etc/hedgehog/seeder-certs/config"
       {{- with .Values.nodeSelector }}
       nodeSelector:
@@ -78,18 +78,18 @@ spec:
         - name: config
           configMap:
             name: {{ include "das-boot.fullname" . }}
-        - name: clientCA
+        - name: client-ca
           secret:
             secretName: {{ .Values.secrets.clientCA.name }}
-        - name: serverCA
+        - name: server-ca
           secret:
             secretName: {{ .Values.secrets.serverCA.name }}
-        - name: configCA
+        - name: config-ca
           secret:
             secretName: {{ .Values.secrets.configCA.name }}
-        - name: serverCert
+        - name: server-cert
           secret:
             secretName: {{ .Values.secrets.server.name }}
-        - name: configCert
+        - name: config-cert
           secret:
             secretName: {{ .Values.secrets.config.name }}
