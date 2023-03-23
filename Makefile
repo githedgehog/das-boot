@@ -1,12 +1,16 @@
-VERSION := $(shell git describe --all --tags --long)
+VERSION ?= $(shell git describe --all --tags --long)
+# increment this in a commit or PR when you make changes to the helm chart
+HELM_CHART_VERSION ?= 0.1.0
 
 DOCKER_REPO ?= registry.local:5000/githedgehog/das-boot
+HELM_CHART_REPO ?= registry.local:5000/githedgehog/helm-charts
 
 MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 's#/$$##')
 BUILD_DIR := $(MKFILE_DIR)/build
 BUILD_ARTIFACTS_DIR := $(BUILD_DIR)/artifacts
 BUILD_COVERAGE_DIR := $(BUILD_DIR)/coverage
 BUILD_DOCKER_DIR := $(BUILD_DIR)/docker
+BUILD_HELM_DIR := $(BUILD_DIR)/helm
 DEV_DIR := $(MKFILE_DIR)/dev
 
 SRC_COMMON := $(shell find $(MKFILE_DIR)/pkg -type f -name "*.go")
@@ -34,6 +38,11 @@ DEV_SEEDER_FILES += $(DEV_DIR)/seeder/server-ca-key.pem
 DEV_SEEDER_FILES += $(DEV_DIR)/seeder/server-cert.pem
 DEV_SEEDER_FILES += $(DEV_DIR)/seeder/server-key.pem
 
+DEV_OCI_REPO_CERT_FILES := $(DEV_DIR)/oci/oci-repo-ca-key.pem
+DEV_OCI_REPO_CERT_FILES += $(DEV_DIR)/oci/oci-repo-ca-cert.pem
+DEV_OCI_REPO_CERT_FILES += $(DEV_DIR)/oci/server-key.pem
+DEV_OCI_REPO_CERT_FILES += $(DEV_DIR)/oci/server-cert.pem
+
 .PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -42,7 +51,7 @@ all: generate build ## Runs 'generate' and 'build' targets
 
 build: hhdevid stage0 stage1 stage2 seeder ## Builds all golang binaries for all platforms: hhdevid, stage0, stage1, stage2 and seeder
 
-clean: hhdevid-clean stage0-clean stage1-clean stage2-clean seeder-clean ## Cleans all golang binaries for all platforms: hhdevid, stage0, stage1, stage2 and seeder
+clean: hhdevid-clean stage0-clean stage1-clean stage2-clean seeder-clean docker-clean helm-clean ## Cleans all golang binaries for all platforms: hhdevid, stage0, stage1, stage2 and seeder, as well as the seeder docker image and the packaged helm chart
 
 hhdevid:  $(BUILD_ARTIFACTS_DIR)/hhdevid-amd64  $(BUILD_ARTIFACTS_DIR)/hhdevid-arm64  $(BUILD_ARTIFACTS_DIR)/hhdevid-arm ## Builds 'hhdevid' for all platforms
 
@@ -162,9 +171,22 @@ seeder-clean: ## Cleans the 'seeder' x86_64 golang binary
 	rm -v $(BUILD_ARTIFACTS_DIR)/seeder || true
 	rm -v $(BUILD_DOCKER_DIR)/seeder || true
 
+dev-init-oci-certs: $(DEV_OCI_REPO_CERT_FILES) ## Generates a local CA and server certificate to use for our docker registry
+
+$(DEV_OCI_REPO_CERT_FILES) &:
+	$(MKFILE_DIR)/scripts/init_repo_certs.sh
+
+.PHONY: run-docker-registry
+run-docker-registry: dev-init-oci-certs ## Runs a local docker registry in a docker container. NOTE: This is forwarded to the control plane as well!
+	$(MKFILE_DIR)/scripts/run_registry.sh
+
 .PHONY: docker
 docker: seeder ## Builds a docker image for the seeder
 	cd $(BUILD_DOCKER_DIR) && docker build -t $(DOCKER_REPO):latest .
+
+.PHONY: docker-clean
+docker-clean: ## Removes the docker image from the local docker images
+	docker rmi $(DOCKER_REPO):latest || true
 
 .PHONY: docker-push
 docker-push: docker ## Builds AND pushes a docker image for the seeder
@@ -172,6 +194,19 @@ docker-push: docker ## Builds AND pushes a docker image for the seeder
 	@[ "$(DOCKER_REPO)" = "registry.local:5000/githedgehog/das-boot" ] && $(MKFILE_DIR)/scripts/run_registry.sh || echo "Not trying to run local registry, different docker repository..."
 	@echo
 	docker push $(DOCKER_REPO):latest
+
+.PHONY: helm
+helm: ## Builds a helm chart for the seeder
+	helm lint $(BUILD_HELM_DIR)
+	helm package $(BUILD_HELM_DIR) --version $(HELM_CHART_VERSION) --app-version $(VERSION) -d $(BUILD_ARTIFACTS_DIR)
+
+.PHONY: helm-clean
+helm-clean: ## Cleans the packaged helm chart for the seeder from the artifacts build directory
+	rm -v $(BUILD_ARTIFACTS_DIR)/das-boot-seeder-$(HELM_CHART_VERSION).tgz || true
+
+.PHONY: helm-push
+helm-push: helm ## Builds AND pushes the helm chart for the seeder
+	helm push $(BUILD_ARTIFACTS_DIR)/das-boot-seeder-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
 
 # Use this target only for local linting. In CI we use a dedicated github action
 .PHONY: lint

@@ -101,9 +101,20 @@ $SWTPM_SETUP \
   --display
 echo
 
+# Ensure OCI CA has been generated before already
+mkdir -p ${SCRIPT_DIR}/../dev/oci
+OCI_CERT_DIR=$( cd -- "${SCRIPT_DIR}/../dev/oci" &> /dev/null && pwd )
+mkdir -p $DEV_DIR/docker-images
+if [ ! -f $OCI_CERT_DIR/oci-repo-ca-cert.pem ] ; then
+    $SCRIPT_DIR/init_repo_certs.sh
+else
+    echo "Copying OCI CA cert to the same directory as well:"
+    cp -v $OCI_CERT_DIR/oci-repo-ca-cert.pem $DEV_DIR/docker-images/oci-repo-ca-cert.pem
+fi
+echo
+
 # now export all docker images that we want to import
 echo "Exporting all docker images for import at ignition time..."
-mkdir -p $DEV_DIR/docker-images
 $DOCKER image save -o $DEV_DIR/docker-images/docker-seeder.tar ${DOCKER_REPO:=registry.local:5000/githedgehog/das-boot:latest}
 echo
 

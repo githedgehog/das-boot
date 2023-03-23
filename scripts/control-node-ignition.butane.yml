@@ -31,6 +31,23 @@ systemd:
         
         [Install]
         WantedBy=multi-user.target
+    - name: import-ca-certs.service
+      enabled: true 
+      contents: |
+        [Unit]
+        Description=Imports necessary CA certificates
+        Wants=network-online.target
+        After=network.target network-online.target
+        ConditionPathExists=/opt/import-ca-certs.sh
+        ConditionPathExists=!/opt/ca-certs-imported
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/usr/bin/sh -c "/opt/import-ca-certs.sh"
+        
+        [Install]
+        WantedBy=multi-user.target
     - name: docker-image-import.service
       enabled: true
       contents: |
@@ -72,3 +89,11 @@ storage:
       mode: 0755
       contents:
         source: http://10.0.2.100:8888/docker-image-import.sh
+    - path: /opt/import-ca-certs.sh
+      mode: 0755
+      contents:
+        source: http://10.0.2.100:8888/import_ca_certs.sh
+    - path: /opt/oci-repo-ca-cert.pem
+      mode: 0644
+      contents:
+        source: http://10.0.2.100:8889/oci-repo-ca-cert.pem
