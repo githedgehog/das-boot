@@ -16,6 +16,7 @@ DOCKER=$(which docker)
 
 echo "Ensuring local docker registry is running..."
 # if the registry is not running, we won't get a match, so we'll start it
+# NOTE: we're disabling http2 as that seems to be causing issues with containerd sometimes
 if [ -z "$($DOCKER ps --filter name="^/registry$" --no-trunc -q)" ] ; then
     echo -n "Starting local docker registry... "
     $DOCKER run -d \
@@ -26,6 +27,7 @@ if [ -z "$($DOCKER ps --filter name="^/registry$" --no-trunc -q)" ] ; then
       -e REGISTRY_HTTP_HOST=https://registry.local:5000 \
       -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/server-cert.pem \
       -e REGISTRY_HTTP_TLS_KEY=/certs/server-key.pem \
+      -e REGISTRY_HTTP_HTTP2_DISABLED=true \
       --name registry \
       registry:latest
     echo "SUCCESS"

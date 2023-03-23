@@ -76,7 +76,7 @@ storage:
       mode: 0644
       overwrite: true
       contents:
-        source: http://10.0.2.100:8888/hosts
+        source: http://10.0.2.2:8888/hosts
     - path: /opt/k3s-install.sh
       mode: 0755
       contents:
@@ -84,16 +84,16 @@ storage:
     - path: /opt/docker-images/docker-seeder.tar
       mode: 0644
       contents:
-        source: http://10.0.2.100:8889/docker-seeder.tar
+        source: http://10.0.2.2:8889/docker-seeder.tar
     - path: /opt/docker-image-import.sh
       mode: 0755
       contents:
-        source: http://10.0.2.100:8888/docker-image-import.sh
+        source: http://10.0.2.2:8888/docker-image-import.sh
     - path: /opt/import-ca-certs.sh
       mode: 0755
       contents:
-        source: http://10.0.2.100:8888/import_ca_certs.sh
+        source: http://10.0.2.2:8888/import_ca_certs.sh
     - path: /opt/oci-repo-ca-cert.pem
       mode: 0644
       contents:
-        source: http://10.0.2.100:8889/oci-repo-ca-cert.pem
+        source: http://10.0.2.2:8889/oci-repo-ca-cert.pem

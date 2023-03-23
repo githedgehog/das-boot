@@ -31,7 +31,7 @@ echo
 
 # create a server cert
 echo "Creating certs..."
-SANS="DNS:localhost, DNS:registry.local, IP:127.0.0.1, IP:10.0.2.100"
+SANS="DNS:localhost, DNS:registry.local, IP:127.0.0.1, IP:10.0.2.2"
 ${OPENSSL} ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/server-key.pem
 ${OPENSSL} req -new -nodes -x509 -days 360 \
   -CAkey ${DEV_DIR}/oci-repo-ca-key.pem -CA ${DEV_DIR}/oci-repo-ca-cert.pem \

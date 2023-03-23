@@ -105,15 +105,13 @@ echo
 echo "6. QEMU QNP: $DEV_DIR/qnp.sock"
 echo "     nc -U $DEV_DIR/qnp.sock"
 echo
+
 $QEMU_SYSTEM_X86_64 \
   -name "$VM_NAME" \
   -uuid "$VM_UUID" \
   -m "$VM_MEMORY" \
   -machine q35,accel=kvm,smm=on -cpu host -smp "$VM_NCPUS" \
-  -chardev socket,id=webdev1,host=127.0.0.1,port=8888,server=off,reconnect=5 \
-  -chardev socket,id=webdev2,host=127.0.0.1,port=8889,server=off,reconnect=5 \
-  -chardev socket,id=dockerregistrydev,host=127.0.0.1,port=5000,server=off,reconnect=5 \
-  -netdev user,id=eth0,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22,hostfwd=tcp:127.0.0.1:"$KUBE_PORT"-:6443,guestfwd=tcp:10.0.2.100:8888-chardev:webdev1,guestfwd=tcp:10.0.2.100:8889-chardev:webdev2,guestfwd=tcp:10.0.2.100:5000-chardev:dockerregistrydev,hostname="$VM_NAME",domainname=local,dnssearch=local \
+  -netdev user,id=eth0,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22,hostfwd=tcp:127.0.0.1:"$KUBE_PORT"-:6443,hostname="$VM_NAME",domainname=local,dnssearch=local \
   -device virtio-net-pci,netdev=eth0 \
   -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-pci,rng=rng0 \
   -chardev socket,id=chrtpm,path="$DEV_DIR/tpm.sock.ctrl" -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \

@@ -3,4 +3,4 @@
 ::1             localhost localhost.local
 
 # used for our local development registry
-10.0.2.100      registry registry.local
+10.0.2.2      registry registry.local
