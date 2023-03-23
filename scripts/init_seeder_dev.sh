@@ -15,8 +15,8 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # let's make a dev folder where we generate everything for
 echo -n "Making development folder: "
-mkdir -p ${SCRIPT_DIR}/../dev
-DEV_DIR=$( cd -- "${SCRIPT_DIR}/../dev/" &> /dev/null && pwd )
+mkdir -p ${SCRIPT_DIR}/../dev/seeder
+DEV_DIR=$( cd -- "${SCRIPT_DIR}/../dev/seeder" &> /dev/null && pwd )
 echo ${DEV_DIR}
 echo
 

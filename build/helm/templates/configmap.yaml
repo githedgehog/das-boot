@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "das-boot.fullname" . }}
+  labels:
+    {{- include "das-boot.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    servers:
+      # TODO: we actually should be specific here for every control node.
+      # However, how to do that in a daemon set
+      insecure:
+        addresses:
+          {{- toYaml .Values.settings.listeners.insecure | nindent 10 }}
+      secure:
+        addresses:
+          {{- toYaml .Values.settings.listeners.secure | nindent 10 }}
+        client_ca: /etc/hedgehog/seeder-certs/client-ca/{{ .Values.secrets.clientCA.certKey }}
+        server_key: /etc/hedgehog/seeder-certs/server/{{ .Values.secrets.server.keyKey }}
+        server_cert: /etc/hedgehog/seeder-certs/server/{{ .Values.secrets.server.certKey }}
+    embedded_config_generator:
+      config_signature_key: /etc/hedgehog/seeder-certs/config/{{ .Values.secrets.config.keyKey }}
+      config_signature_cert: /etc/hedgehog/seeder-certs/config/{{ .Values.secrets.config.certKey }}
+    installer_settings:
+      server_ca: /etc/hedgehog/seeder-certs/server-ca/{{ .Values.secrets.serverCA.certKey }}
+      config_signature_ca: /etc/hedgehog/seeder-certs/config-ca/{{ .Values.secrets.configCA.certKey }}
+      secure_server_name: {{ include "das-boot.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+      dns_servers:
+        {{- toYaml .Values.settings.dns_servers | nindent 10 }}
+      ntp_servers:
+        {{- toYaml .Values.settings.ntp_servers | nindent 10 }}
+      syslog_servers:
+        {{- toYaml .Values.settings.syslog_servers | nindent 10 }}
