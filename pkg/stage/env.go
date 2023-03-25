@@ -1,11 +1,16 @@
 package stage
 
 import (
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+
+	"go.githedgehog.com/dasboot/pkg/devid"
 )
 
 // OnieEnv represents a set of environment variables that *should* always
@@ -46,6 +51,9 @@ const (
 	envNameConfigSignatureCA = "dasboot_config_signature_ca"
 	envNameLogSettings       = "dasboot_log_settings"
 	envNameDeviceID          = "dasboot_hhdevid"
+	pathServerCA             = "server-ca.der"
+	pathConfigSignatureCA    = "config-signature-ca.der"
+	pathLogSettings          = "log-settings.json"
 )
 
 func (si *StagingInfo) Export() error {
@@ -71,20 +79,20 @@ func (si *StagingInfo) Export() error {
 		}
 
 		if len(si.ServerCA) > 0 {
-			serverCAPath := filepath.Join(si.StagingDir, "server-ca.der")
+			serverCAPath := filepath.Join(si.StagingDir, pathServerCA)
 			if err := writeFile(serverCAPath, si.ServerCA); err != nil {
 				return fmt.Errorf("failed to write server CA to disk at '%s': %w", serverCAPath, err)
 			}
 		}
 
 		if len(si.ConfigSignatureCA) > 0 {
-			configSignatureCAPath := filepath.Join(si.StagingDir, "config-signature-ca.der")
+			configSignatureCAPath := filepath.Join(si.StagingDir, pathConfigSignatureCA)
 			if err := writeFile(configSignatureCAPath, si.ConfigSignatureCA); err != nil {
 				return fmt.Errorf("failed to write config signature CA to disk at '%s': %w", configSignatureCAPath, err)
 			}
 		}
 
-		logSettingsPath := filepath.Join(si.StagingDir, "log-settings.json")
+		logSettingsPath := filepath.Join(si.StagingDir, pathLogSettings)
 
 		if err := writeFile(logSettingsPath, logSettingsBytes); err != nil {
 			return fmt.Errorf("failed to write log settings to disk at '%s': %w", logSettingsPath, err)
@@ -137,4 +145,132 @@ func writeFile(path string, contents []byte) error {
 	}
 
 	return nil
+}
+
+func ReadStagingInfo() (*StagingInfo, error) {
+	ret := &StagingInfo{}
+	var ok bool
+
+	ret.StagingDir, ok = os.LookupEnv(envNameStagingDir)
+	if !ok {
+		// we are assuming that the staging directory is then the current working directory if this is not set
+		var err error
+		ret.StagingDir, err = os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("environment variable '%s' not set, and could not get current working directory: %w", envNameStagingDir, err)
+		}
+	}
+
+	serverCABase64String, ok := os.LookupEnv(envNameServerCA)
+	if !ok {
+		// environment variable not set, so we'll try to read it from disk
+		var err error
+		serverCAPath := filepath.Join(ret.StagingDir, pathServerCA)
+		ret.ServerCA, err = readFile(serverCAPath)
+		if err != nil {
+			return nil, fmt.Errorf("environment variable '%s' not set, and failed to read Server CA from staging file '%s': %w", envNameServerCA, serverCAPath, err)
+		}
+	} else {
+		// environment variable is set, try to base64 decode the value from it
+		var err error
+		ret.ServerCA, err = base64.StdEncoding.DecodeString(serverCABase64String)
+		if err != nil {
+			return nil, fmt.Errorf("failed to base64 decode Server CA bytes from environment variable '%s': %w", envNameServerCA, err)
+		}
+	}
+
+	configSignatureCABase64String, ok := os.LookupEnv(envNameConfigSignatureCA)
+	if !ok {
+		// environment variable not set, so we'll try to read it from disk
+		var err error
+		configSignatureCAPath := filepath.Join(ret.StagingDir, pathConfigSignatureCA)
+		ret.ConfigSignatureCA, err = readFile(configSignatureCAPath)
+		if err != nil {
+			return nil, fmt.Errorf("environment variable '%s' not set, and failed to read Config Signature CA from staging file '%s': %w", envNameConfigSignatureCA, configSignatureCAPath, err)
+		}
+	} else {
+		// environment variable is set, try to base64 decode the value from it
+		var err error
+		ret.ConfigSignatureCA, err = base64.StdEncoding.DecodeString(configSignatureCABase64String)
+		if err != nil {
+			return nil, fmt.Errorf("failed to base64 decode Config Signature CA bytes from environment variable '%s': %w", envNameConfigSignatureCA, err)
+		}
+	}
+
+	logSettingsJSONString, ok := os.LookupEnv(envNameLogSettings)
+	if !ok {
+		// environment variable not set, so we'll try to read it from disk
+		logSettingsPath := filepath.Join(ret.StagingDir, pathLogSettings)
+		logSettingsBytes, err := readFile(logSettingsPath)
+		if err != nil {
+			return nil, fmt.Errorf("environment variable '%s' not set, and failed to read log settings from file '%s': %w", envNameLogSettings, logSettingsPath, err)
+		}
+		if err := json.Unmarshal(logSettingsBytes, &ret.LogSettings); err != nil {
+			return nil, fmt.Errorf("environment variable '%s' not set, and failed to JSON decoe log settings from file '%s': %w", envNameLogSettings, logSettingsPath, err)
+		}
+	} else {
+		// environment variable is set, try to JSON decode the value from it
+		if err := json.Unmarshal([]byte(logSettingsJSONString), &ret.LogSettings); err != nil {
+			return nil, fmt.Errorf("failed to JSON decode log settings from environment variable '%s' (value: '%s'): %w", envNameLogSettings, logSettingsJSONString, err)
+		}
+	}
+
+	ret.DeviceID, ok = os.LookupEnv(envNameDeviceID)
+	if !ok {
+		// environment variable not set, so we'll run the Device ID algorithm again
+		ret.DeviceID = devid.ID()
+		if ret.DeviceID == "" {
+			return nil, fmt.Errorf("environment variable '%s' not set, and failed to determine the device ID again", envNameDeviceID)
+		}
+	} else {
+		if ret.DeviceID == "" {
+			ret.DeviceID = devid.ID()
+			if ret.DeviceID == "" {
+				return nil, fmt.Errorf("environment variable '%s' was empty, and failed to determine the device ID again", envNameDeviceID)
+			}
+		}
+	}
+
+	return ret, nil
+}
+
+func readFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(f)
+}
+
+var ErrValueNotSet = errors.New("staging info: value not set")
+
+func valueNotSetError(s string) error {
+	return fmt.Errorf("%w: %s", ErrValueNotSet, s)
+}
+
+func (si *StagingInfo) ServerCAPool() (*x509.CertPool, error) {
+	if si != nil && len(si.ServerCA) > 0 {
+		cert, err := x509.ParseCertificate(si.ServerCA)
+		if err != nil {
+			return nil, fmt.Errorf("staging info: parsing Server CA certificate: %w", err)
+		}
+		ret := x509.NewCertPool()
+		ret.AddCert(cert)
+		return ret, nil
+	}
+	return nil, valueNotSetError("ServerCA")
+}
+
+func (si *StagingInfo) ConfigSignatureCAPool() (*x509.CertPool, error) {
+	if si != nil && len(si.ConfigSignatureCA) > 0 {
+		cert, err := x509.ParseCertificate(si.ConfigSignatureCA)
+		if err != nil {
+			return nil, fmt.Errorf("staging info: parsing Config Signature CA certificate: %w", err)
+		}
+		ret := x509.NewCertPool()
+		ret.AddCert(cert)
+		return ret, nil
+	}
+	return nil, valueNotSetError("ConfigSignatureCA")
 }

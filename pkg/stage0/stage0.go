@@ -54,6 +54,7 @@ func ReadConfig() (*configstage.Stage0, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open executable '%s': %w", exePath, err)
 	}
+	defer f.Close()
 
 	exeBytes, err := io.ReadAll(f)
 	if err != nil {
@@ -346,10 +347,10 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 		l.Warn("Reinitializing global logger with new settings including syslog servers failed", zap.Strings("syslogServers", ipamResp.SyslogServers), zap.Error(err))
 	} else {
 		l = log.L()
+		l.Info("Reinitialized global logger with new settings including syslog servers",
+			zap.Strings("syslogServers", ipamResp.SyslogServers),
+		)
 	}
-	l.Info("Reinitialized global logger with new settings including syslog servers",
-		zap.Strings("syslogServers", ipamResp.SyslogServers),
-	)
 
 	// now run NTP - we only fail if NTP fails, not if hardware clock sync fails
 	if err := ntp.SyncClock(ctx, ipamResp.NTPServers); err != nil && !errors.Is(err, ntp.ErrHWClockSync) {

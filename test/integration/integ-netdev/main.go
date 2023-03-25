@@ -20,7 +20,7 @@ func main() {
 	app := &cli.App{
 		Name:                 "integ-netdev",
 		Usage:                "integration test for network device and vlan configuration",
-		UsageText:            "integ-netdevr",
+		UsageText:            "integ-netdev",
 		Description:          "Should be running in ONIE, and will try to add/delete a vlan and IP address to/from a network device",
 		Version:              version.Version,
 		EnableBashCompletion: true,
