@@ -80,7 +80,7 @@ func mockedIPAddresses(interfaces []string) IPAddresses {
 				"10.42.0.0/16",
 				"10.43.0.0/16",
 				"2001:cafe:42:0::/56",
-				"10.43.0.0/16,2001:cafe:42:1::/112",
+				"2001:cafe:42:1::/112",
 			},
 		}
 	}

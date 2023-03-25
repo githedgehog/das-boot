@@ -11,6 +11,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var l = log.L()
@@ -46,6 +47,12 @@ func main() {
 					&cli.StringSliceFlag{
 						Name:  "subnet",
 						Usage: "Additional subnets to be added as routes on the same VLAN interface",
+						Value: cli.NewStringSlice(
+							"10.42.0.0/16",
+							"10.43.0.0/16",
+							"2001:cafe:42:0::/56",
+							"2001:cafe:42:1::/112",
+						),
 					},
 					&cli.StringFlag{
 						Name:    "device",
@@ -78,6 +85,9 @@ func main() {
 			},
 		},
 	}
+
+	l = log.NewZapWrappedLogger(zap.Must(log.NewSerialConsole(zapcore.DebugLevel, "console", true)))
+	log.ReplaceGlobals(l)
 
 	if err := app.Run(os.Args); err != nil {
 		l.Fatal("integ-netdev failed", zap.Error(err), zap.String("errType", fmt.Sprintf("%T", err)))

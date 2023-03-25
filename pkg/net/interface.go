@@ -63,7 +63,13 @@ func AddVLANDeviceWithIP(device string, vid uint16, vlanName string, ipaddrnets,
 		}
 	}
 
+	// set the interface up
+	if err := netlink.LinkSetUp(vlan); err != nil {
+		return err
+	}
+
 	// add subnets to be routed over same interface
+	// network needs to be up for this, so must come after we bring up the link
 	if len(routedests) > 0 {
 		for _, routedest := range routedests {
 			route := &netlink.Route{
@@ -74,11 +80,6 @@ func AddVLANDeviceWithIP(device string, vid uint16, vlanName string, ipaddrnets,
 				return err
 			}
 		}
-	}
-
-	// set the interface up
-	if err := netlink.LinkSetUp(vlan); err != nil {
-		return err
 	}
 
 	// that's it - that was easy
