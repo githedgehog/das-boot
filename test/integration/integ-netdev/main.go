@@ -43,6 +43,10 @@ func main() {
 						Usage: "IP addresses with their netmask CIDR",
 						Value: cli.NewStringSlice("192.168.42.101/24"),
 					},
+					&cli.StringSliceFlag{
+						Name:  "subnet",
+						Usage: "Additional subnets to be added as routes on the same VLAN interface",
+					},
 					&cli.StringFlag{
 						Name:    "device",
 						Aliases: []string{"dev"},
@@ -88,22 +92,32 @@ func integNetdevAdd(ctx *cli.Context) error {
 	l.Info("Parsing IP and netmasks from input...")
 	ipaddrs := ctx.StringSlice("ip-address")
 	var ipnets []*net.IPNet
-	for _, ipaddrstr := range ipaddrs {
-		ipaddr, ipnet, err := net.ParseCIDR(ipaddrstr)
+	if len(ipaddrs) > 0 {
+		var err error
+		ipnets, err = dbnet.StringsToIPNets(ipaddrs)
 		if err != nil {
-			return fmt.Errorf("failed to parse IP address and netmask: %w", err)
+			return fmt.Errorf("failed to parse IP addresses and netmask: %w", err)
 		}
-		ipnet.IP = ipaddr
-		ipnets = append(ipnets, ipnet)
+	}
+
+	l.Info("Parsing subnets from input...")
+	subnets := ctx.StringSlice("subnet")
+	var routedests []*net.IPNet
+	if len(subnets) > 0 {
+		var err error
+		routedests, err = dbnet.StringsToIPNets(subnets)
+		if err != nil {
+			return fmt.Errorf("failed to parse subnets: %w", err)
+		}
 	}
 
 	l.Info("Adding VLAN interface and IP address...",
 		zap.String("device", dev),
 		zap.Uint16("vid", vid),
 		zap.String("vlanName", vlanName),
-		zap.Strings("ipnets", ipaddrs),
+		zap.Reflect("ipnets", ipnets),
 	)
-	if err := dbnet.AddVLANDeviceWithIP(dev, vid, vlanName, ipnets); err != nil {
+	if err := dbnet.AddVLANDeviceWithIP(dev, vid, vlanName, ipnets, routedests); err != nil {
 		return fmt.Errorf("adding VLAN and address failed: %w", err)
 	}
 	l.Info("Success")
