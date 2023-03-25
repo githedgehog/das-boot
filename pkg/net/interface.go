@@ -31,7 +31,7 @@ func StringsToIPNets(ipaddrs []string) ([]*net.IPNet, error) {
 // AddVLANDeviceWithIP will create a new VLAN network interface called `vlanName` with VLAN ID `vid` and add it to
 // the parent network interface `device`. It will also add all IP addresses as given with `ipaddrnets`, and, last
 // but not least, it will set the interface UP.
-func AddVLANDeviceWithIP(device string, vid uint16, vlanName string, ipaddrnets []*net.IPNet) error {
+func AddVLANDeviceWithIP(device string, vid uint16, vlanName string, ipaddrnets, routedests []*net.IPNet) error {
 	// get the parent device
 	pl, err := netlink.LinkByName(device)
 	if err != nil {
@@ -60,6 +60,19 @@ func AddVLANDeviceWithIP(device string, vid uint16, vlanName string, ipaddrnets 
 		}
 		if err := netlink.AddrAdd(vlan, addr); err != nil {
 			return err
+		}
+	}
+
+	// add subnets to be routed over same interface
+	if len(routedests) > 0 {
+		for _, routedest := range routedests {
+			route := &netlink.Route{
+				Dst:       routedest,
+				LinkIndex: vlan.Index,
+			}
+			if err := netlink.RouteAdd(route); err != nil {
+				return err
+			}
 		}
 	}
 

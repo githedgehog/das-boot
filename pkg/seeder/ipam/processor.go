@@ -56,11 +56,9 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 	}
 
 	// MOCKED VALUES
-	vlan := mockedVLAN()
 	ips := mockedIPAddresses(req.Interfaces)
 
 	return &Response{
-		VLAN:          vlan,
 		IPAddresses:   ips,
 		DNSServers:    settings.DNSServers,
 		NTPServers:    settings.NTPServers,
@@ -73,7 +71,18 @@ func mockedIPAddresses(interfaces []string) IPAddresses {
 	ret := make(IPAddresses, len(interfaces))
 
 	for _, netif := range interfaces {
-		ret[netif] = nextIP()
+		ret[netif] = IPAddress{
+			IPAddresses: nextIP(),
+			VLAN:        mockedVLAN(),
+			// from the K3s docs:
+			// --cluster-cidr=10.42.0.0/16,2001:cafe:42:0::/56 --service-cidr=10.43.0.0/16,2001:cafe:42:1::/112
+			Routes: []string{
+				"10.42.0.0/16",
+				"10.43.0.0/16",
+				"2001:cafe:42:0::/56",
+				"10.43.0.0/16,2001:cafe:42:1::/112",
+			},
+		}
 	}
 
 	return ret
