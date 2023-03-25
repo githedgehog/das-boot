@@ -2,6 +2,7 @@
 set -e
 
 SWITCH_NAME=${1:-switch}
+shift
 
 SWTPM=$(which swtpm)
 
