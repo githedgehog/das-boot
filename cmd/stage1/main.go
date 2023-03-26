@@ -61,7 +61,6 @@ func main() {
 			},
 		},
 		Action: func(ctx *cli.Context) error {
-
 			return runStage1(ctx)
 		},
 	}
