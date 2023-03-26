@@ -245,7 +245,7 @@ func Run(ctx context.Context, override *configstage.Stage1, logSettings *stage.L
 	return nil
 }
 
-// registers the device with the
+// registers the device with the control plane
 func registerDevice(ctx context.Context, cfg *configstage.Stage1, identityPartition identity.IdentityPartition, si *stage.StagingInfo, locationInfo *location.Info, generateNewCSR bool) error {
 	var clientCSRBytes []byte
 	hasClientCSR := identityPartition.HasClientCSR()
