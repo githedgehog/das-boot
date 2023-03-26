@@ -192,7 +192,7 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	devices := partitions.Discover()
 
 	// retrieve location info
-	locationPartition, err := stage.MountLocationPartition(devices)
+	locationPartition, err := stage.MountLocationPartition(l, devices)
 	if err != nil {
 		l.Warn("Location partition failed to open", zap.Error(err))
 	} else {

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"go.githedgehog.com/dasboot/pkg/partitions"
 	"go.githedgehog.com/dasboot/pkg/partitions/location"
@@ -388,8 +389,12 @@ func (a *api) HasClientCert() bool {
 	if p.Type != "CERTIFICATE" {
 		return false
 	}
-	_, err = x509.ParseCertificate(p.Bytes)
-	return err == nil
+	cert, err := x509.ParseCertificate(p.Bytes)
+	if err != nil {
+		return false
+	}
+	now := time.Now()
+	return cert.NotBefore.Before(now) && cert.NotAfter.After(now)
 }
 
 // HasClientKey implements IdentityPartition
