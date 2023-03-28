@@ -105,11 +105,23 @@ systemd:
         WantedBy=multi-user.target
 storage:
   files:
+    # disable updates - we really don't care on a dev machine
+    # they are just annoying here at the moment
+    # it disables them by setting the server to an invalid value
+    # yes, I know, but even Flatcar says to do so
+    # source: https://www.flatcar.org/docs/latest/setup/releases/update-strategies/#disable-automatic-updates
+    - path: /etc/flatcar/update.conf
+      mode: 0644
+      contents:
+        inline: |
+                    SERVER=disabled
+    # set a great hostname
     - path: /etc/hostname
       mode: 0644
       overwrite: true
       contents:
         inline: control-node-1
+    # this gives us access to the docker registry running on the dev laptop, not in the VM
     - path: /etc/hosts
       mode: 0644
       overwrite: true
@@ -127,6 +139,14 @@ storage:
       mode: 0644
       contents:
         source: http://10.0.2.2:8889/docker-seeder.tar
+    - path: /opt/docker-images/docker-syslog.tar
+      mode: 0644
+      contents:
+        source: http://10.0.2.2:8889/docker-syslog.tar
+    - path: /opt/docker-images/docker-ntp.tar
+      mode: 0644
+      contents:
+        source: http://10.0.2.2:8889/docker-ntp.tar
     - path: /opt/docker-image-import.sh
       mode: 0755
       contents:
@@ -167,3 +187,11 @@ storage:
       mode: 0600
       contents:
         source: http://10.0.2.2:8889/das-boot-server-cert-secret.yaml
+    - path: /opt/seeder/syslog-ng-values.yaml
+      mode: 0644
+      contents:
+        source: http://10.0.2.2:8888/syslog-ng-values.yaml
+    - path: /opt/seeder/ntp-values.yaml
+      mode: 0644
+      contents:
+        source: http://10.0.2.2:8888/ntp-values.yaml

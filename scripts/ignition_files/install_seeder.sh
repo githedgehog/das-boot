@@ -34,9 +34,21 @@ if [ $? -ne 0 ]; then
 fi
 
 # now install the helm chart
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-seeder-values.yaml hedgehog oci://registry.local:5000/githedgehog/helm-charts/das-boot-seeder
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-seeder-values.yaml hedgehog-seeder oci://registry.local:5000/githedgehog/helm-charts/das-boot-seeder
 if [ $? -ne 0 ]; then
     exit 2
+fi
+
+# install syslog
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f syslog-ng-values.yaml hedgehog-syslog oci://registry.local:5000/githedgehog/helm-charts/syslog-ng
+if [ $? -ne 0 ]; then
+    exit 3
+fi
+
+# install ntp
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f ntp-values.yaml hedgehog-ntp oci://registry.local:5000/githedgehog/helm-charts/ntp
+if [ $? -ne 0 ]; then
+    exit 4
 fi
 
 touch /opt/seeder/installed

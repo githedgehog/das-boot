@@ -4,3 +4,7 @@ image:
   pullPolicy: Always
 settings:
   issue_certificates: true
+  ntp_servers:
+    - hedgehog-ntp-udp.default.svc.cluster.local
+  syslog_servers:
+    - hedgehog-syslog-syslog-ng.default.svc.cluster.local
