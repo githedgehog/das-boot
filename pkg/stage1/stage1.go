@@ -27,7 +27,7 @@ import (
 
 var l = log.L()
 
-var pollTimeout = time.Duration(time.Second * 5)
+var pollTimeout = time.Second * 5
 
 var ErrExecution = errors.New("unrecoverable execution error encountered")
 
