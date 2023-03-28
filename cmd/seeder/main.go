@@ -107,44 +107,63 @@ func main() {
 			if err != nil {
 				return err
 			}
+			l.Info("Successfully loaded configuration", zap.String("path", ctx.Path("config")), zap.Reflect("config", cfg))
 
 			// create seeder
+
 			// this is a bit stupid, and maybe we should just share the config structs
 			// however, something told me that it is good to decouple those
-			s, err := seeder.New(ctx.Context, &seeder.Config{
-				InsecureServer: &seeder.BindInfo{
-					Address:        cfg.Servers.ServerInsecure.Addresses,
-					ClientCAPath:   cfg.Servers.ServerInsecure.ClientCAPath,
-					ServerKeyPath:  cfg.Servers.ServerInsecure.ServerKeyPath,
-					ServerCertPath: cfg.Servers.ServerInsecure.ServerCertPath,
-				},
-				SecureServer: &seeder.BindInfo{
-					Address:        cfg.Servers.ServerSecure.Addresses,
-					ClientCAPath:   cfg.Servers.ServerSecure.ClientCAPath,
-					ServerKeyPath:  cfg.Servers.ServerSecure.ServerKeyPath,
-					ServerCertPath: cfg.Servers.ServerSecure.ServerCertPath,
-				},
-				EmbeddedConfigGenerator: &seeder.EmbeddedConfigGeneratorConfig{
+			// so translate the configs
+			c := &seeder.Config{}
+			if cfg.Servers != nil {
+				if cfg.Servers.ServerInsecure != nil {
+					c.InsecureServer = &seeder.BindInfo{
+						Address:        cfg.Servers.ServerInsecure.Addresses,
+						ClientCAPath:   cfg.Servers.ServerInsecure.ClientCAPath,
+						ServerKeyPath:  cfg.Servers.ServerInsecure.ServerKeyPath,
+						ServerCertPath: cfg.Servers.ServerInsecure.ServerCertPath,
+					}
+				}
+				if cfg.Servers.ServerSecure != nil {
+					c.SecureServer = &seeder.BindInfo{
+						Address:        cfg.Servers.ServerSecure.Addresses,
+						ClientCAPath:   cfg.Servers.ServerSecure.ClientCAPath,
+						ServerKeyPath:  cfg.Servers.ServerSecure.ServerKeyPath,
+						ServerCertPath: cfg.Servers.ServerSecure.ServerCertPath,
+					}
+				}
+			}
+			if cfg.EmbeddedConfigGenerator != nil {
+				c.EmbeddedConfigGenerator = &seeder.EmbeddedConfigGeneratorConfig{
 					KeyPath:  cfg.EmbeddedConfigGenerator.KeyPath,
 					CertPath: cfg.EmbeddedConfigGenerator.CertPath,
-				},
-				InstallerSettings: &seeder.InstallerSettings{
+				}
+			}
+			if cfg.InstallerSettings != nil {
+				c.InstallerSettings = &seeder.InstallerSettings{
 					ServerCAPath:          cfg.InstallerSettings.ServerCAPath,
 					ConfigSignatureCAPath: cfg.InstallerSettings.ConfigSignatureCAPath,
 					SecureServerName:      cfg.InstallerSettings.SecureServerName,
 					DNSServers:            cfg.InstallerSettings.DNSServers,
 					NTPServers:            cfg.InstallerSettings.NTPServers,
 					SyslogServers:         cfg.InstallerSettings.SyslogServers,
-				},
-				RegistrySettings: &seeder.RegistrySettings{
+				}
+			}
+			if cfg.RegistrySettings != nil {
+				c.RegistrySettings = &seeder.RegistrySettings{
 					CertPath: cfg.RegistrySettings.CertPath,
 					KeyPath:  cfg.RegistrySettings.KeyPath,
-				},
-				// at last, something which can't get simply be passed from a config file
-				ArtifactsProvider: artifacts.New(
-					embedded.Provider(),
-				),
-			})
+				}
+			}
+
+			// the artifacts provider
+			c.ArtifactsProvider = artifacts.New(
+				embedded.Provider(),
+			)
+
+			// now create the seeder
+			l.Debug("Translated seeder config", zap.Reflect("seederConfig", c))
+			s, err := seeder.New(ctx.Context, c)
 			if err != nil {
 				return err
 			}

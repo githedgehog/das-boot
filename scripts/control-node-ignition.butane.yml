@@ -159,6 +159,7 @@ storage:
           # for the NIC which connects to switch1
           [Match]
           MACAddress=0c:20:12:fe:00:01
+          Type=ether
           
           [Link]
           Name=switch1
