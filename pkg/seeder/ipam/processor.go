@@ -74,13 +74,14 @@ func mockedIPAddresses(interfaces []string) IPAddresses {
 		ret[netif] = IPAddress{
 			IPAddresses: nextIP(),
 			VLAN:        mockedVLAN(),
-			// from the K3s docs:
-			// --cluster-cidr=10.42.0.0/16,2001:cafe:42:0::/56 --service-cidr=10.43.0.0/16,2001:cafe:42:1::/112
-			Routes: []string{
-				"10.42.0.0/16",
-				"10.43.0.0/16",
-				"2001:cafe:42:0::/56",
-				"2001:cafe:42:1::/112",
+			Routes: []*Route{
+				{
+					Destinations: []string{
+						"10.42.0.0/16",
+						"10.43.0.0/16",
+					},
+					Gateway: "192.168.42.11",
+				},
 			},
 		}
 	}

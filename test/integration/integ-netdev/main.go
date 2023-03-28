@@ -50,9 +50,12 @@ func main() {
 						Value: cli.NewStringSlice(
 							"10.42.0.0/16",
 							"10.43.0.0/16",
-							"2001:cafe:42:0::/56",
-							"2001:cafe:42:1::/112",
 						),
+					},
+					&cli.StringFlag{
+						Name:  "gateway",
+						Usage: "Nexthop to use for the subnet routes",
+						Value: "192.168.42.11",
 					},
 					&cli.StringFlag{
 						Name:    "device",
@@ -110,14 +113,39 @@ func integNetdevAdd(ctx *cli.Context) error {
 		}
 	}
 
-	l.Info("Parsing subnets from input...")
 	subnets := ctx.StringSlice("subnet")
 	var routedests []*net.IPNet
 	if len(subnets) > 0 {
+		l.Info("Parsing subnets from input...")
 		var err error
 		routedests, err = dbnet.StringsToIPNets(subnets)
 		if err != nil {
 			return fmt.Errorf("failed to parse subnets: %w", err)
+		}
+	}
+
+	gw := ctx.String("gateway")
+	var routegw net.IP
+	if gw != "" {
+		l.Info("Parsing gateway from input...")
+		routegw = net.ParseIP(gw)
+		if routegw == nil {
+			return fmt.Errorf("failed to parse gateway IP from: '%s'", gw)
+		}
+	}
+	if (len(routedests) > 0 && routegw == nil) || (len(routedests) == 0 && routegw != nil) {
+		l.Error("you must specify subnets and gateway together")
+		return fmt.Errorf("subnets and gateway must be specified together")
+	}
+
+	// now build the routes
+	var routes []*dbnet.Route
+	if len(routedests) > 0 && routegw != nil {
+		routes = []*dbnet.Route{
+			{
+				Dests: routedests,
+				Gw:    routegw,
+			},
 		}
 	}
 
@@ -127,7 +155,7 @@ func integNetdevAdd(ctx *cli.Context) error {
 		zap.String("vlanName", vlanName),
 		zap.Reflect("ipnets", ipnets),
 	)
-	if err := dbnet.AddVLANDeviceWithIP(dev, vid, vlanName, ipnets, routedests); err != nil {
+	if err := dbnet.AddVLANDeviceWithIP(dev, vid, vlanName, ipnets, routes); err != nil {
 		return fmt.Errorf("adding VLAN and address failed: %w", err)
 	}
 	l.Info("Success")

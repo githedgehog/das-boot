@@ -317,16 +317,27 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 		l.Error("Conversion of IP addresses to IPNets failed", zap.String("netdev", netdev), zap.Reflect("ipAddresses", ipa.IPAddresses))
 		return "", fmt.Errorf("converting IP addresses to IPNets: %w", err)
 	}
-	var routedests []*gonet.IPNet
+	var routes []*net.Route
 	if len(ipa.Routes) > 0 {
-		var err error
-		routedests, err = net.StringsToIPNets(ipa.Routes)
-		if err != nil {
-			l.Error("Conversion of IP routes to IPNets failed", zap.String("netdev", netdev), zap.Reflect("routes", ipa.Routes))
-			return "", fmt.Errorf("converting routes to IPNets: %w", err)
+		for _, route := range ipa.Routes {
+			dests, err := net.StringsToIPNets(route.Destinations)
+			if err != nil {
+				l.Error("Conversion of IP routes destinations to IPNets failed", zap.String("netdev", netdev), zap.Reflect("routes", ipa.Routes), zap.Error(err))
+				return "", fmt.Errorf("converting routes destinations to IPNets: %w", err)
+			}
+			gw := gonet.ParseIP(route.Gateway)
+			if gw == nil {
+				l.Error("Conversion of IP gateway string to IP failed", zap.String("netdev", netdev), zap.String("gw", route.Gateway))
+				return "", fmt.Errorf("converting routes gateway '%s' to IP failed", route.Gateway)
+			}
+			routes = append(routes, &net.Route{
+				Dests: dests,
+				Gw:    gw,
+			})
 		}
+
 	}
-	if err := net.AddVLANDeviceWithIP(netdev, ipa.VLAN, vlanName, ipaddrnets, routedests); err != nil {
+	if err := net.AddVLANDeviceWithIP(netdev, ipa.VLAN, vlanName, ipaddrnets, routes); err != nil {
 		l.Error("VLAN interface creation and configuration failed",
 			zap.String("netdev", netdev),
 			zap.String("vlanInterface", vlanName),
