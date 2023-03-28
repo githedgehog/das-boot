@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path"
 
+	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/seeder/registration"
 	config1 "go.githedgehog.com/dasboot/pkg/stage1/config"
 
@@ -26,6 +27,7 @@ const (
 func (s *seeder) secureHandler() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
+	r.Use(RequestLogger(log.L()))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
 	r.Use(AddResponseRequestID())

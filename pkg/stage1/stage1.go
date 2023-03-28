@@ -27,6 +27,8 @@ import (
 
 var l = log.L()
 
+var pollTimeout = time.Duration(time.Second * 5)
+
 var ErrExecution = errors.New("unrecoverable execution error encountered")
 
 func executionError(err error) error {
@@ -283,6 +285,7 @@ func registerDevice(ctx context.Context, cfg *configstage.Stage1, identityPartit
 		LocationInfo: locationInfo,
 	}
 	resp, err := registration.DoRequest(ctx, hc, req, cfg.RegisterURL)
+	i := 0
 	for {
 		// error checking first
 		if err != nil {
@@ -310,8 +313,13 @@ func registerDevice(ctx context.Context, cfg *configstage.Stage1, identityPartit
 			return executionError(fmt.Errorf("device registration: unexecpted device registration status"))
 		}
 
+		// sleep before we retry
+		time.Sleep(pollTimeout)
+		l.Info("Polling status on our device registration...", zap.Int("count", i))
+
 		// now poll until we are good or hit an unrecoverable error
 		resp, err = registration.DoPollRequest(ctx, hc, si.DeviceID, cfg.RegisterURL)
+		i++
 	}
 
 	// store returned certificate onto identity partition

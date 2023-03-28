@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"path"
 	"time"
 
@@ -27,11 +28,16 @@ func DoPollRequest(ctx context.Context, hc *http.Client, deviceID string, regist
 	if err := registrationReq.Validate(); err != nil {
 		return nil, err
 	}
+	url, err := url.Parse(registrationURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse registration URL: %w", err)
+	}
+	url.Path = path.Join(url.Path, deviceID)
 
 	// build the request
 	subCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(subCtx, http.MethodGet, path.Join(registrationURL, deviceID), nil)
+	req, err := http.NewRequestWithContext(subCtx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		return nil, err
 	}

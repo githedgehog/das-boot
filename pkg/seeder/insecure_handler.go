@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 
+	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/seeder/ipam"
 	config0 "go.githedgehog.com/dasboot/pkg/stage0/config"
 )
@@ -21,6 +22,7 @@ const (
 func (s *seeder) insecureHandler() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
+	r.Use(RequestLogger(log.L()))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
 	r.Use(AddResponseRequestID())
