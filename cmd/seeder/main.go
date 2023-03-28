@@ -16,9 +16,14 @@ import (
 
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-var l = log.L()
+var (
+	defaultLogLevel = zapcore.InfoLevel
+)
+
+var l = log.NewZapWrappedLogger(zap.Must(log.NewSerialConsole(zapcore.DebugLevel, "console", true)))
 
 var description = `
 This is the Hedgehog SONiC devic provisioning server. It needs to be running on
@@ -47,6 +52,21 @@ func main() {
 		Description: description[1 : len(description)-1],
 		Version:     version.Version,
 		Flags: []cli.Flag{
+			&cli.GenericFlag{
+				Name:  "log-level",
+				Usage: "minimum log level to log at",
+				Value: &defaultLogLevel,
+			},
+			&cli.StringFlag{
+				Name:  "log-format",
+				Usage: "log format to use: json or console",
+				Value: "json",
+			},
+			&cli.BoolFlag{
+				Name:  "log-development",
+				Usage: "enables development log settings",
+				Value: false,
+			},
 			&cli.BoolFlag{
 				Name:  "reference-config",
 				Usage: "prints a reference config to stdout and exits",
@@ -68,6 +88,19 @@ func main() {
 				_, err = os.Stdout.Write(append(b, []byte("\n")...))
 				return err
 			}
+
+			// initialize logger
+			l = log.NewZapWrappedLogger(zap.Must(log.NewSerialConsole(
+				*ctx.Generic("log-level").(*zapcore.Level),
+				ctx.String("log-format"),
+				ctx.Bool("log-development"),
+			)))
+			defer func() {
+				if err := l.Sync(); err != nil {
+					l.Debug("Flushing logger failed", zap.Error(err))
+				}
+			}()
+			log.ReplaceGlobals(l)
 
 			// load config
 			cfg, err := loadConfig(ctx.Path("config"))
