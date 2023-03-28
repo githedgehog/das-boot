@@ -127,6 +127,64 @@ storage:
       overwrite: true
       contents:
         source: http://10.0.2.2:8888/hosts
+    # network configuration
+    - path: /etc/systemd/network/01-control.netdev 
+      mode: 0644
+      contents:
+        inline: |
+          [NetDev]
+          Name=control
+          Kind=vlan
+          
+          [VLAN]
+          Id=42
+    - path: /etc/systemd/network/01-control.network 
+      mode: 0644
+      contents:
+        inline: |
+          [Match]
+          Name=control
+          Type=vlan
+          
+          [Network]
+          Address=192.168.42.11/24
+          LinkLocalAddressing=no
+          LLDP=no
+          EmitLLDP=no
+          IPv6AcceptRA=no
+          IPv6SendRA=no
+    - path: /etc/systemd/network/01-switch1.link
+      mode: 0644
+      contents:
+        inline: |
+          # Make sure you match that with the QEMU mac address
+          # for the NIC which connects to switch1
+          [Match]
+          MACAddress=0c:20:12:fe:00:01
+          
+          [Link]
+          Name=switch1
+          Description=Connected to switch1
+    - path: /etc/systemd/network/01-switch1.network 
+      mode: 0644
+      contents:
+        inline: |
+          # Make sure you match that with the QEMU mac address
+          # for the NIC which connects to switch1
+          [Match]
+          MACAddress=0c:20:12:fe:00:01
+          
+          [Link]
+          RequiredForOnline=no
+          
+          [Network]
+          VLAN=control
+          LinkLocalAddressing=ipv6
+          LLDP=yes
+          EmitLLDP=yes
+          IPv6AcceptRA=yes
+          IPv6SendRA=yes
+    # now all installation files, etc.pp.
     - path: /opt/k3s-install.sh
       mode: 0755
       contents:
