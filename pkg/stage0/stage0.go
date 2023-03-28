@@ -335,7 +335,6 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 				Gw:    gw,
 			})
 		}
-
 	}
 	if err := net.AddVLANDeviceWithIP(netdev, ipa.VLAN, vlanName, ipaddrnets, routes); err != nil {
 		l.Error("VLAN interface creation and configuration failed",
