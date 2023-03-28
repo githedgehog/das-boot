@@ -283,9 +283,35 @@ func registerDevice(ctx context.Context, cfg *configstage.Stage1, identityPartit
 		LocationInfo: locationInfo,
 	}
 	resp, err := registration.DoRequest(ctx, hc, req, cfg.RegisterURL)
-	if err != nil {
-		l.Error("Device registration failed", zap.Error(err))
-		return executionError(fmt.Errorf("device registration: %w", err))
+	for {
+		// error checking first
+		if err != nil {
+			l.Error("Device registration failed", zap.Error(err))
+			return executionError(fmt.Errorf("device registration: %w", err))
+		}
+
+		// there are two cases when the response is good:
+		// 1. device approved
+		if resp.Status == registration.RegistrationStatusApproved {
+			l.Info("Device registration successful, device approved", zap.String("status", string(resp.Status)), zap.String("description", resp.StatusDescription))
+			break
+		}
+
+		// 2. device rejected
+		if resp.Status == registration.RegistrationStatusRejected {
+			l.Error("Device registration unsuccessful, device rejected", zap.String("status", string(resp.Status)), zap.String("description", resp.StatusDescription))
+			return executionError(fmt.Errorf("device registration: device registration declined"))
+		}
+
+		// if we are not pending, then there is a logic error
+		// abort
+		if resp.Status != registration.RegistrationStatusPending {
+			l.Error("Unexepcted device registration status", zap.Reflect("resp", resp))
+			return executionError(fmt.Errorf("device registration: unexecpted device registration status"))
+		}
+
+		// now poll until we are good or hit an unrecoverable error
+		resp, err = registration.DoPollRequest(ctx, hc, si.DeviceID, cfg.RegisterURL)
 	}
 
 	// store returned certificate onto identity partition
