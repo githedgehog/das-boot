@@ -96,6 +96,9 @@ installer_settings:
     - 127.0.0.1
   syslog_servers:
     - 127.0.0.1
+registry_settings:
+  cert_path: ${DEV_DIR}/client-ca-cert.pem
+  key_path: ${DEV_DIR}/client-ca-key.pem
 EOF
 
 echo -n "Config written to: "

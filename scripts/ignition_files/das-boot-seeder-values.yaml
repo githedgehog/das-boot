@@ -2,3 +2,5 @@ image:
   repository: registry.local:5000/githedgehog/das-boot
   tag: latest
   pullPolicy: Always
+settings:
+  issue_certificates: true

@@ -31,3 +31,8 @@ data:
         {{- toYaml .Values.settings.ntp_servers | nindent 10 }}
       syslog_servers:
         {{- toYaml .Values.settings.syslog_servers | nindent 10 }}
+      {{- if .Values.settings.issue_certificates }}
+      registry_settings:
+        cert_path: /etc/hedgehog/seeder-certs/client-ca/{{ .Values.secrets.clientCA.certKey }}
+        key_path: /etc/hedgehog/seeder-certs/client-ca/{{ .Values.secrets.clientCA.keyKey }}
+      {{- end }}

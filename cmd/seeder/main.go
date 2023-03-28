@@ -78,7 +78,7 @@ func main() {
 			// create seeder
 			// this is a bit stupid, and maybe we should just share the config structs
 			// however, something told me that it is good to decouple those
-			s, err := seeder.New(&seeder.Config{
+			s, err := seeder.New(ctx.Context, &seeder.Config{
 				InsecureServer: &seeder.BindInfo{
 					Address:        cfg.Servers.ServerInsecure.Addresses,
 					ClientCAPath:   cfg.Servers.ServerInsecure.ClientCAPath,
@@ -102,6 +102,10 @@ func main() {
 					DNSServers:            cfg.InstallerSettings.DNSServers,
 					NTPServers:            cfg.InstallerSettings.NTPServers,
 					SyslogServers:         cfg.InstallerSettings.SyslogServers,
+				},
+				RegistrySettings: &seeder.RegistrySettings{
+					CertPath: cfg.RegistrySettings.CertPath,
+					KeyPath:  cfg.RegistrySettings.KeyPath,
 				},
 				// at last, something which can't get simply be passed from a config file
 				ArtifactsProvider: artifacts.New(

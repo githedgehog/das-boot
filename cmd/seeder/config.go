@@ -20,6 +20,9 @@ type Config struct {
 	// InstallerSettings are various settings that are being used in configurations that are being sent to clients through
 	// embedded configurations.
 	InstallerSettings *InstallerSettings `json:"installer_settings,omitempty" yaml:"installer_settings,omitempty"`
+
+	// RegistrySettings are all settings that deal with registration requests that are being sent by clients.
+	RegistrySettings *RegistrySettings `json:"registry_settings,omitempty" yaml:"registry_settings,omitempty"`
 }
 
 type Servers struct {
@@ -87,6 +90,22 @@ type InstallerSettings struct {
 
 	// SyslogServers are the syslog servers which will be configured on clients at installation time
 	SyslogServers []string `json:"syslog_servers,omitempty" yaml:"syslog_servers,omitempty"`
+}
+
+// RegistrySettings are all the settings that instruct the seeder on what to do for registration requests
+// from clients.
+type RegistrySettings struct {
+	// CertPath is the path to a file containing a CA certificate which is used to sign client certificates
+	// for registration requests. NOTE: This should be empty, and registration requests should be
+	// handled by the registration controller instead. If this is set, it means that we will automatically
+	// accept and approve all registration requests.
+	CertPath string `json:"cert_path,omitempty" yaml:"cert_path,omitempty"`
+
+	// CAKey is the path to a file containing a CA key which is used to sign client certificates for
+	// registration requests. NOTE: This should be empty, and registration requests should be
+	// handled by the registration controller instead. If this is set, it means that we will automatically
+	// accept and approve all registration requests.
+	KeyPath string `json:"key_path,omitempty" yaml:"key_path,omitempty"`
 }
 
 // ReferenceConfig will be displayed when requested through the CLI
