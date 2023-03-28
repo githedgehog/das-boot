@@ -25,9 +25,7 @@ systemd:
         TimeoutStartSec=180
         RemainAfterExit=yes
         KillMode=process
-        Environment="K3S_TOKEN=secret_edgecluster_token"
-        Environment="INSTALL_K3S_EXEC=--cluster-init"
-        ExecStart=/usr/bin/sh -c "/opt/k3s-install.sh"
+        ExecStart=/usr/bin/sh -c '/opt/k3s-install.sh server --cluster-init --disable=traefik'
         
         [Install]
         WantedBy=multi-user.target

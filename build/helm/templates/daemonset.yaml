@@ -32,16 +32,13 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - name: http
-              containerPort: {{ .Values.service.ports.insecure.targetPort }}
-              protocol: TCP
             - name: https
               containerPort: {{ .Values.service.ports.secure.targetPort }}
               protocol: TCP
           readinessProbe:
             httpGet:
               path: /healthz
-              port: http
+              port: 80
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
