@@ -264,6 +264,10 @@ run-control-node: ## Runs the control node VM
 run-control-node-tpm: ## Runs the software TPM for the control node VM (NOTE: not needed to run separately, will be started automatically)
 	$(MKFILE_DIR)/scripts/run_control_node_tpm.sh
 
+.PHONE: clean-control-node
+clean-control-node: ## Deletes the control node VM and its supporting files
+	rm -rvf $(DEV_DIR)/control-node-1 || true
+
 .PHONY: access-control-node-kubeconfig
 access-control-node-kubeconfig: ## Displays the kubeconfig to use to be able to reach the Kubernetes cluster (NOTE: 127.0.0.1 is fine, port-forwarding is used)
 	@ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1 "sudo kubectl config view --raw=true" | tee $(DEV_DIR)/control-node-1/kubeconfig
@@ -306,6 +310,10 @@ run-switch1: ## Runs the VM for switch1
 .PHONY: run-switch1-tpm
 run-switch1-tpm: ## Runs the software TPM for th switch1 VM (NOTE: not needed to run separately, will be started automatically)
 	$(MKFILE_DIR)/scripts/run_switch_tpm.sh switch1
+
+.PHONE: clean-switch1
+clean-switch1: ## Deletes the switch1 VM and its supporting files
+	rm -rvf $(DEV_DIR)/switch1 || true
 
 .PHONY: access-switch1-serial
 access-switch1-serial: ## Access the serial console of the switch1 VM
