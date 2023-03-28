@@ -125,7 +125,7 @@ mkdir -p ${SCRIPT_DIR}/../dev/seeder
 SEEDER_DEV_DIR=$( cd -- "${SCRIPT_DIR}/../dev/seeder" &> /dev/null && pwd )
 $KUBECTL create secret generic das-boot-server-cert --dry-run=client -o yaml --from-file=key.pem=$SEEDER_DEV_DIR/server-key.pem --from-file=cert.pem=$SEEDER_DEV_DIR/server-cert.pem > $DEV_DIR/docker-images/das-boot-server-cert-secret.yaml
 $KUBECTL create secret generic das-boot-config-cert --dry-run=client -o yaml --from-file=key.pem=$SEEDER_DEV_DIR/config-key.pem --from-file=cert.pem=$SEEDER_DEV_DIR/config-cert.pem > $DEV_DIR/docker-images/das-boot-config-cert-secret.yaml
-$KUBECTL create secret generic das-boot-client-ca --dry-run=client -o yaml --from-file=cert.pem=$SEEDER_DEV_DIR/client-ca-cert.pem > $DEV_DIR/docker-images/das-boot-client-ca-secret.yaml
+$KUBECTL create secret generic das-boot-client-ca --dry-run=client -o yaml --from-file=key.pem=$SEEDER_DEV_DIR/client-ca-key.pem --from-file=cert.pem=$SEEDER_DEV_DIR/client-ca-cert.pem > $DEV_DIR/docker-images/das-boot-client-ca-secret.yaml
 $KUBECTL create secret generic das-boot-server-ca --dry-run=client -o yaml --from-file=cert.pem=$SEEDER_DEV_DIR/server-ca-cert.pem > $DEV_DIR/docker-images/das-boot-server-ca-secret.yaml
 $KUBECTL create secret generic das-boot-config-ca --dry-run=client -o yaml --from-file=cert.pem=$SEEDER_DEV_DIR/config-ca-cert.pem > $DEV_DIR/docker-images/das-boot-config-ca-secret.yaml
 
