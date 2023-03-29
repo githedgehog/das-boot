@@ -158,7 +158,7 @@ func (s *seeder) embedStage2Config(_ *http.Request, arch string, artifactBytes [
 		NOSType:         "hedgehog_sonic",
 		HedgehogSonicProvisioners: []config2.HedgehogSonicProvisioner{
 			{
-				Name: "Hedgehog Agent",
+				Name: "hedgehog-agent-provisioner",
 				URL:  s.installerSettings.hhAgentProvisionerURL(arch),
 			},
 		},

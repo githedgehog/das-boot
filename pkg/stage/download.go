@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"time"
 )
 
@@ -58,4 +60,13 @@ func DownloadExecutable(ctx context.Context, hc *http.Client, srcURL string, des
 	}
 
 	return nil
+}
+
+func BuildURL(base string, pathAddendum string) (string, error) {
+	url, err := url.Parse(base)
+	if err != nil {
+		return "", fmt.Errorf("URL parsing: %w", err)
+	}
+	url.Path = path.Join(url.Path, pathAddendum)
+	return url.String(), nil
 }

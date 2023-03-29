@@ -239,7 +239,7 @@ func Run(ctx context.Context, override *configstage.Stage1, logSettings *stage.L
 	stage2Cmd.Stderr = os.Stderr
 	stage2Cmd.Stdout = os.Stdout
 	if err := stage2Cmd.Run(); err != nil {
-		l.Errorf("Stage 2 execution failed", zap.Error(err))
+		l.Error("Stage 2 execution failed", zap.Error(err))
 		return executionError(err)
 	}
 
