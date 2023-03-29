@@ -69,7 +69,7 @@ func main() {
 		if errors.Is(err, stage2.ErrExecution) {
 			log.L().Fatal("runtime error", zap.Error(err))
 		}
-		fmt.Fprintf(os.Stderr, "FATAL: failed to run stage 1: %s\n", err)
+		fmt.Fprintf(os.Stderr, "FATAL: failed to run stage 2: %s\n", err)
 		os.Exit(1)
 	}
 }
