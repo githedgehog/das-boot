@@ -18,6 +18,7 @@ BUNZIP2=$(which bunzip2)
 SWTPM_SETUP=$(which swtpm_setup)
 DOCKER=$(which docker)
 KUBECTL=$(which kubectl)
+HELM=$(which helm)
 
 # let's make a dev folder where we are going to store images
 echo -n "Making development folder for storing images: "
@@ -125,7 +126,7 @@ mkdir -p ${SCRIPT_DIR}/../dev/seeder
 SEEDER_DEV_DIR=$( cd -- "${SCRIPT_DIR}/../dev/seeder" &> /dev/null && pwd )
 $KUBECTL create secret generic das-boot-server-cert --dry-run=client -o yaml --from-file=key.pem=$SEEDER_DEV_DIR/server-key.pem --from-file=cert.pem=$SEEDER_DEV_DIR/server-cert.pem > $DEV_DIR/docker-images/das-boot-server-cert-secret.yaml
 $KUBECTL create secret generic das-boot-config-cert --dry-run=client -o yaml --from-file=key.pem=$SEEDER_DEV_DIR/config-key.pem --from-file=cert.pem=$SEEDER_DEV_DIR/config-cert.pem > $DEV_DIR/docker-images/das-boot-config-cert-secret.yaml
-$KUBECTL create secret generic das-boot-client-ca --dry-run=client -o yaml --from-file=cert.pem=$SEEDER_DEV_DIR/client-ca-cert.pem > $DEV_DIR/docker-images/das-boot-client-ca-secret.yaml
+$KUBECTL create secret generic das-boot-client-ca --dry-run=client -o yaml --from-file=key.pem=$SEEDER_DEV_DIR/client-ca-key.pem --from-file=cert.pem=$SEEDER_DEV_DIR/client-ca-cert.pem > $DEV_DIR/docker-images/das-boot-client-ca-secret.yaml
 $KUBECTL create secret generic das-boot-server-ca --dry-run=client -o yaml --from-file=cert.pem=$SEEDER_DEV_DIR/server-ca-cert.pem > $DEV_DIR/docker-images/das-boot-server-ca-secret.yaml
 $KUBECTL create secret generic das-boot-config-ca --dry-run=client -o yaml --from-file=cert.pem=$SEEDER_DEV_DIR/config-ca-cert.pem > $DEV_DIR/docker-images/das-boot-config-ca-secret.yaml
 
@@ -134,4 +135,26 @@ $KUBECTL create secret generic das-boot-config-ca --dry-run=client -o yaml --fro
 echo "Generating ignition config for virtual machine..."
 eval "echo \"$(< $SCRIPT_DIR/control-node-ignition.butane.yml)\"" > ${DEV_DIR}/ignition.butane.yml
 $BUTANE --files-dir ${DEV_DIR} -o ${DEV_DIR}/ignition.json ${DEV_DIR}/ignition.butane.yml
+echo
+
+# preparing all third_party helm/docker installations
+echo "Preparing all 3rd party products for installation..."
+mkdir -p $DEV_DIR/third_party
+echo
+echo "Preparing syslog-ng for installation..."
+$DOCKER pull balabit/syslog-ng:3.27.1
+$DOCKER tag balabit/syslog-ng:3.27.1 registry.local:5000/balabit/syslog-ng:3.27.1
+$DOCKER push registry.local:5000/balabit/syslog-ng:3.27.1
+$DOCKER image save -o $DEV_DIR/docker-images/docker-syslog.tar registry.local:5000/balabit/syslog-ng:3.27.1
+$HELM package $SCRIPT_DIR/../third_party/helm/syslog-ng --version 0.2.0 --app-version 3.27.1 -d $DEV_DIR/third_party
+$HELM push $DEV_DIR/third_party/syslog-ng-0.2.0.tgz oci://registry.local:5000/githedgehog/helm-charts
+echo
+
+echo "Preparing ntp/chrony for installation..."
+$DOCKER pull cturra/ntp:latest
+$DOCKER tag cturra/ntp:latest registry.local:5000/cturra/ntp:latest
+$DOCKER push registry.local:5000/cturra/ntp:latest
+$DOCKER image save -o $DEV_DIR/docker-images/docker-ntp.tar registry.local:5000/cturra/ntp:latest
+$HELM package $SCRIPT_DIR/../third_party/helm/ntp --version 0.0.1 -d $DEV_DIR/third_party
+$HELM push $DEV_DIR/third_party/ntp-0.0.1.tgz oci://registry.local:5000/githedgehog/helm-charts
 echo

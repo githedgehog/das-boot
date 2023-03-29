@@ -9,6 +9,7 @@ import (
 
 	"go.githedgehog.com/dasboot/pkg/seeder/artifacts"
 	"go.githedgehog.com/dasboot/pkg/seeder/controlplane"
+	"go.githedgehog.com/dasboot/pkg/seeder/registration"
 	"go.uber.org/zap"
 )
 
@@ -39,6 +40,7 @@ type seeder struct {
 	insecureServer    *server
 	artifactsProvider artifacts.Provider
 	installerSettings *loadedInstallerSettings
+	registry          *registration.Processor
 }
 
 var _ Interface = &seeder{}
@@ -48,6 +50,7 @@ var (
 	ErrInvalidConfig           = errors.New("seeder: invalid config")
 	ErrEmbeddedConfigGenerator = errors.New("seeder: embedded config generator")
 	ErrInstallerSettings       = errors.New("seeder: installer settings")
+	ErrRegistrySettings        = errors.New("seeder: registry settings")
 )
 
 func invalidConfigError(str string) error {
@@ -58,11 +61,15 @@ func embeddedConfigGeneratorError(str string) error {
 	return fmt.Errorf("%w: %s", ErrEmbeddedConfigGenerator, str)
 }
 
-func installerSettingsError(str string) error {
-	return fmt.Errorf("%w: %s", ErrInstallerSettings, str)
+func installerSettingsError(err error) error {
+	return fmt.Errorf("%w: %w", ErrInstallerSettings, err)
 }
 
-func New(config *Config) (Interface, error) {
+func registrySettingsError(err error) error {
+	return fmt.Errorf("%w: %w", ErrRegistrySettings, err)
+}
+
+func New(ctx context.Context, config *Config) (Interface, error) {
 	if config == nil {
 		return nil, invalidConfigError("empty config")
 	}
@@ -88,7 +95,12 @@ func New(config *Config) (Interface, error) {
 
 	// load the installer settings
 	if err := ret.initializeInstallerSettings(config.InstallerSettings); err != nil {
-		return nil, installerSettingsError(err.Error())
+		return nil, installerSettingsError(err)
+	}
+
+	// load the registry settings
+	if err := ret.initializeRegistrySettings(ctx, config.RegistrySettings); err != nil {
+		return nil, registrySettingsError(err)
 	}
 
 	// this section sets up the servers

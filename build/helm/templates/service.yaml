@@ -7,10 +7,6 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.ports.insecure.port }}
-      targetPort: {{ .Values.service.ports.insecure.targetPort }}
-      protocol: TCP
-      name: http
     - port: {{ .Values.service.ports.secure.port }}
       targetPort: {{ .Values.service.ports.secure.targetPort }}
       protocol: TCP

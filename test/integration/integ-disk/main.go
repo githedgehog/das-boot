@@ -11,6 +11,7 @@ import (
 	"go.githedgehog.com/dasboot/pkg/partitions"
 	"go.githedgehog.com/dasboot/pkg/version"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/urfave/cli/v2"
 )
@@ -44,6 +45,9 @@ func main() {
 			return integDisk(ctx)
 		},
 	}
+
+	l = log.NewZapWrappedLogger(zap.Must(log.NewSerialConsole(zapcore.DebugLevel, "console", true)))
+	log.ReplaceGlobals(l)
 
 	if err := app.Run(os.Args); err != nil {
 		l.Fatal("integ-disk failed", zap.Error(err))

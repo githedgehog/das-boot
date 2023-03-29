@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	gonet "net"
 	"net/http"
 	"net/url"
 	"os"
@@ -53,6 +54,7 @@ func ReadConfig() (*configstage.Stage0, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open executable '%s': %w", exePath, err)
 	}
+	defer f.Close()
 
 	exeBytes, err := io.ReadAll(f)
 	if err != nil {
@@ -190,7 +192,7 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	devices := partitions.Discover()
 
 	// retrieve location info
-	locationPartition, err := stage.MountLocationPartition(devices)
+	locationPartition, err := stage.MountLocationPartition(l, devices)
 	if err != nil {
 		l.Warn("Location partition failed to open", zap.Error(err))
 	} else {
@@ -269,13 +271,13 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 		var err error
 		stage1Path, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
 		if err != nil {
-			l.Error("System network configuration failed for netdev", zap.String("netdev", netdev), zap.Strings("ipAddresses", ipa), zap.Error(err))
+			l.Error("System network configuration failed for netdev", zap.String("netdev", netdev), zap.Reflect("ipa", ipa), zap.Error(err))
 			if err := net.DeleteVLANDevice(vlanName); err != nil {
 				l.Warn("Deleting VLAN device failed", zap.String("vlanDevice", vlanName), zap.Error(err))
 			}
 			continue
 		}
-		l.Info("System network configured", zap.String("netdev", netdev), zap.Strings("ipAddresses", ipa))
+		l.Info("System network configured", zap.String("netdev", netdev), zap.Reflect("ipa", ipa))
 		break
 	}
 	if stage1Path == "" {
@@ -308,19 +310,37 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	return nil
 }
 
-func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *stage.LogSettings, httpClient *http.Client, ipamResp *ipam.Response, netdev string, ipAddresses []string) (string, error) {
+func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *stage.LogSettings, httpClient *http.Client, ipamResp *ipam.Response, netdev string, ipa ipam.IPAddress) (string, error) {
 	// first things first: configure network interface
-	ipaddrnets, err := net.StringsToIPNets(ipAddresses)
+	ipaddrnets, err := net.StringsToIPNets(ipa.IPAddresses)
 	if err != nil {
-		l.Error("Conversion of IP addresses to IPNets failed", zap.String("netdev", netdev), zap.Strings("ipAddresses", ipAddresses))
+		l.Error("Conversion of IP addresses to IPNets failed", zap.String("netdev", netdev), zap.Reflect("ipAddresses", ipa.IPAddresses))
 		return "", fmt.Errorf("converting IP addresses to IPNets: %w", err)
 	}
-	if err := net.AddVLANDeviceWithIP(netdev, ipamResp.VLAN, vlanName, ipaddrnets); err != nil {
+	var routes []*net.Route
+	if len(ipa.Routes) > 0 {
+		for _, route := range ipa.Routes {
+			dests, err := net.StringsToIPNets(route.Destinations)
+			if err != nil {
+				l.Error("Conversion of IP routes destinations to IPNets failed", zap.String("netdev", netdev), zap.Reflect("routes", ipa.Routes), zap.Error(err))
+				return "", fmt.Errorf("converting routes destinations to IPNets: %w", err)
+			}
+			gw := gonet.ParseIP(route.Gateway)
+			if gw == nil {
+				l.Error("Conversion of IP gateway string to IP failed", zap.String("netdev", netdev), zap.String("gw", route.Gateway))
+				return "", fmt.Errorf("converting routes gateway '%s' to IP failed", route.Gateway)
+			}
+			routes = append(routes, &net.Route{
+				Dests: dests,
+				Gw:    gw,
+			})
+		}
+	}
+	if err := net.AddVLANDeviceWithIP(netdev, ipa.VLAN, vlanName, ipaddrnets, routes); err != nil {
 		l.Error("VLAN interface creation and configuration failed",
 			zap.String("netdev", netdev),
 			zap.String("vlanInterface", vlanName),
-			zap.Uint16("vlanID", ipamResp.VLAN),
-			zap.Strings("ipAddresses", ipAddresses),
+			zap.Reflect("ipa", ipa),
 			zap.Error(err),
 		)
 		return "", fmt.Errorf("add vlan device with IP: %w", err)
@@ -328,8 +348,7 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 	l.Info("VLAN interface successfully created and configured",
 		zap.String("netdev", netdev),
 		zap.String("vlanInterface", vlanName),
-		zap.Uint16("vlanID", ipamResp.VLAN),
-		zap.Strings("ipAddresses", ipAddresses),
+		zap.Reflect("ipa", ipa),
 	)
 
 	// configure the syslog logger so that we're not blind anymore
@@ -338,10 +357,10 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 		l.Warn("Reinitializing global logger with new settings including syslog servers failed", zap.Strings("syslogServers", ipamResp.SyslogServers), zap.Error(err))
 	} else {
 		l = log.L()
+		l.Info("Reinitialized global logger with new settings including syslog servers",
+			zap.Strings("syslogServers", ipamResp.SyslogServers),
+		)
 	}
-	l.Info("Reinitialized global logger with new settings including syslog servers",
-		zap.Strings("syslogServers", ipamResp.SyslogServers),
-	)
 
 	// now run NTP - we only fail if NTP fails, not if hardware clock sync fails
 	if err := ntp.SyncClock(ctx, ipamResp.NTPServers); err != nil && !errors.Is(err, ntp.ErrHWClockSync) {

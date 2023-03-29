@@ -56,11 +56,9 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 	}
 
 	// MOCKED VALUES
-	vlan := mockedVLAN()
 	ips := mockedIPAddresses(req.Interfaces)
 
 	return &Response{
-		VLAN:          vlan,
 		IPAddresses:   ips,
 		DNSServers:    settings.DNSServers,
 		NTPServers:    settings.NTPServers,
@@ -73,7 +71,19 @@ func mockedIPAddresses(interfaces []string) IPAddresses {
 	ret := make(IPAddresses, len(interfaces))
 
 	for _, netif := range interfaces {
-		ret[netif] = nextIP()
+		ret[netif] = IPAddress{
+			IPAddresses: nextIP(),
+			VLAN:        mockedVLAN(),
+			Routes: []*Route{
+				{
+					Destinations: []string{
+						"10.42.0.0/16",
+						"10.43.0.0/16",
+					},
+					Gateway: "192.168.42.11",
+				},
+			},
+		}
 	}
 
 	return ret

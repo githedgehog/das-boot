@@ -39,9 +39,9 @@ securityContext: {}
 service:
   type: ClusterIP
   ports:
-    insecure:
-      port: 80
-      targetPort: 8080
+    # insecure:
+    #   port: 80
+    #   targetPort: 8080
     secure:
       port: 443
       targetPort: 8443
@@ -60,13 +60,21 @@ settings:
     - ntp.default.svc.cluster.local
   syslog_servers:
     - syslog.default.svc.cluster.local
+  # NOTE: this should *NEVER* be used in a production deployment
+  # This essentially disables device registration and approval
+  # and will simply always hand out a device certificate
+  issue_certificates: false
 
 # certificates and keys are being derived from secrets
 secrets:
   clientCA:
     name: das-boot-client-ca
     certKey: cert.pem
-    # TODO: needs to move into the seeder-controller
+    # NOTE: This value only matters if you are using the `issue_certificates`
+    # setting above (which you should not). Otherwise its value is meaningless
+    # Essentially, if you really want to disable device registration approval
+    # then you must provide a secret which also has a key.
+    # NOTE: you also cannot scale the control node (this DaemonSet) beyond one!
     keyKey: key.pem
   serverCA:
     name: das-boot-server-ca

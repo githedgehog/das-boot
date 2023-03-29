@@ -24,41 +24,41 @@ var _ config.EmbeddedConfig = &Stage1{}
 //	}
 type Stage1 struct {
 	// Keylime is the keylime configuration
-	Keylime *KeylimeConfig `json:"keylime,omitempty"`
+	Keylime *KeylimeConfig `json:"keylime,omitempty" yaml:"keylime,omitempty"`
 
 	// RegisterURL will be called by stage 1 to register the device (and receive its client certificate)
-	RegisterURL string `json:"register_url,omitempty"`
+	RegisterURL string `json:"register_url,omitempty" yaml:"register_url,omitempty"`
 
 	// Stage2URL is the URL to the stage 2 installer
-	Stage2URL string `json:"stage2_url"`
+	Stage2URL string `json:"stage2_url,omitempty" yaml:"stage2_url,omitempty"`
 
 	// SignatureCert holds the DER encoded X509 certificate with which the signature of the embedded config
 	// can be validated
-	SignatureCert []byte `json:"signature_cert,omitempty"`
+	SignatureCert []byte `json:"signature_cert,omitempty" yaml:"signature_cert,omitempty"`
 
 	// Version is tracking the format of this structure itself
-	Version config.ConfigVersion `json:"version,omitempty"`
+	Version config.ConfigVersion `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // KeylimeConfig is the keylime configuration as it is embedded in the stage 1 configuration.
 type KeylimeConfig struct {
 	// CVCAURL is the URL to the CA certificate of the Keylime Verifier (CV)
-	CVCAURL string `json:"cvca_url,omitempty"`
+	CVCAURL string `json:"cvca_url,omitempty" yaml:"cvca_url,omitempty"`
 
 	// RegistrarIP is the IP address of the Keylime registrar service
-	RegistrarIP string `json:"registrar_ip,omitempty"`
+	RegistrarIP string `json:"registrar_ip,omitempty" yaml:"registrar_ip,omitempty"`
 
 	// RegistrarPort is the port number of the Keylime registrar service
-	RegistrarPort uint16 `json:"registrar_port,omitempty"`
+	RegistrarPort uint16 `json:"registrar_port,omitempty" yaml:"registrar_port,omitempty"`
 
 	// RevocationNotificationIP is the IP address of the Keylime revocation notification queue system
-	RevocationNotificationIP string `json:"revocation_notification_ip,omitempty"`
+	RevocationNotificationIP string `json:"revocation_notification_ip,omitempty" yaml:"revocation_notification_ip,omitempty"`
 
 	// RevocationNotificationPort is the port number of the Keylime revocation notification queue system
-	RevocationNotificationPort uint16 `json:"revocation_notification_port,omitempty"`
+	RevocationNotificationPort uint16 `json:"revocation_notification_port,omitempty" yaml:"revocation_notification_port,omitempty"`
 
 	// TenantTriggerURL is the URL which notifies the Keylime tenant controller to add the device to the Keylime Verifier (CV)
-	TenantTriggerURL string `json:"tenant_trigger_url,omitempty"`
+	TenantTriggerURL string `json:"tenant_trigger_url,omitempty" yaml:"tenant_trigger_url,omitempty"`
 }
 
 // Cert implements config.EmbeddedConfig

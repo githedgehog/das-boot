@@ -11,6 +11,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var l = log.L()
@@ -19,7 +20,7 @@ func main() {
 	app := &cli.App{
 		Name:                 "integ-netdev",
 		Usage:                "integration test for network device and vlan configuration",
-		UsageText:            "integ-netdevr",
+		UsageText:            "integ-netdev",
 		Description:          "Should be running in ONIE, and will try to add/delete a vlan and IP address to/from a network device",
 		Version:              version.Version,
 		EnableBashCompletion: true,
@@ -42,6 +43,19 @@ func main() {
 						Name:  "ip-address",
 						Usage: "IP addresses with their netmask CIDR",
 						Value: cli.NewStringSlice("192.168.42.101/24"),
+					},
+					&cli.StringSliceFlag{
+						Name:  "subnet",
+						Usage: "Additional subnets to be added as routes on the same VLAN interface",
+						Value: cli.NewStringSlice(
+							"10.42.0.0/16",
+							"10.43.0.0/16",
+						),
+					},
+					&cli.StringFlag{
+						Name:  "gateway",
+						Usage: "Nexthop to use for the subnet routes",
+						Value: "192.168.42.11",
 					},
 					&cli.StringFlag{
 						Name:    "device",
@@ -75,6 +89,9 @@ func main() {
 		},
 	}
 
+	l = log.NewZapWrappedLogger(zap.Must(log.NewSerialConsole(zapcore.DebugLevel, "console", true)))
+	log.ReplaceGlobals(l)
+
 	if err := app.Run(os.Args); err != nil {
 		l.Fatal("integ-netdev failed", zap.Error(err), zap.String("errType", fmt.Sprintf("%T", err)))
 	}
@@ -88,22 +105,57 @@ func integNetdevAdd(ctx *cli.Context) error {
 	l.Info("Parsing IP and netmasks from input...")
 	ipaddrs := ctx.StringSlice("ip-address")
 	var ipnets []*net.IPNet
-	for _, ipaddrstr := range ipaddrs {
-		ipaddr, ipnet, err := net.ParseCIDR(ipaddrstr)
+	if len(ipaddrs) > 0 {
+		var err error
+		ipnets, err = dbnet.StringsToIPNets(ipaddrs)
 		if err != nil {
-			return fmt.Errorf("failed to parse IP address and netmask: %w", err)
+			return fmt.Errorf("failed to parse IP addresses and netmask: %w", err)
 		}
-		ipnet.IP = ipaddr
-		ipnets = append(ipnets, ipnet)
+	}
+
+	subnets := ctx.StringSlice("subnet")
+	var routedests []*net.IPNet
+	if len(subnets) > 0 {
+		l.Info("Parsing subnets from input...")
+		var err error
+		routedests, err = dbnet.StringsToIPNets(subnets)
+		if err != nil {
+			return fmt.Errorf("failed to parse subnets: %w", err)
+		}
+	}
+
+	gw := ctx.String("gateway")
+	var routegw net.IP
+	if gw != "" {
+		l.Info("Parsing gateway from input...")
+		routegw = net.ParseIP(gw)
+		if routegw == nil {
+			return fmt.Errorf("failed to parse gateway IP from: '%s'", gw)
+		}
+	}
+	if (len(routedests) > 0 && routegw == nil) || (len(routedests) == 0 && routegw != nil) {
+		l.Error("you must specify subnets and gateway together")
+		return fmt.Errorf("subnets and gateway must be specified together")
+	}
+
+	// now build the routes
+	var routes []*dbnet.Route
+	if len(routedests) > 0 && routegw != nil {
+		routes = []*dbnet.Route{
+			{
+				Dests: routedests,
+				Gw:    routegw,
+			},
+		}
 	}
 
 	l.Info("Adding VLAN interface and IP address...",
 		zap.String("device", dev),
 		zap.Uint16("vid", vid),
 		zap.String("vlanName", vlanName),
-		zap.Strings("ipnets", ipaddrs),
+		zap.Reflect("ipnets", ipnets),
 	)
-	if err := dbnet.AddVLANDeviceWithIP(dev, vid, vlanName, ipnets); err != nil {
+	if err := dbnet.AddVLANDeviceWithIP(dev, vid, vlanName, ipnets, routes); err != nil {
 		return fmt.Errorf("adding VLAN and address failed: %w", err)
 	}
 	l.Info("Success")

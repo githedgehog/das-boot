@@ -16,9 +16,14 @@ import (
 
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-var l = log.L()
+var (
+	defaultLogLevel = zapcore.InfoLevel
+)
+
+var l = log.NewZapWrappedLogger(zap.Must(log.NewSerialConsole(zapcore.DebugLevel, "console", true)))
 
 var description = `
 This is the Hedgehog SONiC devic provisioning server. It needs to be running on
@@ -47,6 +52,21 @@ func main() {
 		Description: description[1 : len(description)-1],
 		Version:     version.Version,
 		Flags: []cli.Flag{
+			&cli.GenericFlag{
+				Name:  "log-level",
+				Usage: "minimum log level to log at",
+				Value: &defaultLogLevel,
+			},
+			&cli.StringFlag{
+				Name:  "log-format",
+				Usage: "log format to use: json or console",
+				Value: "json",
+			},
+			&cli.BoolFlag{
+				Name:  "log-development",
+				Usage: "enables development log settings",
+				Value: false,
+			},
 			&cli.BoolFlag{
 				Name:  "reference-config",
 				Usage: "prints a reference config to stdout and exits",
@@ -69,45 +89,81 @@ func main() {
 				return err
 			}
 
+			// initialize logger
+			l = log.NewZapWrappedLogger(zap.Must(log.NewSerialConsole(
+				*ctx.Generic("log-level").(*zapcore.Level),
+				ctx.String("log-format"),
+				ctx.Bool("log-development"),
+			)))
+			defer func() {
+				if err := l.Sync(); err != nil {
+					l.Debug("Flushing logger failed", zap.Error(err))
+				}
+			}()
+			log.ReplaceGlobals(l)
+
 			// load config
 			cfg, err := loadConfig(ctx.Path("config"))
 			if err != nil {
 				return err
 			}
+			l.Info("Successfully loaded configuration", zap.String("path", ctx.Path("config")), zap.Reflect("config", cfg))
 
 			// create seeder
+
 			// this is a bit stupid, and maybe we should just share the config structs
 			// however, something told me that it is good to decouple those
-			s, err := seeder.New(&seeder.Config{
-				InsecureServer: &seeder.BindInfo{
-					Address:        cfg.Servers.ServerInsecure.Addresses,
-					ClientCAPath:   cfg.Servers.ServerInsecure.ClientCAPath,
-					ServerKeyPath:  cfg.Servers.ServerInsecure.ServerKeyPath,
-					ServerCertPath: cfg.Servers.ServerInsecure.ServerCertPath,
-				},
-				SecureServer: &seeder.BindInfo{
-					Address:        cfg.Servers.ServerSecure.Addresses,
-					ClientCAPath:   cfg.Servers.ServerSecure.ClientCAPath,
-					ServerKeyPath:  cfg.Servers.ServerSecure.ServerKeyPath,
-					ServerCertPath: cfg.Servers.ServerSecure.ServerCertPath,
-				},
-				EmbeddedConfigGenerator: &seeder.EmbeddedConfigGeneratorConfig{
+			// so translate the configs
+			c := &seeder.Config{}
+			if cfg.Servers != nil {
+				if cfg.Servers.ServerInsecure != nil {
+					c.InsecureServer = &seeder.BindInfo{
+						Address:        cfg.Servers.ServerInsecure.Addresses,
+						ClientCAPath:   cfg.Servers.ServerInsecure.ClientCAPath,
+						ServerKeyPath:  cfg.Servers.ServerInsecure.ServerKeyPath,
+						ServerCertPath: cfg.Servers.ServerInsecure.ServerCertPath,
+					}
+				}
+				if cfg.Servers.ServerSecure != nil {
+					c.SecureServer = &seeder.BindInfo{
+						Address:        cfg.Servers.ServerSecure.Addresses,
+						ClientCAPath:   cfg.Servers.ServerSecure.ClientCAPath,
+						ServerKeyPath:  cfg.Servers.ServerSecure.ServerKeyPath,
+						ServerCertPath: cfg.Servers.ServerSecure.ServerCertPath,
+					}
+				}
+			}
+			if cfg.EmbeddedConfigGenerator != nil {
+				c.EmbeddedConfigGenerator = &seeder.EmbeddedConfigGeneratorConfig{
 					KeyPath:  cfg.EmbeddedConfigGenerator.KeyPath,
 					CertPath: cfg.EmbeddedConfigGenerator.CertPath,
-				},
-				InstallerSettings: &seeder.InstallerSettings{
+				}
+			}
+			if cfg.InstallerSettings != nil {
+				c.InstallerSettings = &seeder.InstallerSettings{
 					ServerCAPath:          cfg.InstallerSettings.ServerCAPath,
 					ConfigSignatureCAPath: cfg.InstallerSettings.ConfigSignatureCAPath,
 					SecureServerName:      cfg.InstallerSettings.SecureServerName,
 					DNSServers:            cfg.InstallerSettings.DNSServers,
 					NTPServers:            cfg.InstallerSettings.NTPServers,
 					SyslogServers:         cfg.InstallerSettings.SyslogServers,
-				},
-				// at last, something which can't get simply be passed from a config file
-				ArtifactsProvider: artifacts.New(
-					embedded.Provider(),
-				),
-			})
+				}
+			}
+			if cfg.RegistrySettings != nil {
+				c.RegistrySettings = &seeder.RegistrySettings{
+					CertPath: cfg.RegistrySettings.CertPath,
+					KeyPath:  cfg.RegistrySettings.KeyPath,
+				}
+			}
+
+			// the artifacts provider
+			c.ArtifactsProvider = artifacts.New(
+				embedded.Provider(),
+			)
+
+			// now create the seeder
+			l.Debug("Translated seeder config", zap.Reflect("seederConfig", c))
+			s, err := seeder.New(ctx.Context, c)
 			if err != nil {
 				return err
 			}
