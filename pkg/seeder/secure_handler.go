@@ -12,6 +12,7 @@ import (
 	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/seeder/registration"
 	config1 "go.githedgehog.com/dasboot/pkg/stage1/config"
+	config2 "go.githedgehog.com/dasboot/pkg/stage2/config"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -19,9 +20,12 @@ import (
 )
 
 const (
-	stage1PathBase = "/stage1/"
-	stage2PathBase = "/stage2/"
-	registerPath   = "/register"
+	stage1PathBase             = "/stage1/"
+	stage2PathBase             = "/stage2/"
+	nosInstallerPathBase       = "/nos/install/"
+	onieUpdaterPathBase        = "/onie/update/"
+	hhAgentProvisionerPathBase = "/provisioners/hedgehog-agent/"
+	registerPath               = "/register"
 )
 
 func (s *seeder) secureHandler() *chi.Mux {
@@ -36,6 +40,9 @@ func (s *seeder) secureHandler() *chi.Mux {
 	r.Get(path.Join(stage2PathBase, "{arch}"), s.getStageArtifact("stage2", s.stage2Authz, s.embedStage2Config))
 	r.Post(registerPath, s.registerHandler)
 	r.Get(path.Join(registerPath, "{devid}"), s.registerPollHandler)
+	r.Get(path.Join(nosInstallerPathBase, "{platform}"), s.getNOSArtifact(s.stage2Authz))
+	r.Get(path.Join(onieUpdaterPathBase, "{platform}"), s.getONIEArtifact(s.stage2Authz))
+	r.Get(path.Join(hhAgentProvisionerPathBase, "{arch}"), s.getHedgehogAgentProvisionerArtifact(s.stage2Authz))
 	return r
 }
 
@@ -144,7 +151,18 @@ func (s *seeder) stage2Authz(r *http.Request) error {
 }
 
 func (s *seeder) embedStage2Config(_ *http.Request, arch string, artifactBytes []byte) ([]byte, error) {
-	return nil, nil
+	return s.ecg.Stage2(artifactBytes, &config2.Stage2{
+		Platform:        "", // this should be empty, might only be useful in the future
+		NOSInstallerURL: s.installerSettings.nosInstallerURL(arch),
+		ONIEUpdaterURL:  s.installerSettings.onieUpdaterURL(arch),
+		NOSType:         "hedgehog_sonic",
+		HedgehogSonicProvisioners: []config2.HedgehogSonicProvisioner{
+			{
+				Name: "Hedgehog Agent",
+				URL:  s.installerSettings.hhAgentProvisionerURL(arch),
+			},
+		},
+	})
 }
 
 func (s *seeder) registerHandler(w http.ResponseWriter, r *http.Request) {
@@ -237,5 +255,53 @@ func writeRegistrationResponse(w http.ResponseWriter, r *http.Request, resp *reg
 
 	if n, err := w.Write(b); err != nil || n != len(b) {
 		l.DPanic("writeRegistrationResponse failed to write response", zap.Error(err), zap.Int("written", n), zap.Int("len", len(b)))
+	}
+}
+
+func (s *seeder) getNOSArtifact(authz func(*http.Request) error) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := authz(r); err != nil {
+			errorWithJSON(w, r, http.StatusForbidden, "unauthorized access to artifact: %s", err)
+			return
+		}
+
+		// we require the platform so that we can fetch the artifact
+		platformParam := chi.URLParam(r, "platform")
+		if platformParam == "" {
+			errorWithJSON(w, r, http.StatusNotFound, "missing platform in request path")
+			return
+		}
+	}
+}
+
+func (s *seeder) getONIEArtifact(authz func(*http.Request) error) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := authz(r); err != nil {
+			errorWithJSON(w, r, http.StatusForbidden, "unauthorized access to artifact: %s", err)
+			return
+		}
+
+		// we require the platform so that we can fetch the artifact
+		platformParam := chi.URLParam(r, "platform")
+		if platformParam == "" {
+			errorWithJSON(w, r, http.StatusNotFound, "missing platform in request path")
+			return
+		}
+	}
+}
+
+func (s *seeder) getHedgehogAgentProvisionerArtifact(authz func(*http.Request) error) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := authz(r); err != nil {
+			errorWithJSON(w, r, http.StatusForbidden, "unauthorized access to artifact: %s", err)
+			return
+		}
+
+		// we require the architecture in the request path
+		archParam := chi.URLParam(r, "arch")
+		if archParam == "" {
+			errorWithJSON(w, r, http.StatusNotFound, "missing architecture in request path")
+			return
+		}
 	}
 }

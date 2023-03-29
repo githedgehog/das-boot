@@ -71,3 +71,27 @@ func (lis *loadedInstallerSettings) registerURL() string {
 		Path:   path.Join("/", registerPath),
 	}).String()
 }
+
+func (lis *loadedInstallerSettings) nosInstallerURL(arch string) string {
+	return (&url.URL{
+		Scheme: "https",
+		Host:   lis.secureServerName,
+		Path:   path.Join("/", nosInstallerPathBase, arch),
+	}).String()
+}
+
+func (lis *loadedInstallerSettings) onieUpdaterURL(arch string) string {
+	return (&url.URL{
+		Scheme: "https",
+		Host:   lis.secureServerName,
+		Path:   path.Join("/", onieUpdaterPathBase, arch),
+	}).String()
+}
+
+func (lis *loadedInstallerSettings) hhAgentProvisionerURL(arch string) string {
+	return (&url.URL{
+		Scheme: "https",
+		Host:   lis.secureServerName,
+		Path:   path.Join("/", hhAgentProvisionerPathBase, arch),
+	}).String()
+}
