@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -12,6 +13,8 @@ import (
 	"go.githedgehog.com/dasboot/pkg/seeder"
 	"go.githedgehog.com/dasboot/pkg/seeder/artifacts"
 	"go.githedgehog.com/dasboot/pkg/seeder/artifacts/embedded"
+	"go.githedgehog.com/dasboot/pkg/seeder/artifacts/file"
+	"go.githedgehog.com/dasboot/pkg/seeder/artifacts/oras"
 	"go.githedgehog.com/dasboot/pkg/version"
 
 	"github.com/urfave/cli/v2"
@@ -156,9 +159,44 @@ func main() {
 				}
 			}
 
+			// we always add the embedded provider
+			artifactProviders := []artifacts.Provider{embedded.Provider()}
+			if cfg.ArtifactProviders != nil {
+				if len(cfg.ArtifactProviders.Directories) > 0 {
+					for _, dir := range cfg.ArtifactProviders.Directories {
+						artifactProviders = append(artifactProviders, file.Provider(dir))
+					}
+				}
+				if len(cfg.ArtifactProviders.OCIRegistries) > 0 {
+					for _, ociReg := range cfg.ArtifactProviders.OCIRegistries {
+						var opts []oras.ProviderOption
+						if ociReg.AccessToken != "" {
+							opts = append(opts, oras.ProviderOptionAccessToken(ociReg.AccessToken))
+						}
+						if ociReg.RefreshToken != "" {
+							opts = append(opts, oras.ProviderOptionRefreshToken(ociReg.RefreshToken))
+						}
+						if ociReg.Username != "" && ociReg.Password != "" {
+							opts = append(opts, oras.ProviderOptionBasicAuth(ociReg.Username, ociReg.Password))
+						}
+						if ociReg.ClientCertPath != "" && ociReg.ClientKeyPath != "" {
+							opts = append(opts, oras.ProviderOptionTLSClientAuth(ociReg.ClientCertPath, ociReg.ClientKeyPath))
+						}
+						if ociReg.ServerCAPath != "" {
+							opts = append(opts, oras.ProviderOptionServerCA(ociReg.ServerCAPath))
+						}
+						prov, err := oras.Provider(ctx.Context, ociReg.URL, opts...)
+						if err != nil {
+							return fmt.Errorf("oras provider: %w", err)
+						}
+						artifactProviders = append(artifactProviders, prov)
+					}
+				}
+			}
+
 			// the artifacts provider
 			c.ArtifactsProvider = artifacts.New(
-				embedded.Provider(),
+				artifactProviders...,
 			)
 
 			// now create the seeder
@@ -188,7 +226,7 @@ func main() {
 					l.Info("received signal, stopping seeder...", zap.String("signal", sig.String()))
 					signalReceived = true
 					wg.Add(1)
-					ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+					ctx, cancel := context.WithTimeout(ctx.Context, time.Minute)
 					go func(ctx context.Context, cancel context.CancelFunc) {
 						defer cancel()
 						s.Stop(ctx)
