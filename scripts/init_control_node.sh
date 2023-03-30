@@ -19,6 +19,7 @@ SWTPM_SETUP=$(which swtpm_setup)
 DOCKER=$(which docker)
 KUBECTL=$(which kubectl)
 HELM=$(which helm)
+ORAS=$(which oras)
 
 # let's make a dev folder where we are going to store images
 echo -n "Making development folder for storing images: "
@@ -50,6 +51,23 @@ if [ -f ${IMAGE_DIR}/flatcar_efi_vars.fd ]; then
 else
     echo "Downloading Flatcar EFI variables flash drive version ${FLATCAR_VERSION}..."
     $WGET -O ${IMAGE_DIR}/flatcar_efi_vars.fd https://stable.release.flatcar-linux.net/amd64-usr/3374.2.4/flatcar_production_qemu_uefi_efi_vars.fd
+fi
+echo
+
+echo "Downloading SONiC, ONIE and Hedgehog agent images..."
+if [ -f ${IMAGE_DIR}/sonic-vs.bin ]; then
+    echo "SONiC VS image already downloaded: ${IMAGE_DIR}/sonic-vs.bin"
+    echo "Delete this file if you want to download it again. Skipping..."
+else
+    echo "Downloading SONiC VS image..."
+    $WGET -O ${IMAGE_DIR}/sonic-vs.bin https://d.githedgehog.com/sonic/43cfae78-2037-4a4b-b7cf-e3e3c986cc12/sonic-vs.bin
+fi
+if [ -f ${IMAGE_DIR}/agent ]; then
+    echo "Hedgehog agent already downloaded: ${IMAGE_DIR}/agent"
+    echo "Delete this file if you want to download it again. Skipping...:"
+else
+    echo "Downloading Hedgehog agent..."
+    $ORAS pull -o ${IMAGE_DIR} ghcr.io/githedgehog/agent:0.1
 fi
 echo
 
@@ -157,4 +175,10 @@ $DOCKER push registry.local:5000/cturra/ntp:latest
 $DOCKER image save -o $DEV_DIR/docker-images/docker-ntp.tar registry.local:5000/cturra/ntp:latest
 $HELM package $SCRIPT_DIR/../third_party/helm/ntp --version 0.0.1 -d $DEV_DIR/third_party
 $HELM push $DEV_DIR/third_party/ntp-0.0.1.tgz oci://registry.local:5000/githedgehog/helm-charts
+echo
+
+# we'll do this in a subshell so that we can change into the image directory, otherwise the image layer titles will have the full path
+echo "Pusing SONiC, ONIE and Hedgehog agent into registry..."
+( cd $IMAGE_DIR && $ORAS push registry.local:5000/githedgehog/sonic/x86_64-kvm_x86_64-r0:latest sonic-vs.bin )
+( cd $IMAGE_DIR && $ORAS push registry.local:5000/githedgehog/agent:latest agent )
 echo
