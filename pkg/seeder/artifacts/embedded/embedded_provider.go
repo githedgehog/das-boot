@@ -16,6 +16,7 @@ func Provider() artifacts.Provider {
 //go:embed artifacts/stage0-*
 //go:embed artifacts/stage1-*
 //go:embed artifacts/stage2-*
+//go:embed artifacts/hedgehog-agent-provisioner-*
 var content embed.FS
 
 type embeddedProvider struct{}
@@ -82,6 +83,27 @@ func (*embeddedProvider) Get(artifact string) io.ReadCloser {
 		return f
 	case artifacts.Stage2Arm:
 		f, err := content.Open("artifacts/stage2-arm")
+		if err != nil {
+			log.L().Error("open failed", zap.String("provider", "embedded"), zap.String("artifact", artifact), zap.Error(err))
+			return nil
+		}
+		return f
+	case artifacts.HHAgentProvX8664:
+		f, err := content.Open("artifacts/hedgehog-agent-provisioner-amd64")
+		if err != nil {
+			log.L().Error("open failed", zap.String("provider", "embedded"), zap.String("artifact", artifact), zap.Error(err))
+			return nil
+		}
+		return f
+	case artifacts.HHAgentProvArm64:
+		f, err := content.Open("artifacts/hedgehog-agent-provisioner-arm64")
+		if err != nil {
+			log.L().Error("open failed", zap.String("provider", "embedded"), zap.String("artifact", artifact), zap.Error(err))
+			return nil
+		}
+		return f
+	case artifacts.HHAgentProvArm:
+		f, err := content.Open("artifacts/hedgehog-agent-provisioner-arm")
 		if err != nil {
 			log.L().Error("open failed", zap.String("provider", "embedded"), zap.String("artifact", artifact), zap.Error(err))
 			return nil

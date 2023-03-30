@@ -95,3 +95,19 @@ func (lis *loadedInstallerSettings) hhAgentProvisionerURL(arch string) string {
 		Path:   path.Join("/", hhAgentProvisionerPathBase, arch),
 	}).String()
 }
+
+func (lis *loadedInstallerSettings) agentURL(arch string) string {
+	return (&url.URL{
+		Scheme: "https",
+		Host:   lis.secureServerName,
+		Path:   path.Join("/", hhAgentProvisionerPathBase, "agent", arch),
+	}).String()
+}
+
+func (lis *loadedInstallerSettings) agentConfigURL() string {
+	return (&url.URL{
+		Scheme: "https",
+		Host:   lis.secureServerName,
+		Path:   path.Join("/", hhAgentProvisionerPathBase, "agent", "config"),
+	}).String()
+}

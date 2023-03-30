@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	config "go.githedgehog.com/dasboot/pkg/config"
+	confighhagentprov "go.githedgehog.com/dasboot/pkg/hhagentprov/config"
 	config0 "go.githedgehog.com/dasboot/pkg/stage0/config"
 	config1 "go.githedgehog.com/dasboot/pkg/stage1/config"
 	config2 "go.githedgehog.com/dasboot/pkg/stage2/config"
@@ -44,6 +45,12 @@ func (ecg *embeddedConfigGenerator) Stage1(artifact []byte, cfg *config1.Stage1)
 // The caller does not need to set the `Version` and `SignatureCert` fields as they are being
 // overwritten by this function.
 func (ecg *embeddedConfigGenerator) Stage2(artifact []byte, cfg *config2.Stage2) ([]byte, error) {
+	cfg.Version = 1
+	cfg.SignatureCert = ecg.certDER
+	return config.GenerateExecutableWithEmbeddedConfig(artifact, cfg, ecg.key)
+}
+
+func (ecg *embeddedConfigGenerator) HedgehogAgentProvisioner(artifact []byte, cfg *confighhagentprov.HedgehogAgentProvisioner) ([]byte, error) {
 	cfg.Version = 1
 	cfg.SignatureCert = ecg.certDER
 	return config.GenerateExecutableWithEmbeddedConfig(artifact, cfg, ecg.key)

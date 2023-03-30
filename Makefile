@@ -18,6 +18,7 @@ SRC_HHDEVID := $(shell find $(MKFILE_DIR)/cmd/hhdevid -type f -name "*.go")
 SRC_STAGE0 := $(shell find $(MKFILE_DIR)/cmd/stage0 -type f -name "*.go")
 SRC_STAGE1 := $(shell find $(MKFILE_DIR)/cmd/stage1 -type f -name "*.go")
 SRC_STAGE2 := $(shell find $(MKFILE_DIR)/cmd/stage2 -type f -name "*.go")
+SRC_HHAGENTPROV := $(shell find $(MKFILE_DIR)/cmd/hedgehog-agent-provisioner -type f -name "*.go")
 SRC_SEEDER := $(shell find $(MKFILE_DIR)/cmd/seeder -type f -name "*.go")
 
 SEEDER_ARTIFACTS_DIR := $(MKFILE_DIR)/pkg/seeder/artifacts/embedded/artifacts
@@ -25,6 +26,7 @@ SEEDER_ARTIFACTS_DIR := $(MKFILE_DIR)/pkg/seeder/artifacts/embedded/artifacts
 SEEDER_DEPS := $(SEEDER_ARTIFACTS_DIR)/stage0-amd64  $(SEEDER_ARTIFACTS_DIR)/stage0-arm64  $(SEEDER_ARTIFACTS_DIR)/stage0-arm
 SEEDER_DEPS += $(SEEDER_ARTIFACTS_DIR)/stage1-amd64  $(SEEDER_ARTIFACTS_DIR)/stage1-arm64  $(SEEDER_ARTIFACTS_DIR)/stage1-arm
 SEEDER_DEPS += $(SEEDER_ARTIFACTS_DIR)/stage2-amd64  $(SEEDER_ARTIFACTS_DIR)/stage2-arm64  $(SEEDER_ARTIFACTS_DIR)/stage2-arm
+SEEDER_DEPS += $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-amd64  $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm64  $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm
 
 DEV_SEEDER_FILES := $(DEV_DIR)/seeder/client-ca-cert.pem
 DEV_SEEDER_FILES += $(DEV_DIR)/seeder/client-ca-key.pem
@@ -49,9 +51,9 @@ help: ## Display this help.
 
 all: generate build ## Runs 'generate' and 'build' targets
 
-build: hhdevid stage0 stage1 stage2 seeder ## Builds all golang binaries for all platforms: hhdevid, stage0, stage1, stage2 and seeder
+build: hhdevid stage0 stage1 stage2 hedgehog-agent-provisioner seeder ## Builds all golang binaries for all platforms: hhdevid, stage0, stage1, stage2, hedgehog-agent-provisioner and seeder
 
-clean: hhdevid-clean stage0-clean stage1-clean stage2-clean seeder-clean docker-clean helm-clean ## Cleans all golang binaries for all platforms: hhdevid, stage0, stage1, stage2 and seeder, as well as the seeder docker image and the packaged helm chart
+clean: hhdevid-clean stage0-clean stage1-clean stage2-clean hedgehog-agent-provisioner-clean seeder-clean docker-clean helm-clean ## Cleans all golang binaries for all platforms: hhdevid, stage0, stage1, stage2, hedgehog-agent-provisioner and seeder, as well as the seeder docker image and the packaged helm chart
 
 hhdevid:  $(BUILD_ARTIFACTS_DIR)/hhdevid-amd64  $(BUILD_ARTIFACTS_DIR)/hhdevid-arm64  $(BUILD_ARTIFACTS_DIR)/hhdevid-arm ## Builds 'hhdevid' for all platforms
 
@@ -157,6 +159,35 @@ stage2-clean: ## Cleans all 'stage2' golang binaries
 	rm -v $(BUILD_ARTIFACTS_DIR)/stage2-amd64 || true
 	rm -v $(BUILD_ARTIFACTS_DIR)/stage2-arm64 || true
 	rm -v $(BUILD_ARTIFACTS_DIR)/stage2-arm || true
+
+hedgehog-agent-provisioner: $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-amd64 $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm64 $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm ## Builds 'hedgehog-agent-provisioner' for all platforms
+
+$(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-amd64: $(SRC_COMMON) $(SRC_HHAGENTPROV)
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-amd64 -ldflags="-w -s -X 'go.githedgehog.com/dasboot/pkg/version.Version=$(VERSION)'" ./cmd/hedgehog-agent-provisioner
+
+$(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm64: $(SRC_COMMON) $(SRC_HHAGENTPROV)
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm64 -ldflags="-w -s -X 'go.githedgehog.com/dasboot/pkg/version.Version=$(VERSION)'" ./cmd/hedgehog-agent-provisioner
+
+$(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm: $(SRC_COMMON) $(SRC_HHAGENTPROV)
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm -ldflags="-w -s -X 'go.githedgehog.com/dasboot/pkg/version.Version=$(VERSION)'" ./cmd/hedgehog-agent-provisioner
+
+$(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-amd64: $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-amd64
+	cp -v $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-amd64 $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-amd64
+
+$(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm64: $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm64
+	cp -v $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm64 $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm64
+
+$(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm: $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm
+	cp -v $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm
+
+.PHONY: hedgehog-agent-provisioner-clean
+hedgehog-agent-provisioner-clean: ## Cleans all 'hedgehog-agent-provisioner' golang binaries
+	rm -v $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-amd64 || true
+	rm -v $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm64 || true
+	rm -v $(SEEDER_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm || true
+	rm -v $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-amd64 || true
+	rm -v $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm64 || true
+	rm -v $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm || true
 
 seeder: $(BUILD_ARTIFACTS_DIR)/seeder $(BUILD_DOCKER_DIR)/seeder ## Builds the 'seeder' for x86_64
 
