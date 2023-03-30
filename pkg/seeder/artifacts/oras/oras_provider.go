@@ -10,12 +10,15 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/seeder/artifacts"
 	"go.uber.org/zap"
 	"oras.land/oras-go/v2"
+	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/memory"
 	"oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"
@@ -123,7 +126,7 @@ func Provider(ctx context.Context, registryURL string, options ...ProviderOption
 		},
 	}
 
-	return nil, nil
+	return ret, nil
 }
 
 // Get implements artifacts.Provider
@@ -132,10 +135,13 @@ func (op *orasProvider) Get(artifact string) io.ReadCloser {
 	defer cancel()
 
 	// build repo name from artifact
+	// we need to remove the left most '/' as it would render an invalid repository name
 	repoName := path.Join(op.url.Path, artifact)
+	repoName = strings.TrimLeft(repoName, "/")
 	src, err := op.registry.Repository(ctx, repoName)
 	if err != nil {
 		log.L().Error("oras: getting repository reference failed", zap.String("repo", repoName), zap.Error(err))
+		return nil
 	}
 
 	// TODO: tag name
@@ -143,17 +149,44 @@ func (op *orasProvider) Get(artifact string) io.ReadCloser {
 
 	// downloads the stuff locally
 	dst := memory.New()
-	desc, err := oras.Copy(ctx, src, tagName, dst, tagName, oras.DefaultCopyOptions)
+	rootDesc, err := oras.Copy(ctx, src, tagName, dst, tagName, oras.DefaultCopyOptions)
 	if err != nil {
-		log.L().Error("oras: copying artifact into memory failed", zap.Error(err))
+		log.L().Error("oras: copying artifact into memory failed", zap.String("repo", repoName), zap.Error(err))
+		return nil
 	}
 
-	// this actually fetches the layer
-	rc, err := dst.Fetch(ctx, desc)
+	// fetch all entries for the tag
+	nodes, err := content.Successors(ctx, dst, rootDesc)
 	if err != nil {
-		log.L().Error("oras: fetch layer content failed", zap.Error(err))
+		log.L().Error("oras: fetching successors failed", zap.String("repo", repoName), zap.Error(err))
+		return nil
 	}
 
-	// and it has the perfect return type - nice!
-	return rc
+	if len(nodes) == 1 {
+		// we would expect just one layer usually, which means we'll just download that
+		// and we'll assume this is the content that we are looking for
+		ret, err := dst.Fetch(ctx, nodes[0])
+		if err != nil {
+			log.L().Error("oras: fetch layer content failed", zap.String("repo", repoName), zap.Error(err))
+			return nil
+		}
+		return ret
+	} else {
+		// otherwise we are looking through all the nodes and look for the first "normal" image layer entry
+		for _, node := range nodes {
+			if node.MediaType == v1.MediaTypeImageLayer {
+				// this is probably the right media type for now
+				ret, err := dst.Fetch(ctx, node)
+				if err != nil {
+					log.L().Error("oras: fetch layer content failed", zap.String("repo", repoName), zap.Error(err))
+					return nil
+				}
+				return ret
+			}
+		}
+	}
+
+	// artifact not found
+	log.L().Error("oras: no image layers in artifact", zap.String("repo", repoName))
+	return nil
 }
