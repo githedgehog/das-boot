@@ -164,7 +164,7 @@ func Run(ctx context.Context, override *configstage.Stage2, logSettings *stage.L
 	return nil
 }
 
-func runNosInstall(ctx context.Context, hc *http.Client, cfg *configstage.Stage2, si *stage.StagingInfo, onie *stage.OnieEnv) error {
+func runNosInstall(ctx context.Context, hc *http.Client, cfg *configstage.Stage2, si *stage.StagingInfo, onie *stage.OnieEnv) (funcErr error) {
 	// Build donwload URL: cfg URL + ONIE platform
 	url, err := stage.BuildURL(cfg.NOSInstallerURL, onie.Platform)
 	if err != nil {
@@ -174,11 +174,25 @@ func runNosInstall(ctx context.Context, hc *http.Client, cfg *configstage.Stage2
 
 	// NOS download
 	nosPath := filepath.Join(si.StagingDir, "nos-install")
+	l.Info("Downloading NOS installer now...", zap.String("url", url), zap.String("dest", nosPath))
 	if err := stage.DownloadExecutable(ctx, hc, url, nosPath, time.Second*120); err != nil {
 		l.Error("Downloading NOS installer failed", zap.String("url", url), zap.String("dest", nosPath), zap.Error(err))
 		return fmt.Errorf("NOS download: %w", err)
 	}
 	l.Info("Downloading NOS installer completed", zap.String("url", url), zap.String("dest", nosPath))
+
+	// for every following error we need to ensure that we make ONIE the default boot option again, because:
+	// - the NOS installation might have worked, but not the agent installation which is still a fatal error
+	// - the NOS installation half-assed, and we don't know what that means
+	defer func() {
+		if funcErr != nil {
+			l.Info("Trying to ensure that ONIE stays the default boot option...")
+			if err := partitions.MakeONIEDefaultBootEntryAndCleanup(); err != nil {
+				l.Error("Making ONIE the default boot option failed", zap.Error(err))
+			}
+			l.Info("ONIE is the default boot option again")
+		}
+	}()
 
 	// NOS install
 	l.Info("Executing NOS installer now...")
@@ -229,7 +243,7 @@ func runNosInstall(ctx context.Context, hc *http.Client, cfg *configstage.Stage2
 	return nil
 }
 
-func runOnieUpdate(ctx context.Context, hc *http.Client, cfg *configstage.Stage2, si *stage.StagingInfo, onie *stage.OnieEnv) error {
+func runOnieUpdate(ctx context.Context, hc *http.Client, cfg *configstage.Stage2, si *stage.StagingInfo, onie *stage.OnieEnv) (funcErr error) {
 	// Build donwload URL: cfg URL + ONIE platform
 	url, err := stage.BuildURL(cfg.ONIEUpdaterURL, onie.Platform)
 	if err != nil {
@@ -239,11 +253,26 @@ func runOnieUpdate(ctx context.Context, hc *http.Client, cfg *configstage.Stage2
 
 	// ONIE download
 	onieUpdaterPath := filepath.Join(si.StagingDir, "onie-update")
+	l.Info("Downloading ONIE updater now...", zap.String("url", url), zap.String("dest", onieUpdaterPath))
 	if err := stage.DownloadExecutable(ctx, hc, url, onieUpdaterPath, time.Second*120); err != nil {
 		l.Error("Downloading ONIE updater failed", zap.String("url", url), zap.String("dest", onieUpdaterPath), zap.Error(err))
 		return fmt.Errorf("ONIE updater download: %w", err)
 	}
 	l.Info("Downloading ONIE updater completed", zap.String("url", url), zap.String("dest", onieUpdaterPath))
+
+	// for every following error we need to ensure that we make ONIE the default boot option again, because:
+	// - the ONIE updater half-assed, and we don't know what that means, it might boot back into the NOS
+	//   leaving the impression that the installation was successful
+	// TODO: the reverse might actually exactly be what we want in this case
+	defer func() {
+		if funcErr != nil {
+			l.Info("Trying to ensure that ONIE stays the default boot option...")
+			if err := partitions.MakeONIEDefaultBootEntryAndCleanup(); err != nil {
+				l.Error("Making ONIE the default boot option failed", zap.Error(err))
+			}
+			l.Info("ONIE is the default boot option again")
+		}
+	}()
 
 	// ONIE install
 	l.Info("Executing ONIE updater now...")
