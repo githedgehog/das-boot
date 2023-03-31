@@ -57,7 +57,7 @@ func ReadConfig(caPool *x509.CertPool) (*configstage.Stage1, error) {
 	// compared to stage 0 we require signature verification at this stage
 	var cfg configstage.Stage1
 	if err := config.ReadEmbeddedConfig(exeBytes, &cfg, caPool); err != nil {
-		return nil, fmt.Errorf("reading embedded config ignoring signature: %w", err)
+		return nil, fmt.Errorf("reading embedded config: %w", err)
 	}
 
 	// this completes reading the stage0 configuration

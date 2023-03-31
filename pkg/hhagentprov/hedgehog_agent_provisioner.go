@@ -54,7 +54,7 @@ func ReadConfig(caPool *x509.CertPool) (*configstage.HedgehogAgentProvisioner, e
 	// compared to stage 0 we require signature verification at this stage
 	var cfg configstage.HedgehogAgentProvisioner
 	if err := config.ReadEmbeddedConfig(exeBytes, &cfg, caPool); err != nil {
-		return nil, fmt.Errorf("reading embedded config ignoring signature: %w", err)
+		return nil, fmt.Errorf("reading embedded config: %w", err)
 	}
 
 	// this completes reading the configuration
@@ -88,6 +88,7 @@ func Run(ctx context.Context, override *configstage.HedgehogAgentProvisioner, lo
 		l.Error("Reading staging info", zap.Error(err))
 		return executionError(fmt.Errorf("reading staging info: %w", err))
 	}
+	l.Info("Staging information", zap.Reflect("si", si))
 
 	// reinitialize global logger
 	// TODO: merge log settings I guess? will figure out what constitutes a change from the program flags
@@ -158,6 +159,7 @@ func Run(ctx context.Context, override *configstage.HedgehogAgentProvisioner, lo
 			l.Error("Unmounting SONiC Partition failed", zap.String("device", sonicPart.Path), zap.String("mountPath", sonicPart.MountPath), zap.Error(err))
 		}
 	}()
+	l.Info("Mounted SONiC Partition", zap.String("device", sonicPart.Path), zap.String("mountPath", sonicPart.MountPath))
 
 	// determine SONiC root path on mounted partition
 	sonicRootPath, err := determineSonicRootPath(sonicPart.MountPath)
@@ -165,26 +167,45 @@ func Run(ctx context.Context, override *configstage.HedgehogAgentProvisioner, lo
 		l.Error("Determining SONiC image directory failed", zap.String("mountPath", sonicPart.MountPath), zap.Error(err))
 		return executionError(fmt.Errorf("determining SONiC image dir: %w", err))
 	}
+	l.Info("Found SONiC installation on SONiC partition", zap.String("sonicRootPath", sonicRootPath))
 
-	// prepare our target directory
-	targetDir := filepath.Join(sonicRootPath, "/rw/etc/sonic/hedgehog/")
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		l.Error("Preparing Hedgehog Agent target directory failed", zap.String("targetDir", targetDir), zap.Error(err))
-		return executionError(fmt.Errorf("preparing agent target dir '%s': %w", targetDir, err))
+	// prepare several directories now which we need for installing the agent
+	agentConfigTargetDir := filepath.Join(sonicRootPath, "/rw/etc/sonic/hedgehog/")
+	if err := os.MkdirAll(agentConfigTargetDir, 0755); err != nil {
+		l.Error("Preparing Hedgehog Agent config target directory failed", zap.String("agentConfigTargetDir", agentConfigTargetDir), zap.Error(err))
+		return executionError(fmt.Errorf("creating agent config target dir '%s': %w", agentConfigTargetDir, err))
 	}
+	sonicAgentBinDir := "/opt/hedgehog/bin"
+	agentBinTargetDir := filepath.Join(sonicRootPath, "rw", sonicAgentBinDir)
+	if err := os.MkdirAll(agentBinTargetDir, 0755); err != nil {
+		l.Error("Preparing Hedgehog Agent bin target directory failed", zap.String("agentBinTargetDir", agentBinTargetDir), zap.Error(err))
+		return executionError(fmt.Errorf("creating agent bin target dir '%s': %w", agentBinTargetDir, err))
+	}
+	systemdMultiUserTargetDir := filepath.Join(sonicRootPath, "/rw/etc/systemd/system/multi-user.target.wants")
+	if err := os.MkdirAll(systemdMultiUserTargetDir, 0755); err != nil {
+		l.Error("Preparing systemd multi-user.target.wants dir failed", zap.String("systemdMultiUserTargetDir", systemdMultiUserTargetDir), zap.Error(err))
+		return executionError(fmt.Errorf("creating systemd multi-user.target.wants dir '%s': %w", systemdMultiUserTargetDir, err))
+	}
+	l.Info("Created basic directory layout for Hedgehog agent installation",
+		zap.String("agentConfigTargetDir", agentConfigTargetDir),
+		zap.String("agentBinTargetDir", agentBinTargetDir),
+		zap.String("systemdMultiUserTargetDir", systemdMultiUserTargetDir),
+	)
 
 	// populate it with
 	// - agent
 	// - agent config
 	// - agent kubeconfig
-	agentBinPath := filepath.Join(targetDir, "agent")
-	agentConfigPath := filepath.Join(targetDir, "agent-config.yaml")
-	agentKubeconfigPath := filepath.Join(targetDir, "agent-kubeconfig")
+	// by downloading it from the seeder
+	agentBinPath := filepath.Join(agentBinTargetDir, "agent")
+	agentConfigPath := filepath.Join(agentConfigTargetDir, "agent-config.yaml")
+	agentKubeconfigPath := filepath.Join(agentConfigTargetDir, "agent-kubeconfig")
 
 	if err := stage.DownloadExecutable(ctx, hc, cfg.AgentURL, agentBinPath, time.Second*60); err != nil {
 		l.Error("Downloading agent binary failed", zap.String("url", cfg.AgentURL), zap.String("dest", agentBinPath), zap.Error(err))
 		return executionError(fmt.Errorf("downloading agent binary: %w", err))
 	}
+	l.Info("Downloaded agent binary", zap.String("url", cfg.AgentURL), zap.String("dest", agentBinPath))
 
 	agentConfigURL, err := url.Parse(cfg.AgentConfigURL)
 	if err != nil {
@@ -196,6 +217,7 @@ func Run(ctx context.Context, override *configstage.HedgehogAgentProvisioner, lo
 		l.Error("Downloading agent config failed", zap.String("url", agentConfigURL.String()), zap.String("dest", agentConfigPath), zap.Error(err))
 		return executionError(fmt.Errorf("downloading agent config: %w", err))
 	}
+	l.Info("Downloaded agent config for this device", zap.String("url", agentConfigURL.String()), zap.String("dest", agentConfigPath))
 
 	agentKubeconfigURL, err := url.Parse(cfg.AgentKubeconfigURL)
 	if err != nil {
@@ -204,31 +226,35 @@ func Run(ctx context.Context, override *configstage.HedgehogAgentProvisioner, lo
 	}
 	agentKubeconfigURL.Path = path.Join(agentKubeconfigURL.Path, si.DeviceID)
 	if err := stage.Download(ctx, hc, agentKubeconfigURL.String(), agentKubeconfigPath, 0600, time.Second*60); err != nil {
-		l.Error("Downloading agent kubeconfig failed", zap.String("url", agentKubeconfigURL.String()), zap.Error(err))
+		l.Error("Downloading agent kubeconfig failed", zap.String("url", agentKubeconfigURL.String()), zap.String("dest", agentKubeconfigPath), zap.Error(err))
 		return executionError(fmt.Errorf("downloading agent kubeconfig: %w", err))
 	}
+	l.Info("Downloaded agent kubeconfig for this device", zap.String("url", agentKubeconfigURL.String()), zap.String("dest", agentKubeconfigPath))
 
 	// now write systemd unit
+	// we'll do this by calling the agent with the "generate systemd-unit" commands which will just do that
+	// and we'll write the stdout of the command to the systemd service file
 	systemdUnitPath := "/etc/systemd/system/hedgehog-agent.service"
-	if err := os.MkdirAll(filepath.Join(sonicRootPath, "/rw/etc/systemd/system/multi-user.target.wants"), 0755); err != nil {
-		return executionError(fmt.Errorf("mkdir all /rw/etc/systemd/system/multi-user.target.wants: %w", err))
-	}
 	systemdUnitTargetPath := filepath.Join(sonicRootPath, "rw", systemdUnitPath)
-	systemdUnitTargetPathFile, err := os.OpenFile(systemdUnitTargetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	systemdUnitTargetFile, err := os.OpenFile(systemdUnitTargetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
-		return executionError(err)
+		l.Error("Opening hedgehog-agent.service file failed", zap.String("systemdUnitTargetPath", systemdUnitTargetPath), zap.Error(err))
+		return executionError(fmt.Errorf("opening hedgehog agent service file '%s': %w", systemdUnitTargetPath, err))
 	}
 	subctx, cancel := context.WithCancel(ctx)
-	cmd := exec.CommandContext(ctx, agentBinPath, "generate", "systemd-unit")
-	cmd.Stdout = systemdUnitTargetPathFile
+	cmdStrings := []string{agentBinPath, "generate", "systemd-unit", "--agent-path", filepath.Join(sonicAgentBinDir, "agent")}
+	cmd := exec.CommandContext(ctx, cmdStrings[0], cmdStrings[1:]...) //#nosec G204
+	cmd.Stdout = systemdUnitTargetFile
 	cmd.Stderr = log.NewSinkWithLogger(subctx, l, zapcore.InfoLevel, zap.String("app", "agent-generate-systemd-unit"), zap.String("stream", "stderr"))
 	if err := cmd.Run(); err != nil {
-		systemdUnitTargetPathFile.Close()
+		systemdUnitTargetFile.Close()
 		cancel()
-		return executionError(err)
+		l.Error("Generating hedgehog-agent.service systemd unit with agent binary failed", zap.Strings("cmd", cmdStrings), zap.Error(err))
+		return executionError(fmt.Errorf("generating systemd unit with agent binary: %w", err))
 	}
 	cancel()
-	systemdUnitTargetPathFile.Close()
+	systemdUnitTargetFile.Close()
+	l.Info("Generated hedgehog-agent.service systemd unit file using agent binary", zap.Strings("cmd", cmdStrings), zap.String("systemdUnitTargetPath", systemdUnitTargetPath))
 
 	// and link systemd unit to multi-user target
 	// TODO: we should find the right target
@@ -237,6 +263,7 @@ func Run(ctx context.Context, override *configstage.HedgehogAgentProvisioner, lo
 		l.Error("Creating symlink for systemd service failed", zap.String("symlinkPath", symlinkPath), zap.String("targetPath", systemdUnitPath), zap.Error(err))
 		return executionError(fmt.Errorf("symlinking agent systemd unit '%s' -> '%s': %w", symlinkPath, systemdUnitPath, err))
 	}
+	l.Info("Created symlink for Hedgehog agent to enable hedgehog-agent.service unit on startup", zap.String("symlinkPath", symlinkPath), zap.String("targetPath", systemdUnitPath))
 
 	// we are done here
 	l.Info("Hedgehog Agent Provisioner completed successfully")
@@ -244,11 +271,13 @@ func Run(ctx context.Context, override *configstage.HedgehogAgentProvisioner, lo
 }
 
 func determineSonicRootPath(path string) (string, error) {
+	// get all the files from path which we assume is the root of the SONiC partiton
 	dirEntries, err := os.ReadDir(path)
 	if err != nil {
 		return "", fmt.Errorf("reading dir entries at '%s': %w", path, err)
 	}
 
+	// iterate over the entries until we find the SONiC installation folder
 	for _, dirEntry := range dirEntries {
 		if strings.HasPrefix(dirEntry.Name(), "image-") {
 			// as we are provisioning from scratch
@@ -258,5 +287,7 @@ func determineSonicRootPath(path string) (string, error) {
 			return filepath.Join(path, dirEntry.Name()), nil
 		}
 	}
+
+	// no SONiC installation found - truly irrecoverable at this point
 	return "", fmt.Errorf("no SONiC image installation found")
 }
