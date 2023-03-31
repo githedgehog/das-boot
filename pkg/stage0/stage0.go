@@ -139,6 +139,7 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	if override != nil {
 		l.Info("Merged override configuration", zap.Reflect("config", cfg))
 	}
+	stagingInfo.OnieHeaders = cfg.OnieHeaders
 	stagingInfo.ServerCA = make([]byte, len(cfg.CA))
 	stagingInfo.ConfigSignatureCA = make([]byte, len(cfg.SignatureCA))
 	copy(stagingInfo.ServerCA, cfg.CA)
