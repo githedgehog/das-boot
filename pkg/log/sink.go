@@ -2,7 +2,6 @@ package log
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"io"
 
@@ -14,9 +13,9 @@ import (
 // Debug through DPanic are supported. The log levels Panic or Fatal are being ignored (they don't make sense here)
 // and will default to the Info level. All additional optional fields will be added to every log message.
 func NewSinkWithLogger(ctx context.Context, l Interface, level zapcore.Level, fields ...zapcore.Field) io.Writer {
-	buf := &bytes.Buffer{}
-	go runSink(ctx, l, buf, level, fields)
-	return buf
+	reader, writer := io.Pipe()
+	go runSink(ctx, l, reader, level, fields)
+	return writer
 }
 
 func runSink(ctx context.Context, l Interface, buf io.Reader, level zapcore.Level, fields []zapcore.Field) {
