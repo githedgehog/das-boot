@@ -23,6 +23,8 @@ type Config struct {
 
 	// RegistrySettings are all settings that deal with registration requests that are being sent by clients.
 	RegistrySettings *RegistrySettings `json:"registry_settings,omitempty" yaml:"registry_settings,omitempty"`
+
+	ArtifactProviders *ArtifactProviders `json:"artifact_providers,omitempty" yaml:"artifact_providers,omitempty"`
 }
 
 type Servers struct {
@@ -106,6 +108,22 @@ type RegistrySettings struct {
 	// handled by the registration controller instead. If this is set, it means that we will automatically
 	// accept and approve all registration requests.
 	KeyPath string `json:"key_path,omitempty" yaml:"key_path,omitempty"`
+}
+
+type ArtifactProviders struct {
+	Directories   []string       `json:"directories,omitempty" yaml:"directories,omitempty"`
+	OCIRegistries []*OCIRegistry `json:"oci_registries,omitempty" yaml:"oci_registries,omitempty"`
+}
+
+type OCIRegistry struct {
+	URL            string `json:"url,omitempty" yaml:"url,omitempty"`
+	Username       string `json:"username,omitempty" yaml:"username,omitempty"`
+	Password       string `json:"password,omitempty" yaml:"password,omitempty"`
+	AccessToken    string `json:"access_token,omitempty" yaml:"access_token,omitempty"`
+	RefreshToken   string `json:"refresh_token,omitempty" yaml:"refresh_token,omitempty"`
+	ServerCAPath   string `json:"server_ca_path,omitempty" yaml:"server_ca_path,omitempty"`
+	ClientCertPath string `json:"client_cert_path,omitempty" yaml:"cert_path,omitempty"`
+	ClientKeyPath  string `json:"client_key_path,omitempty" yaml:"key_path,omitempty"`
 }
 
 // ReferenceConfig will be displayed when requested through the CLI

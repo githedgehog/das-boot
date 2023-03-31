@@ -27,26 +27,26 @@ var _ config.EmbeddedConfig = &Stage2{}
 type Stage2 struct {
 	// Platform is an override for the "onie_platform" environment variable. This field should usually be empty
 	// as the platform value should be derived from the environment.
-	Platform string `json:"platform,omitempty"`
+	Platform string `json:"platform,omitempty" yaml:"platform,omitempty"`
 
 	// NOSInstallerURL is the URL where the NOS image is located
-	NOSInstallerURL string `json:"nos_installer_url,omitempty"`
+	NOSInstallerURL string `json:"nos_installer_url,omitempty" yaml:"nos_installer_url,omitempty"`
 
 	// ONIEUpdaterURL is the URL where the ONIE updater image is located
-	ONIEUpdaterURL string `json:"onie_updater_url,omitempty"`
+	ONIEUpdaterURL string `json:"onie_updater_url,omitempty" yaml:"onie_updater_url,omitempty"`
 
 	// NOSType represents the NOS that will be installed from the image in `NOSInstallerURL`.
-	NOSType string `json:"nos_type,omitempty"`
+	NOSType string `json:"nos_type,omitempty" yaml:"nos_type,omitempty"`
 
 	// HedgehogSonicProvisioners is a list of provisioners that will be executed if the `NOSType` is `hedgehog_sonic`.
-	HedgehogSonicProvisioners []HedgehogSonicProvisioner `json:"hedgehog_sonic_provisioners,omitempty"`
+	HedgehogSonicProvisioners []HedgehogSonicProvisioner `json:"hedgehog_sonic_provisioners,omitempty" yaml:"hedgehog_sonic_provisioners,omitempty"`
 
 	// SignatureCert holds the DER encoded X509 certificate with which the signature of the embedded config
 	// can be validated
-	SignatureCert []byte `json:"signature_cert,omitempty"`
+	SignatureCert []byte `json:"signature_cert,omitempty" yaml:"signature_cert,omitempty"`
 
 	// Version is tracking the format of this structure itself
-	Version config.ConfigVersion `json:"version,omitempty"`
+	Version config.ConfigVersion `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // NOSTypeHedgehogSonic is the value for the Hedgehog SONiC distribution that can be sent through the stage 2 configuration.
@@ -55,8 +55,8 @@ const NOSTypeHedgehogSonic = "hedgehog_sonic"
 // HedgehogSonicProvisioner represents the name and URL of a provisioner which are being executed in stage 2
 // if the NOS type is set to "hedgehog_sonic"
 type HedgehogSonicProvisioner struct {
-	Name string `json:"name"`
-	URL  string `json:"URL"`
+	Name string `json:"name" yaml:"name"`
+	URL  string `json:"URL" yaml:"URL"`
 }
 
 // Cert implements config.EmbeddedConfig

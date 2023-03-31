@@ -1,6 +1,8 @@
 package stage
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -9,25 +11,49 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"go.githedgehog.com/dasboot/pkg/devid"
+	"go.githedgehog.com/dasboot/pkg/stage0/config"
 )
 
 // OnieEnv represents a set of environment variables that *should* always
 // be set in any running ONIE installer
 type OnieEnv struct {
-	BootReason string
-	ExecURL    string
-	Platform   string
-	VendorID   string
-	SerialNum  string
-	EthAddr    string
+	BootReason      string
+	ExecURL         string
+	Platform        string
+	VendorID        string
+	SerialNum       string
+	EthAddr         string
+	Version         string
+	BuildMachine    string
+	MachineRev      string
+	Arch            string
+	BuildPlatform   string
+	ConfigVersion   string
+	BuildDate       string
+	PartitionType   string
+	KernelVersion   string
+	Firmware        string
+	SwitchAsic      string
+	SkipEthmgmtMacs string
+	GrubImageName   string
+	UefiBootLoader  string
+	UefiArch        string
+	SecureBootExt   string
+	SecureGrub      string
+	SecureBoot      string
+	Machine         string
 }
 
 // GetOnieEnv returns the set of ONIE environment variables that *should* always
 // bet in any running ONIE installer
 func GetOnieEnv() *OnieEnv {
-	return &OnieEnv{
+	// all these variables are supposed to be set
+	// however, we know already that this is probably not the case
+	// except for onie_boot_reason
+	ret := &OnieEnv{
 		BootReason: os.Getenv("onie_boot_reason"),
 		ExecURL:    os.Getenv("onie_exec_url"),
 		Platform:   os.Getenv("onie_platform"),
@@ -35,6 +61,74 @@ func GetOnieEnv() *OnieEnv {
 		SerialNum:  os.Getenv("onie_serial_num"),
 		EthAddr:    os.Getenv("onie_eth_addr"),
 	}
+
+	// if we fail to read the machine.conf file
+	// we'll return with this only though
+	machineConfBytes, err := readFile("/etc/machine.conf")
+	if err != nil {
+		return ret
+	}
+
+	// otherwise we'll take all ONIE values from the machine.conf file
+	// This is the most reliable source about ONIE
+	scanner := bufio.NewScanner(bytes.NewBuffer(machineConfBytes))
+	for scanner.Scan() {
+		line := scanner.Text()
+		split := strings.SplitN(line, "=", 2)
+		if len(split) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(split[0])
+		val := strings.TrimSpace(split[1])
+		switch key {
+		case "onie_version":
+			ret.Version = val
+		case "onie_vendor_id":
+			ret.VendorID = val
+		case "onie_build_machine":
+			ret.BuildMachine = val
+		case "onie_machine_rev":
+			ret.MachineRev = val
+		case "onie_arch":
+			ret.Arch = val
+		case "onie_build_platform":
+			ret.BuildPlatform = val
+		case "onie_config_version":
+			ret.ConfigVersion = val
+		case "onie_build_date":
+			ret.BuildDate = val
+		case "onie_partition_type":
+			ret.PartitionType = val
+		case "onie_kernel_version":
+			ret.KernelVersion = val
+		case "onie_firmware":
+			ret.Firmware = val
+		case "onie_switch_asic":
+			ret.SwitchAsic = val
+		case "onie_skip_ethmgmt_macs":
+			ret.SkipEthmgmtMacs = val
+		case "onie_grub_image_name":
+			ret.GrubImageName = val
+		case "onie_uefi_boot_loader":
+			ret.UefiBootLoader = val
+		case "onie_uefi_arch":
+			ret.Arch = val
+		case "onie_secure_boot_ext":
+			ret.SecureBootExt = val
+		case "onie_secure_grub":
+			ret.SecureGrub = val
+		case "onie_secure_boot":
+			ret.SecureBoot = val
+		case "onie_machine":
+			ret.Machine = val
+		case "onie_platform":
+			ret.Platform = val
+		default:
+			// unknown case, ignore
+			continue
+		}
+	}
+	return ret
 }
 
 type StagingInfo struct {
@@ -42,6 +136,7 @@ type StagingInfo struct {
 	ServerCA          []byte
 	ConfigSignatureCA []byte
 	LogSettings       LogSettings
+	OnieHeaders       *config.OnieHeaders
 	DeviceID          string
 }
 
@@ -50,16 +145,27 @@ const (
 	envNameServerCA          = "dasboot_server_ca"
 	envNameConfigSignatureCA = "dasboot_config_signature_ca"
 	envNameLogSettings       = "dasboot_log_settings"
+	envNameOnieHeaders       = "dasboot_onie_headers"
 	envNameDeviceID          = "dasboot_hhdevid"
 	pathServerCA             = "server-ca.der"
 	pathConfigSignatureCA    = "config-signature-ca.der"
 	pathLogSettings          = "log-settings.json"
+	pathOnieHeaders          = "onie-headers.json"
 )
 
 func (si *StagingInfo) Export() error {
 	logSettingsBytes, err := json.Marshal(&si.LogSettings)
 	if err != nil {
 		return fmt.Errorf("failed to JSON encode log settings: %w", err)
+	}
+
+	var onieHeadersBytes []byte
+	if si.OnieHeaders != nil {
+		var err error
+		onieHeadersBytes, err = json.Marshal(si.OnieHeaders)
+		if err != nil {
+			return fmt.Errorf("failed to JSON encode ONIE headers: %w", err)
+		}
 	}
 
 	// we only persist to disk if staging dir is set already, otherwise we only
@@ -93,9 +199,15 @@ func (si *StagingInfo) Export() error {
 		}
 
 		logSettingsPath := filepath.Join(si.StagingDir, pathLogSettings)
-
 		if err := writeFile(logSettingsPath, logSettingsBytes); err != nil {
 			return fmt.Errorf("failed to write log settings to disk at '%s': %w", logSettingsPath, err)
+		}
+
+		if len(onieHeadersBytes) > 0 {
+			onieHeadersPath := filepath.Join(si.StagingDir, pathOnieHeaders)
+			if err := writeFile(onieHeadersPath, onieHeadersBytes); err != nil {
+				return fmt.Errorf("failed to write ONIE headers to disk at '%s': %w", onieHeadersPath, err)
+			}
 		}
 	}
 
@@ -118,6 +230,11 @@ func (si *StagingInfo) Export() error {
 	if string(logSettingsBytes) != "{}" {
 		if err := os.Setenv(envNameLogSettings, string(logSettingsBytes)); err != nil {
 			return fmt.Errorf("failed to set '%s' environment variable: %w", envNameLogSettings, err)
+		}
+	}
+	if len(onieHeadersBytes) > 0 {
+		if err := os.Setenv(envNameOnieHeaders, string(onieHeadersBytes)); err != nil {
+			return fmt.Errorf("failed to set '%s' environment variable: %w", envNameOnieHeaders, err)
 		}
 	}
 	if si.DeviceID != "" {
@@ -206,13 +323,35 @@ func ReadStagingInfo() (*StagingInfo, error) {
 			return nil, fmt.Errorf("environment variable '%s' not set, and failed to read log settings from file '%s': %w", envNameLogSettings, logSettingsPath, err)
 		}
 		if err := json.Unmarshal(logSettingsBytes, &ret.LogSettings); err != nil {
-			return nil, fmt.Errorf("environment variable '%s' not set, and failed to JSON decoe log settings from file '%s': %w", envNameLogSettings, logSettingsPath, err)
+			return nil, fmt.Errorf("environment variable '%s' not set, and failed to JSON decode log settings from file '%s': %w", envNameLogSettings, logSettingsPath, err)
 		}
 	} else {
 		// environment variable is set, try to JSON decode the value from it
 		if err := json.Unmarshal([]byte(logSettingsJSONString), &ret.LogSettings); err != nil {
 			return nil, fmt.Errorf("failed to JSON decode log settings from environment variable '%s' (value: '%s'): %w", envNameLogSettings, logSettingsJSONString, err)
 		}
+	}
+
+	onieHeadersJSONString, ok := os.LookupEnv(envNameOnieHeaders)
+	if !ok {
+		// environment variable not set, so we'll try to read it from disk
+		onieHeadersPath := filepath.Join(ret.StagingDir, pathOnieHeaders)
+		onieHeadersBytes, err := readFile(onieHeadersPath)
+		if err != nil {
+			return nil, fmt.Errorf("environment variable '%s' not set, and failed to read ONIE headers from file '%s': %w", envNameOnieHeaders, onieHeadersPath, err)
+		}
+		var oh config.OnieHeaders
+		if err := json.Unmarshal(onieHeadersBytes, &oh); err != nil {
+			return nil, fmt.Errorf("environment variable '%s' not set, and failed to JSON decode log settings from file '%s': %w", envNameOnieHeaders, onieHeadersPath, err)
+		}
+		ret.OnieHeaders = &oh
+	} else {
+		// environment variable is set, try to JSON decode the value from it
+		var oh config.OnieHeaders
+		if err := json.Unmarshal([]byte(onieHeadersJSONString), &oh); err != nil {
+			return nil, fmt.Errorf("failed to JSON decode ONIE headers from environment variable '%s' (value: '%s'): %w", envNameOnieHeaders, onieHeadersJSONString, err)
+		}
+		ret.OnieHeaders = &oh
 	}
 
 	ret.DeviceID, ok = os.LookupEnv(envNameDeviceID)

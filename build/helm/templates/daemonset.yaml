@@ -59,6 +59,13 @@ spec:
               readOnly: true
             - name: config-cert
               mountPath: "/etc/hedgehog/seeder-certs/config"
+            {{- if .Values.settings.artifacts.oci_registries }}
+            {{- range .Values.settings.artifacts.oci_registries }}
+            - name: {{ .ca.secretName }}
+              readOnly: true
+              mountPath: {{ .ca.mountPath }}
+            {{- end }}
+            {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -90,3 +97,11 @@ spec:
         - name: config-cert
           secret:
             secretName: {{ .Values.secrets.config.name }}
+        {{- if .Values.settings.artifacts.oci_registries }}
+        {{- range .Values.settings.artifacts.oci_registries }}
+        - name: {{ .ca.secretName }}
+          secret:
+            secretName: {{ .ca.secretName }}
+        {{- end }}
+        {{- end }}
+

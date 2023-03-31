@@ -55,7 +55,6 @@ func ReplaceGlobals(newLogger Interface) func() {
 	registeredLoggersLock.RLock()
 	for _, reglogReinitFunc := range registeredLoggers {
 		reglogReinitFunc()
-		zap.L()
 	}
 	registeredLoggersLock.RUnlock()
 

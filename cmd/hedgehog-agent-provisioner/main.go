@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	"go.githedgehog.com/dasboot/pkg/hhagentprov"
+	"go.githedgehog.com/dasboot/pkg/hhagentprov/config"
 	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/log/syslog"
 	"go.githedgehog.com/dasboot/pkg/stage"
-	"go.githedgehog.com/dasboot/pkg/stage2"
-	"go.githedgehog.com/dasboot/pkg/stage2/config"
 	"go.githedgehog.com/dasboot/pkg/version"
 
 	"github.com/urfave/cli/v2"
@@ -24,10 +24,10 @@ var (
 
 func main() {
 	app := &cli.App{
-		Name:                 "stage2",
-		Usage:                "NOS provisioning or ONIE updates",
-		UsageText:            "stage2",
-		Description:          "Should be running in ONIE, and is the third of a series of installer stages within DAS BOOT",
+		Name:                 "hedgehog-agent-provisioner",
+		Usage:                "Hedgehog agent provisioning into a SONiC installation",
+		UsageText:            "hedgehog-agent-provisioner",
+		Description:          "Should be running in ONIE, and must be running as a provisioner from the stage 2 installer within DAS BOOT",
 		Version:              version.Version,
 		EnableBashCompletion: true,
 		Flags: []cli.Flag{
@@ -61,23 +61,23 @@ func main() {
 			},
 		},
 		Action: func(ctx *cli.Context) error {
-			return runStage2(ctx)
+			return runHedgehogAgentProvisioner(ctx)
 		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		if errors.Is(err, stage2.ErrExecution) {
+		if errors.Is(err, hhagentprov.ErrExecution) {
 			log.L().Fatal("runtime error", zap.Error(err))
 		}
-		fmt.Fprintf(os.Stderr, "FATAL: failed to run stage 2: %s\n", err)
+		fmt.Fprintf(os.Stderr, "FATAL: failed to run Hedgehog Agent Provisioner: %s\n", err)
 		os.Exit(1)
 	}
 }
 
-func runStage2(ctx *cli.Context) error {
+func runHedgehogAgentProvisioner(ctx *cli.Context) error {
 	// read optional configuration file first
 	configPath := ctx.Path("config")
-	var cfg *config.Stage2
+	var cfg *config.HedgehogAgentProvisioner
 	if configPath != "" {
 		var err error
 		cfg, err = config.ReadFromFile(configPath)
@@ -99,5 +99,5 @@ func runStage2(ctx *cli.Context) error {
 		SyslogServers:  syslogServers,
 		SyslogFacility: *ctx.Generic("syslog-facility").(*syslog.Priority),
 	}
-	return stage2.Run(ctx.Context, cfg, logSettings)
+	return hhagentprov.Run(ctx.Context, cfg, logSettings)
 }

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path"
 
+	confighhagentprov "go.githedgehog.com/dasboot/pkg/hhagentprov/config"
 	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/seeder/registration"
 	config1 "go.githedgehog.com/dasboot/pkg/stage1/config"
@@ -42,7 +43,11 @@ func (s *seeder) secureHandler() *chi.Mux {
 	r.Get(path.Join(registerPath, "{devid}"), s.registerPollHandler)
 	r.Get(path.Join(nosInstallerPathBase, "{platform}"), s.getNOSArtifact(s.stage2Authz))
 	r.Get(path.Join(onieUpdaterPathBase, "{platform}"), s.getONIEArtifact(s.stage2Authz))
-	r.Get(path.Join(hhAgentProvisionerPathBase, "{arch}"), s.getHedgehogAgentProvisionerArtifact(s.stage2Authz))
+	// to lift the confusion: this is the route for the provisioner executable
+	r.Get(path.Join(hhAgentProvisionerPathBase, "{arch}"), s.getStageArtifact("hedgehog-agent-provisioner", s.stage2Authz, s.embedStageHedgehogAgentProvisionerConfig))
+	// and this is the route to the agent executable which the provisioner calls
+	r.Get(path.Join(hhAgentProvisionerPathBase, "agent", "{arch}"), s.getAgentArtifact(s.stage2Authz))
+	r.Get(path.Join(hhAgentProvisionerPathBase, "agent", "config", "{devid}"), s.getAgentConfig(s.stage2Authz))
 	return r
 }
 
@@ -153,15 +158,22 @@ func (s *seeder) stage2Authz(r *http.Request) error {
 func (s *seeder) embedStage2Config(_ *http.Request, arch string, artifactBytes []byte) ([]byte, error) {
 	return s.ecg.Stage2(artifactBytes, &config2.Stage2{
 		Platform:        "", // this should be empty, might only be useful in the future
-		NOSInstallerURL: s.installerSettings.nosInstallerURL(arch),
-		ONIEUpdaterURL:  s.installerSettings.onieUpdaterURL(arch),
+		NOSInstallerURL: s.installerSettings.nosInstallerURL(),
+		ONIEUpdaterURL:  s.installerSettings.onieUpdaterURL(),
 		NOSType:         "hedgehog_sonic",
 		HedgehogSonicProvisioners: []config2.HedgehogSonicProvisioner{
 			{
-				Name: "Hedgehog Agent",
+				Name: "hedgehog-agent-provisioner",
 				URL:  s.installerSettings.hhAgentProvisionerURL(arch),
 			},
 		},
+	})
+}
+
+func (s *seeder) embedStageHedgehogAgentProvisionerConfig(_ *http.Request, arch string, artifactBytes []byte) ([]byte, error) {
+	return s.ecg.HedgehogAgentProvisioner(artifactBytes, &confighhagentprov.HedgehogAgentProvisioner{
+		AgentURL:       s.installerSettings.agentURL(arch),
+		AgentConfigURL: s.installerSettings.agentConfigURL(),
 	})
 }
 
@@ -271,6 +283,9 @@ func (s *seeder) getNOSArtifact(authz func(*http.Request) error) func(w http.Res
 			errorWithJSON(w, r, http.StatusNotFound, "missing platform in request path")
 			return
 		}
+
+		artifact := fmt.Sprintf("sonic/%s", platformParam)
+		s.getArtifact(artifact)(w, r)
 	}
 }
 
@@ -287,20 +302,63 @@ func (s *seeder) getONIEArtifact(authz func(*http.Request) error) func(w http.Re
 			errorWithJSON(w, r, http.StatusNotFound, "missing platform in request path")
 			return
 		}
+
+		artifact := fmt.Sprintf("onie/%s", platformParam)
+		s.getArtifact(artifact)(w, r)
 	}
 }
 
-func (s *seeder) getHedgehogAgentProvisionerArtifact(authz func(*http.Request) error) func(w http.ResponseWriter, r *http.Request) {
+func (s *seeder) getAgentArtifact(authz func(*http.Request) error) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := authz(r); err != nil {
 			errorWithJSON(w, r, http.StatusForbidden, "unauthorized access to artifact: %s", err)
 			return
 		}
 
-		// we require the architecture in the request path
+		// we require the arch so that we can fetch the artifact for the right device
 		archParam := chi.URLParam(r, "arch")
 		if archParam == "" {
 			errorWithJSON(w, r, http.StatusNotFound, "missing architecture in request path")
+			return
+		}
+
+		artifact := fmt.Sprintf("agent/%s", archParam)
+		s.getArtifact(artifact)(w, r)
+	}
+}
+
+func (s *seeder) getArtifact(artifact string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		f := s.artifactsProvider.Get(artifact)
+		if f == nil {
+			errorWithJSON(w, r, http.StatusNotFound, "artifact '%s' not found", artifact)
+			return
+		}
+		defer f.Close()
+
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.WriteHeader(http.StatusOK)
+		if _, err := io.Copy(w, f); err != nil {
+			l.Error("failed to write artifact to HTTP response",
+				zap.String("request", middleware.GetReqID(r.Context())),
+				zap.String("artifact", artifact),
+				zap.Error(err),
+			)
+		}
+	}
+}
+
+func (s *seeder) getAgentConfig(authz func(*http.Request) error) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := authz(r); err != nil {
+			errorWithJSON(w, r, http.StatusForbidden, "unauthorized access to artifact: %s", err)
+			return
+		}
+
+		// get the device ID from the URL paramater
+		devidParam := chi.URLParam(r, "devid")
+		if devidParam == "" {
+			errorWithJSON(w, r, http.StatusBadRequest, "no device ID in URL")
 			return
 		}
 	}

@@ -244,6 +244,10 @@ storage:
       mode: 0600
       contents:
         source: http://10.0.2.2:8889/das-boot-server-cert-secret.yaml
+    - path: /opt/seeder/oci-ca-secret.yaml
+      mode: 0600
+      contents:
+        source: http://10.0.2.2:8889/oci-ca-secret.yaml
     - path: /opt/seeder/syslog-ng-values.yaml
       mode: 0644
       contents:

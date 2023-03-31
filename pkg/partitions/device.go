@@ -36,6 +36,7 @@ const (
 	FSLabelHedgehogLocation = "HH_LOCATION"
 
 	GPTPartNameONIE             = FSLabelONIE
+	GPTPartNameSONiC            = FSLabelSONiC
 	GPTPartNameHedgehogIdentity = "HEDGEHOG_IDENTITY"
 	GPTPartNameHedgehogLocation = "HEDGEHOG_LOCATION"
 
@@ -46,6 +47,7 @@ const (
 
 	MountPathHedgehogIdentity = "/mnt/hedgehog-identity"
 	MountPathHedgehogLocation = "/mnt/hedgehog-location"
+	MountPathSonic            = "/mnt/sonic"
 
 	DefaultPartSizeHedgehogIdentityInMB int = 100
 
@@ -161,6 +163,13 @@ func (d *Device) IsEFIPartition() bool {
 func (d *Device) IsONIEPartition() bool {
 	if d.IsPartition() {
 		return d.GPTPartType == GPTPartTypeONIE || d.GetPartitionName() == GPTPartNameONIE || d.FSLabel == FSLabelONIE
+	}
+	return false
+}
+
+func (d *Device) IsSonicPartition() bool {
+	if d.IsPartition() {
+		return d.FSLabel == FSLabelSONiC || d.GetPartitionName() == GPTPartNameSONiC
 	}
 	return false
 }
@@ -369,6 +378,24 @@ func (d *Device) Mount() error {
 
 		// now mount it
 		if err := unixMount(d.Path, mountPath, FSExt4, unix.MS_NODEV|unix.MS_NOEXEC, ""); err != nil {
+			return fmt.Errorf("device: mount: %w", err)
+		}
+		d.MountPath = mountPath
+		if d.FS != nil {
+			d.FS.SetBase(d.MountPath)
+		}
+		return nil
+	}
+
+	if d.IsSonicPartition() {
+		// ensure mount path exists and is a director
+		mountPath := filepath.Join(rootPath, MountPathSonic)
+		if err := ensureMountPath(mountPath); err != nil {
+			return err
+		}
+
+		// now mount it
+		if err := unixMount(d.Path, mountPath, FSExt4, unix.MS_NODEV, ""); err != nil {
 			return fmt.Errorf("device: mount: %w", err)
 		}
 		d.MountPath = mountPath
