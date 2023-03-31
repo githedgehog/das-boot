@@ -158,8 +158,8 @@ func (s *seeder) stage2Authz(r *http.Request) error {
 func (s *seeder) embedStage2Config(_ *http.Request, arch string, artifactBytes []byte) ([]byte, error) {
 	return s.ecg.Stage2(artifactBytes, &config2.Stage2{
 		Platform:        "", // this should be empty, might only be useful in the future
-		NOSInstallerURL: s.installerSettings.nosInstallerURL(arch),
-		ONIEUpdaterURL:  s.installerSettings.onieUpdaterURL(arch),
+		NOSInstallerURL: s.installerSettings.nosInstallerURL(),
+		ONIEUpdaterURL:  s.installerSettings.onieUpdaterURL(),
 		NOSType:         "hedgehog_sonic",
 		HedgehogSonicProvisioners: []config2.HedgehogSonicProvisioner{
 			{

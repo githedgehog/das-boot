@@ -72,19 +72,19 @@ func (lis *loadedInstallerSettings) registerURL() string {
 	}).String()
 }
 
-func (lis *loadedInstallerSettings) nosInstallerURL(arch string) string {
+func (lis *loadedInstallerSettings) nosInstallerURL() string {
 	return (&url.URL{
 		Scheme: "https",
 		Host:   lis.secureServerName,
-		Path:   path.Join("/", nosInstallerPathBase, arch),
+		Path:   path.Join("/", nosInstallerPathBase),
 	}).String()
 }
 
-func (lis *loadedInstallerSettings) onieUpdaterURL(arch string) string {
+func (lis *loadedInstallerSettings) onieUpdaterURL() string {
 	return (&url.URL{
 		Scheme: "https",
 		Host:   lis.secureServerName,
-		Path:   path.Join("/", onieUpdaterPathBase, arch),
+		Path:   path.Join("/", onieUpdaterPathBase),
 	}).String()
 }
 
