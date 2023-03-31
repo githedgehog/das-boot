@@ -420,7 +420,7 @@ func templateKubeconfigHack() (_ io.Reader, funcErr error) {
 		}
 	}()
 	kubeconfigPath := "/etc/rancher/k3s/k3s.yaml"
-	f, err := os.Open("")
+	f, err := os.Open(kubeconfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("opening kubeconfig file '%s': %w", kubeconfigPath, err)
 	}

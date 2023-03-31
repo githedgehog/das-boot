@@ -67,8 +67,8 @@ spec:
               mountPath: {{ .ca.mountPath }}
             {{- end }}
             {{- end }}
-            - name: k3s
-              mountpath: "/etc/rancher/k3s"
+            - name: das-boot-kubeconfig
+              mountPath: "/etc/rancher/k3s"
               readOnly: true
       {{- with .Values.nodeSelector }}
       nodeSelector:
@@ -108,7 +108,6 @@ spec:
             secretName: {{ .ca.secretName }}
         {{- end }}
         {{- end }}
-        - name: k3s
-          hostPath:
-            path: "/etc/rancher/k3s"
-            type: Directory
+        - name: das-boot-kubeconfig
+          secret:
+            secretName: das-boot-kubeconfig

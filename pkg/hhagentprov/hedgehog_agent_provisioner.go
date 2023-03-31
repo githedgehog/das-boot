@@ -210,7 +210,10 @@ func Run(ctx context.Context, override *configstage.HedgehogAgentProvisioner, lo
 
 	// now write systemd unit
 	systemdUnitPath := "/etc/systemd/system/hedgehog-agent.service"
-	systemdUnitTargetPath := filepath.Join(targetDir, systemdUnitPath)
+	if err := os.MkdirAll(filepath.Join(sonicRootPath, "/rw/etc/systemd/system/multi-user.target.wants"), 0755); err != nil {
+		return executionError(fmt.Errorf("mkdir all /rw/etc/systemd/system/multi-user.target.wants: %w", err))
+	}
+	systemdUnitTargetPath := filepath.Join(sonicRootPath, "rw", systemdUnitPath)
 	systemdUnitTargetPathFile, err := os.OpenFile(systemdUnitTargetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		return executionError(err)
@@ -229,7 +232,7 @@ func Run(ctx context.Context, override *configstage.HedgehogAgentProvisioner, lo
 
 	// and link systemd unit to multi-user target
 	// TODO: we should find the right target
-	symlinkPath := filepath.Join(targetDir, "/rw/etc/systemd/system/multi-user.target.wants/hedgehog-agent.service")
+	symlinkPath := filepath.Join(sonicRootPath, "/rw/etc/systemd/system/multi-user.target.wants/hedgehog-agent.service")
 	if err := os.Symlink(systemdUnitPath, symlinkPath); err != nil {
 		l.Error("Creating symlink for systemd service failed", zap.String("symlinkPath", symlinkPath), zap.String("targetPath", systemdUnitPath), zap.Error(err))
 		return executionError(fmt.Errorf("symlinking agent systemd unit '%s' -> '%s': %w", symlinkPath, systemdUnitPath, err))
