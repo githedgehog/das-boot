@@ -204,18 +204,11 @@ func runNosInstall(ctx context.Context, hc *http.Client, cfg *configstage.Stage2
 		}
 
 		l.Info("Hedgehog SONiC NOS installation detected. Running all additional Hedgehog SONiC Provisioners...", zap.String("nos_type", cfg.NOSType), zap.Strings("provisioners", names))
-		arch := stage.Arch()
 		for _, p := range cfg.HedgehogSonicProvisioners {
-			url, err := stage.BuildURL(p.URL, arch)
-			if err != nil {
-				l.Error("Building URL for provisioner failed", zap.String("provisioner", p.Name), zap.String("url", p.URL), zap.String("arch", arch))
-				return fmt.Errorf("building URL for provisioner '%s': %w", p.Name, err)
-			}
-
 			// provisioner download
 			provisionerPath := filepath.Join(si.StagingDir, p.Name)
-			if err := stage.DownloadExecutable(ctx, hc, url, provisionerPath, time.Second*60); err != nil {
-				l.Error("Downloading provisioner failed", zap.String("provisioner", p.Name), zap.String("url", url), zap.String("dest", provisionerPath), zap.Error(err))
+			if err := stage.DownloadExecutable(ctx, hc, p.URL, provisionerPath, time.Second*60); err != nil {
+				l.Error("Downloading provisioner failed", zap.String("provisioner", p.Name), zap.String("url", p.URL), zap.String("dest", provisionerPath), zap.Error(err))
 				return fmt.Errorf("provisioner '%s' download: %w", p.Name, err)
 			}
 
