@@ -11,6 +11,13 @@ settings:
     - hedgehog-ntp-udp.default.svc.cluster.local
   syslog_servers:
     - hedgehog-syslog-syslog-ng.default.svc.cluster.local
+  artifacts:
+    oci_registries:
+    - url: oci://registry.local:5000/githedgehog
+      ca:
+        secretName: oci-ca
+        certKey: cert.pem
+        mountPath: /etc/hedgehog/seeder-certs/oci-ca
 securityContext:
   privileged: true
   runAsUser: 0

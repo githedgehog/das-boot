@@ -64,6 +64,13 @@ settings:
   # This essentially disables device registration and approval
   # and will simply always hand out a device certificate
   issue_certificates: false
+  artifacts:
+    oci_registries:
+    - url: oci://ghcr.io/githedgehog
+      ca:
+        secretName: oci-ca
+        certKey: cert.pem
+        mountPath: /etc/hedgehog/seeder-certs/oci-ca
 
 # certificates and keys are being derived from secrets
 secrets:

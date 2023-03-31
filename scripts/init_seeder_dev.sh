@@ -13,6 +13,9 @@ echo
 # path where this script resides
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
+# we need the OCI registry certs, so that's a requirement
+OCI_DIR=$( cd -- ${SCRIPT_DIR}/../dev/oci )
+
 # let's make a dev folder where we generate everything for
 echo -n "Making development folder: "
 mkdir -p ${SCRIPT_DIR}/../dev/seeder
@@ -99,6 +102,10 @@ installer_settings:
 registry_settings:
   cert_path: ${DEV_DIR}/client-ca-cert.pem
   key_path: ${DEV_DIR}/client-ca-key.pem
+artifact_providers:
+  oci_registries:
+  - url: oci://registry.local:5000/githedgehog
+    server_ca_path: ${OCI_DIR}/oci-repo-ca-cert.pem
 EOF
 
 echo -n "Config written to: "

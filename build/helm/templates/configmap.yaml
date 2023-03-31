@@ -36,3 +36,11 @@ data:
       cert_path: /etc/hedgehog/seeder-certs/client-ca/{{ .Values.secrets.clientCA.certKey }}
       key_path: /etc/hedgehog/seeder-certs/client-ca/{{ .Values.secrets.clientCA.keyKey }}
     {{- end }}
+    artifact_providers:
+    {{- if .Values.settings.artifacts.oci_registries }}
+      oci_registries:
+        {{- range .Values.settings.artifacts.oci_registries }}
+        - url: {{ .url }}
+          server_ca_path: {{ .ca.mountPath }}/{{ .ca.certKey }}
+        {{- end }}
+    {{- end }}

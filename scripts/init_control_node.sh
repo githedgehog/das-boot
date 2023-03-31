@@ -147,6 +147,7 @@ $KUBECTL create secret generic das-boot-config-cert --dry-run=client -o yaml --f
 $KUBECTL create secret generic das-boot-client-ca --dry-run=client -o yaml --from-file=key.pem=$SEEDER_DEV_DIR/client-ca-key.pem --from-file=cert.pem=$SEEDER_DEV_DIR/client-ca-cert.pem > $DEV_DIR/docker-images/das-boot-client-ca-secret.yaml
 $KUBECTL create secret generic das-boot-server-ca --dry-run=client -o yaml --from-file=cert.pem=$SEEDER_DEV_DIR/server-ca-cert.pem > $DEV_DIR/docker-images/das-boot-server-ca-secret.yaml
 $KUBECTL create secret generic das-boot-config-ca --dry-run=client -o yaml --from-file=cert.pem=$SEEDER_DEV_DIR/config-ca-cert.pem > $DEV_DIR/docker-images/das-boot-config-ca-secret.yaml
+$KUBECTL create secret generic oci-ca --dry-run=client -o yaml --from-file=cert.pem=$OCI_CERT_DIR/oci-repo-ca-cert.pem > $DEV_DIR/docker-images/oci-ca-secret.yaml
 
 # generate ignition config
 # we could just pipe everything, but for better debugability, keep it in separate files
