@@ -52,7 +52,7 @@ func Download(ctx context.Context, hc *http.Client, srcURL string, destPath stri
 	}
 
 	// check the content type
-	if contentType != "application/octet-stream" || contentType != "application/yaml" {
+	if contentType != "application/octet-stream" && contentType != "application/yaml" {
 		return NewHTTPErrorf(httpResp, "but unexpected content type: %s", contentType)
 	}
 
