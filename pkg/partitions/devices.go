@@ -82,6 +82,15 @@ func (d Devices) GetHedgehogLocationPartition() *Device {
 	return nil
 }
 
+func (d Devices) GetSONiCPartition() *Device {
+	for _, dev := range d {
+		if dev.IsSonicPartition() {
+			return dev
+		}
+	}
+	return nil
+}
+
 // DeletePartitions will find the NOS disk by identifying it through
 // the location of the ONIE partition by default, and delete all
 // non-EFI, non-ONIE, non-Diag and non-Hedgehog partitions. This is

@@ -59,6 +59,7 @@ spec:
               readOnly: true
             - name: config-cert
               mountPath: "/etc/hedgehog/seeder-certs/config"
+              readOnly: true
             {{- if .Values.settings.artifacts.oci_registries }}
             {{- range .Values.settings.artifacts.oci_registries }}
             - name: {{ .ca.secretName }}
@@ -66,6 +67,9 @@ spec:
               mountPath: {{ .ca.mountPath }}
             {{- end }}
             {{- end }}
+            - name: k3s
+              mountpath: "/etc/rancher/k3s"
+              readOnly: true
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -104,4 +108,7 @@ spec:
             secretName: {{ .ca.secretName }}
         {{- end }}
         {{- end }}
-
+        - name: k3s
+          hostPath:
+            path: "/etc/rancher/k3s"
+            type: Directory

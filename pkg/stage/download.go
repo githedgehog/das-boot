@@ -13,6 +13,10 @@ import (
 )
 
 func DownloadExecutable(ctx context.Context, hc *http.Client, srcURL string, destPath string, timeout time.Duration) error {
+	return Download(ctx, hc, srcURL, destPath, 0755, timeout)
+}
+
+func Download(ctx context.Context, hc *http.Client, srcURL string, destPath string, destPerm os.FileMode, timeout time.Duration) error {
 	// build the request
 	subCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -25,7 +29,7 @@ func DownloadExecutable(ctx context.Context, hc *http.Client, srcURL string, des
 
 	// open the destPath first
 	// no need to go to the network if we cannot even write it to a file
-	f, err := os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
+	f, err := os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, destPerm)
 	if err != nil {
 		return fmt.Errorf("open '%s': %w", destPath, err)
 	}
@@ -48,7 +52,7 @@ func DownloadExecutable(ctx context.Context, hc *http.Client, srcURL string, des
 	}
 
 	// check the content type
-	if contentType != "application/octet-stream" {
+	if contentType != "application/octet-stream" || contentType != "application/yaml" {
 		return NewHTTPErrorf(httpResp, "but unexpected content type: %s", contentType)
 	}
 
