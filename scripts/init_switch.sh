@@ -11,8 +11,12 @@ set -e
 # Unfortunately for us, the default behaviour of ONIE is still to reprogram this if I see that right. So let's just deal with it.
 #
 # See this link for details: https://github.com/opencomputeproject/onie/issues/751#issuecomment-390730344
+#
+# We also treat "eth0" special in the sense that we are going to use a QEMU "user" network device. All other devices get the "socket" device.
+# In SONiC VS the eth0 is *always* the management NIC, so this fits a QEMU user device after all.
 DEFAULT_NETDEVS=(
-    "devid=eth0 mac=0c:20:12:fe:01:01 local_port=127.0.0.1:21001 dest_port=127.0.0.1:21000"
+    "devid=eth0 mac=0c:20:12:fe:01:00"
+    "devid=eth1 mac=0c:20:12:fe:01:01 local_port=127.0.0.1:21011 dest_port=127.0.0.1:21001"
 )
 
 # we cannot pass bash arrays, so we will have to parse that
@@ -86,14 +90,21 @@ if [ -f ${IMAGE_DIR}/onie_efi_code.fd ]; then
     echo "Delete this file if you want to download it again. Skipping..."
 else
     echo "Downloading ONIE EFI code flash drive..."
-    $WGET -O ${IMAGE_DIR}/onie_efi_code.fd "https://docs.google.com/uc?export=download&id=1eWs37uWarVhvclv3XmjHfo9Eux8HMa8E"
+    # Secure Boot version
+    #$WGET -O ${IMAGE_DIR}/onie_efi_code.fd "https://docs.google.com/uc?export=download&id=1eWs37uWarVhvclv3XmjHfo9Eux8HMa8E"
+    # Secure Boot disabled in this one
+    $WGET -O ${IMAGE_DIR}/onie_efi_code.fd "https://docs.google.com/uc?export=download&id=1OM8NtqH2MHqjaOkPlbfK6QLly71ld3Xu"
 fi
 if [ -f ${IMAGE_DIR}/onie_efi_vars.fd ]; then
     echo "Flatcar ONIE EFI variables flash drive already downloaded: ${IMAGE_DIR}/onie_efi_vars.fd"
     echo "Delete this file if you want to download it again. Skipping..."
 else
     echo "Downloading ONIE EFI variables flash drive..."
-    $WGET -O ${IMAGE_DIR}/onie_efi_vars.fd "https://docs.google.com/uc?export=download&id=1Jc7Twu5JY7RIkOCl5hbxrj9AakotAC5c"
+    # Secure Boot version
+    #$WGET -O ${IMAGE_DIR}/onie_efi_vars.fd "https://docs.google.com/uc?export=download&id=1Jc7Twu5JY7RIkOCl5hbxrj9AakotAC5c"
+    # Secure Boot disabled in this one
+    # https://drive.google.com/file/d/1BuJeeaaXg4maNi5kFLQb-0uwR58_ljnx/view?usp=sharing
+    $WGET -O ${IMAGE_DIR}/onie_efi_vars.fd "https://docs.google.com/uc?export=download&id=1BuJeeaaXg4maNi5kFLQb-0uwR58_ljnx"
 fi
 echo
 

@@ -8,8 +8,11 @@ type HedgehogAgentProvisioner struct {
 	// AgentURL is the download URL for the agent binary
 	AgentURL string `json:"agent_url,omitempty" yaml:"agent_url,omitempty"`
 
-	// AgentConfigURL
+	// AgentConfigURL is the download URL for the agent config yaml file
 	AgentConfigURL string `json:"agent_config_url,omitempty" yaml:"agent_config_url,omitempty"`
+
+	// AgentKubeconfigURL is the download URL for the kubeconfig for the agent
+	AgentKubeconfigURL string `json:"agent_kubeconfig_url,omitempty" yaml:"agent_kubeconfig_url,omitempty"`
 
 	// SignatureCert holds the DER encoded X509 certificate with which the signature of the embedded config
 	// can be validated

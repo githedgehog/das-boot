@@ -33,6 +33,11 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# hack: our special one
+yq -M '.clusters[0].cluster.server="https://192.168.42.11:6443"' /etc/rancher/k3s/k3s.yaml > /opt/seeder/k3s.yaml
+kubectl create secret generic das-boot-kubeconfig --from-file=k3s.yaml=/opt/seeder/k3s.yaml
+
+
 # now install the helm chart
 helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-seeder-values.yaml hedgehog-seeder oci://registry.local:5000/githedgehog/helm-charts/das-boot-seeder
 if [ $? -ne 0 ]; then

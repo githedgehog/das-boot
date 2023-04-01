@@ -77,5 +77,9 @@ func MergeConfigs(embedded *HedgehogAgentProvisioner, override *HedgehogAgentPro
 		ret.AgentConfigURL = override.AgentConfigURL
 	}
 
+	if override.AgentKubeconfigURL != "" {
+		ret.AgentKubeconfigURL = override.AgentKubeconfigURL
+	}
+
 	return &ret
 }

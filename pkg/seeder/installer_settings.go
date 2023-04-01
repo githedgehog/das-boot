@@ -111,3 +111,11 @@ func (lis *loadedInstallerSettings) agentConfigURL() string {
 		Path:   path.Join("/", hhAgentProvisionerPathBase, "agent", "config"),
 	}).String()
 }
+
+func (lis *loadedInstallerSettings) agentKubeconfigURL() string {
+	return (&url.URL{
+		Scheme: "https",
+		Host:   lis.secureServerName,
+		Path:   path.Join("/", hhAgentProvisionerPathBase, "agent", "kubeconfig"),
+	}).String()
+}

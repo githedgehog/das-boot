@@ -25,7 +25,7 @@ systemd:
         TimeoutStartSec=180
         RemainAfterExit=yes
         KillMode=process
-        ExecStart=/usr/bin/sh -c '/opt/k3s-install.sh server --cluster-init --disable=traefik'
+        ExecStart=/usr/bin/sh -c '/opt/k3s-install.sh server --cluster-init --disable=traefik —cluster-cidr "10.42.0.0/16" --service-cidr "10.43.0.0/16" --cluster-dns "10.43.0.10" --write-kubeconfig-mode 644 --tls-san "kube-master.local" --tls-san "control-node-1.local" --tls-san "192.168.42.11"'
         
         [Install]
         WantedBy=multi-user.target
@@ -172,6 +172,7 @@ storage:
           # for the NIC which connects to switch1
           [Match]
           MACAddress=0c:20:12:fe:00:01
+          Name=switch1
           
           [Link]
           RequiredForOnline=no
@@ -192,6 +193,10 @@ storage:
       mode: 0755
       contents:
         source: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    - path: /opt/bin/yq
+      mode: 0755
+      contents:
+        source: https://github.com/mikefarah/yq/releases/download/v4.33.2/yq_linux_amd64
     - path: /opt/docker-images/docker-seeder.tar
       mode: 0644
       contents:

@@ -5,6 +5,7 @@ set -e
 SWITCH_NAME=${1:-switch}
 VM_NCPUS=${VM_NCPUS:-1}
 VM_MEMORY=${VM_MEMORY:-4096}
+SSH_PORT=${SSH_PORT:-2211}
 # NETDEVS - being initialized at init time, and encoded into ONIE EEPROM
 ### END SETTINGS ###########
 
@@ -22,17 +23,24 @@ DEV_DIR=$( cd -- "${SCRIPT_DIR}/../dev/$SWITCH_NAME" &> /dev/null && pwd )
 echo "Development directory for switch $SWITCH_NAME: ${DEV_DIR}"
 echo
 
+# QEMU VM Settings
+VM_NAME="$SWITCH_NAME"
+VM_UUID=$(<${DEV_DIR}/uuid)
+
 echo "Configured QEMU network devices:"
 qemu_devices=""
 while read -r netdev; do
     eval $netdev
-    echo "- name: $devid, MAC: $mac, Connection: $local_port -> $dest_port"
-    qemu_devices="${qemu_devices} -netdev socket,id=$devid,udp=$dest_port,localaddr=$local_port -device virtio-net-pci,netdev=$devid,mac=$mac"
+    if [ "$devid" = "eth0" ] ; then
+        echo "- name: $devid, MAC: $mac, Hostname: $VM_NAME, SSH Port: $SSH_PORT"
+        #   -netdev user,id=eth0,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22,hostname="$VM_NAME",domainname=local,dnssearch=local \
+        #   -device virtio-net-pci,netdev=eth0,mac=0c:20:12:fe:00:00 \
+        qemu_devices="${qemu_devices} -netdev user,id=eth0,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22,hostname="$VM_NAME",domainname=local,dnssearch=local -device virtio-net-pci,netdev=$devid,mac=$mac"
+    else
+        echo "- name: $devid, MAC: $mac, Connection: $local_port -> $dest_port"
+        qemu_devices="${qemu_devices} -netdev socket,id=$devid,udp=$dest_port,localaddr=$local_port -device virtio-net-pci,netdev=$devid,mac=$mac"
+    fi
 done < ${DEV_DIR}/netdevs.txt
-
-# QEMU VM Settings
-VM_NAME="$SWITCH_NAME"
-VM_UUID=$(<${DEV_DIR}/uuid)
 
 # ensure the local docker registry is running
 $SCRIPT_DIR/run_registry.sh

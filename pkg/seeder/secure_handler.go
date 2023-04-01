@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path"
 
 	confighhagentprov "go.githedgehog.com/dasboot/pkg/hhagentprov/config"
@@ -48,6 +49,7 @@ func (s *seeder) secureHandler() *chi.Mux {
 	// and this is the route to the agent executable which the provisioner calls
 	r.Get(path.Join(hhAgentProvisionerPathBase, "agent", "{arch}"), s.getAgentArtifact(s.stage2Authz))
 	r.Get(path.Join(hhAgentProvisionerPathBase, "agent", "config", "{devid}"), s.getAgentConfig(s.stage2Authz))
+	r.Get(path.Join(hhAgentProvisionerPathBase, "agent", "kubeconfig", "{devid}"), s.getAgentKubeconfig(s.stage2Authz))
 	return r
 }
 
@@ -172,8 +174,9 @@ func (s *seeder) embedStage2Config(_ *http.Request, arch string, artifactBytes [
 
 func (s *seeder) embedStageHedgehogAgentProvisionerConfig(_ *http.Request, arch string, artifactBytes []byte) ([]byte, error) {
 	return s.ecg.HedgehogAgentProvisioner(artifactBytes, &confighhagentprov.HedgehogAgentProvisioner{
-		AgentURL:       s.installerSettings.agentURL(arch),
-		AgentConfigURL: s.installerSettings.agentConfigURL(),
+		AgentURL:           s.installerSettings.agentURL(arch),
+		AgentConfigURL:     s.installerSettings.agentConfigURL(),
+		AgentKubeconfigURL: s.installerSettings.agentKubeconfigURL(),
 	})
 }
 
@@ -361,5 +364,76 @@ func (s *seeder) getAgentConfig(authz func(*http.Request) error) func(w http.Res
 			errorWithJSON(w, r, http.StatusBadRequest, "no device ID in URL")
 			return
 		}
+
+		// TODO: obviously
+		cfg := `apiVersion: fabric.githedgehog.com/v1alpha1
+kind: Agent
+metadata:
+  name: agent-sample
+spec:
+  foo: bar
+`
+		w.Header().Set("Content-Type", "application/yaml")
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write([]byte(cfg)); err != nil {
+			l.Error("failed to write agent config to HTTP response", zap.Error(err))
+		}
 	}
 }
+
+func (s *seeder) getAgentKubeconfig(authz func(*http.Request) error) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := authz(r); err != nil {
+			errorWithJSON(w, r, http.StatusForbidden, "unauthorized access to artifact: %s", err)
+			return
+		}
+
+		// get the device ID from the URL paramater
+		devidParam := chi.URLParam(r, "devid")
+		if devidParam == "" {
+			errorWithJSON(w, r, http.StatusBadRequest, "no device ID in URL")
+			return
+		}
+
+		// TODO: wow ... I can't believe I'm putthing this hack in - even temporarily this is a big sin
+		// mea culpa
+		f, err := templateKubeconfigHack()
+		if err != nil {
+			errorWithJSON(w, r, http.StatusInternalServerError, "getting kubeconfig: %s", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/yaml")
+		w.WriteHeader(http.StatusOK)
+		if _, err := io.Copy(w, f); err != nil {
+			l.Error("failed to write kubeconfig to HTTP response",
+				zap.String("request", middleware.GetReqID(r.Context())),
+				zap.Error(err),
+			)
+		}
+	}
+}
+
+func templateKubeconfigHack() (_ io.Reader, funcErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			funcErr = fmt.Errorf("panic: %v", r)
+		}
+	}()
+	kubeconfigPath := "/etc/rancher/k3s/k3s.yaml"
+	f, err := os.Open(kubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("opening kubeconfig file '%s': %w", kubeconfigPath, err)
+	}
+	defer f.Close()
+
+	buf := &bytes.Buffer{}
+	if _, err := io.Copy(buf, f); err != nil {
+		return nil, fmt.Errorf("copying kubeconfig: %w", err)
+	}
+	return buf, nil
+}
+
+/*
+cluster:
+    insecure-skip-tls-verify: true
+*/
