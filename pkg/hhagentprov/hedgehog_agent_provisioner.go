@@ -242,7 +242,7 @@ func Run(ctx context.Context, override *configstage.HedgehogAgentProvisioner, lo
 		return executionError(fmt.Errorf("opening hedgehog agent service file '%s': %w", systemdUnitTargetPath, err))
 	}
 	subctx, cancel := context.WithCancel(ctx)
-	cmdStrings := []string{agentBinPath, "generate", "systemd-unit", "--agent-path", filepath.Join(sonicAgentBinDir, "agent")}
+	cmdStrings := []string{agentBinPath, "generate", "systemd-unit", "--agent-path", filepath.Join(sonicAgentBinDir, "agent"), "--user", "root"}
 	cmd := exec.CommandContext(ctx, cmdStrings[0], cmdStrings[1:]...) //#nosec G204
 	cmd.Stdout = systemdUnitTargetFile
 	cmd.Stderr = log.NewSinkWithLogger(subctx, l, zapcore.InfoLevel, zap.String("app", "agent-generate-systemd-unit"), zap.String("stream", "stderr"))

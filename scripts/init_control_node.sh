@@ -67,7 +67,7 @@ if [ -f ${IMAGE_DIR}/agent ]; then
     echo "Delete this file if you want to download it again. Skipping...:"
 else
     echo "Downloading Hedgehog agent..."
-    $ORAS pull -o ${IMAGE_DIR} ghcr.io/githedgehog/agent:0.1
+    $ORAS pull -o ${IMAGE_DIR} ghcr.io/githedgehog/agent:0.2
 fi
 echo
 

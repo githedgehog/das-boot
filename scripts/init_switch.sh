@@ -90,14 +90,21 @@ if [ -f ${IMAGE_DIR}/onie_efi_code.fd ]; then
     echo "Delete this file if you want to download it again. Skipping..."
 else
     echo "Downloading ONIE EFI code flash drive..."
-    $WGET -O ${IMAGE_DIR}/onie_efi_code.fd "https://docs.google.com/uc?export=download&id=1eWs37uWarVhvclv3XmjHfo9Eux8HMa8E"
+    # Secure Boot version
+    #$WGET -O ${IMAGE_DIR}/onie_efi_code.fd "https://docs.google.com/uc?export=download&id=1eWs37uWarVhvclv3XmjHfo9Eux8HMa8E"
+    # Secure Boot disabled in this one
+    $WGET -O ${IMAGE_DIR}/onie_efi_code.fd "https://docs.google.com/uc?export=download&id=1OM8NtqH2MHqjaOkPlbfK6QLly71ld3Xu"
 fi
 if [ -f ${IMAGE_DIR}/onie_efi_vars.fd ]; then
     echo "Flatcar ONIE EFI variables flash drive already downloaded: ${IMAGE_DIR}/onie_efi_vars.fd"
     echo "Delete this file if you want to download it again. Skipping..."
 else
     echo "Downloading ONIE EFI variables flash drive..."
-    $WGET -O ${IMAGE_DIR}/onie_efi_vars.fd "https://docs.google.com/uc?export=download&id=1Jc7Twu5JY7RIkOCl5hbxrj9AakotAC5c"
+    # Secure Boot version
+    #$WGET -O ${IMAGE_DIR}/onie_efi_vars.fd "https://docs.google.com/uc?export=download&id=1Jc7Twu5JY7RIkOCl5hbxrj9AakotAC5c"
+    # Secure Boot disabled in this one
+    # https://drive.google.com/file/d/1BuJeeaaXg4maNi5kFLQb-0uwR58_ljnx/view?usp=sharing
+    $WGET -O ${IMAGE_DIR}/onie_efi_vars.fd "https://docs.google.com/uc?export=download&id=1BuJeeaaXg4maNi5kFLQb-0uwR58_ljnx"
 fi
 echo
 

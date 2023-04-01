@@ -353,7 +353,9 @@ access-switch1-serial: ## Access the serial console of the switch1 VM
 
 .PHONY: access-switch1-ssh
 access-switch1-ssh: ## SSH into switch1 VM (NOTE: requires a successful SONiC installation)
-	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p 2211 admin@127.0.0.1
+	@echo "Use password 'githedgehog' for our own SONiC VS builds (default)."
+	@echo "Change the username in the Makefile to 'admin' for upstream SONiC VS builds. Password for this is 'YourPaSsWoRd'."
+	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p 2211 githedgehog@127.0.0.1
 
 .PHONY: access-switch1-monitor
 access-switch1-monitor: ## Access the QEMU monitor (control interface) of the switch1 VM
