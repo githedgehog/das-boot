@@ -183,3 +183,9 @@ echo "Pusing SONiC, ONIE and Hedgehog agent into registry..."
 ( cd $IMAGE_DIR && $ORAS push registry.local:5000/githedgehog/sonic/x86_64-kvm_x86_64-r0:latest sonic-vs.bin )
 ( cd $IMAGE_DIR && $ORAS push registry.local:5000/githedgehog/agent/x86_64:latest agent )
 echo
+
+# push the CRDs into the local registry
+echo "Pusing Agent CRDs into registry..."
+( cd $IMAGE_DIR && $HELM pull --version=0.1 oci://ghcr.io/githedgehog/agent-crd )
+( cd $IMAGE_DIR && $HELM push agent-crd-0.1.tgz oci://registry.local:5000/githedgehog/helm-charts )
+echo
