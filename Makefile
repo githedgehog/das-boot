@@ -332,7 +332,7 @@ access-control-node-qnp:
 
 .PHONY: init-switch1
 init-switch1: ## Prepares a QEMU VM to run switch1
-	NETDEVS="devid=eth0 mac=0c:20:12:fe:01:00 local_port=127.0.0.1:21001 dest_port=127.0.0.1:21000 devid=eth1 mac=0c:20:12:fe:01:01 local_port=127.0.0.1:21002 dest_port=127.0.0.1:21003" $(MKFILE_DIR)/scripts/init_switch.sh switch1
+	SSH_PORT="2211" NETDEVS="devid=eth0 mac=0c:20:12:fe:01:00 devid=eth1 mac=0c:20:12:fe:01:01 local_port=127.0.0.1:21011 dest_port=127.0.0.1:21001 devid=eth2 mac=0c:20:12:fe:01:02 local_port=127.0.0.1:21012 dest_port=127.0.0.1:21031" $(MKFILE_DIR)/scripts/init_switch.sh switch1
 
 .PHONY: run-switch1
 run-switch1: ## Runs the VM for switch1
@@ -350,6 +350,10 @@ clean-switch1: ## Deletes the switch1 VM and its supporting files
 access-switch1-serial: ## Access the serial console of the switch1 VM
 	@echo "Use ^] to disconnect from serial console"
 	socat -,rawer,escape=0x1d unix-connect:$(DEV_DIR)/switch1/serial.sock
+
+.PHONY: access-switch1-ssh
+access-switch1-ssh: ## SSH into switch1 VM (NOTE: requires a successful SONiC installation)
+	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p 2211 admin@127.0.0.1
 
 .PHONY: access-switch1-monitor
 access-switch1-monitor: ## Access the QEMU monitor (control interface) of the switch1 VM

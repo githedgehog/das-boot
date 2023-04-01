@@ -11,8 +11,12 @@ set -e
 # Unfortunately for us, the default behaviour of ONIE is still to reprogram this if I see that right. So let's just deal with it.
 #
 # See this link for details: https://github.com/opencomputeproject/onie/issues/751#issuecomment-390730344
+#
+# We also treat "eth0" special in the sense that we are going to use a QEMU "user" network device. All other devices get the "socket" device.
+# In SONiC VS the eth0 is *always* the management NIC, so this fits a QEMU user device after all.
 DEFAULT_NETDEVS=(
-    "devid=eth0 mac=0c:20:12:fe:01:01 local_port=127.0.0.1:21001 dest_port=127.0.0.1:21000"
+    "devid=eth0 mac=0c:20:12:fe:01:00"
+    "devid=eth1 mac=0c:20:12:fe:01:01 local_port=127.0.0.1:21011 dest_port=127.0.0.1:21001"
 )
 
 # we cannot pass bash arrays, so we will have to parse that

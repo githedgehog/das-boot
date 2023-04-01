@@ -113,7 +113,7 @@ $QEMU_SYSTEM_X86_64 \
   -machine q35,accel=kvm,smm=on -cpu host -smp "$VM_NCPUS" \
   -netdev user,id=eth0,hostfwd=tcp:127.0.0.1:"$SSH_PORT"-:22,hostfwd=tcp:127.0.0.1:"$KUBE_PORT"-:6443,hostname="$VM_NAME",domainname=local,dnssearch=local \
   -device virtio-net-pci,netdev=eth0,mac=0c:20:12:fe:00:00 \
-  -netdev socket,id=eth1,udp=127.0.0.1:21001,localaddr=127.0.0.1:21000 \
+  -netdev socket,id=eth1,udp=127.0.0.1:21011,localaddr=127.0.0.1:21001 \
   -device virtio-net-pci,netdev=eth1,mac=0c:20:12:fe:00:01 \
   -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-pci,rng=rng0 \
   -chardev socket,id=chrtpm,path="$DEV_DIR/tpm.sock.ctrl" -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
