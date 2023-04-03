@@ -79,8 +79,8 @@ else
     # NOTE: google drive links like this cannot be downloaded directly, but need some work. There are answers for this on stackoverflow
     # If the file gets too large, then one needs to use a different URL.
     # Source: https://medium.com/@acpanjan/download-google-drive-files-using-wget-3c2c025a8b99
-    #$WGET -O ${IMAGE_DIR}/onie-kvm_x86_64.qcow2.xz https://drive.google.com/file/d/1hHDBYSk_vbPvwt68nb_e9qFzut80Hsg6/view?usp=share_link
-    $WGET -O ${IMAGE_DIR}/onie-kvm_x86_64.qcow2.xz "https://docs.google.com/uc?export=download&id=1hHDBYSk_vbPvwt68nb_e9qFzut80Hsg6"
+    # https://drive.google.com/file/d/1s5OdLdAackVQP8t2qOQ6X6roCvU0PMdA/view?usp=share_link
+    $WGET -O ${IMAGE_DIR}/onie-kvm_x86_64.qcow2.xz "https://docs.google.com/uc?export=download&id=1s5OdLdAackVQP8t2qOQ6X6roCvU0PMdA"
     echo
     echo "Extracting ONIE kvm_x86_64 image now, this may take some time... (unxz ${IMAGE_DIR}/onie-kvm_x86_64.qcow2.xz)"
     $UNXZ ${IMAGE_DIR}/onie-kvm_x86_64.qcow2.xz
