@@ -1,0 +1,1 @@
+You will find the syslog server running at {{ include "rsyslog.fullname" . }}:{{ .Values.service.port }}

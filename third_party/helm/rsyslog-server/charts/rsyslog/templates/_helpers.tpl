@@ -1,8 +1,7 @@
-{{/* vim: set filetype=mustache: */}}
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "syslog-ng.name" -}}
+{{- define "rsyslog.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -11,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "syslog-ng.fullname" -}}
+{{- define "rsyslog.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -27,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "syslog-ng.chart" -}}
+{{- define "rsyslog.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "syslog-ng.labels" -}}
-helm.sh/chart: {{ include "syslog-ng.chart" . }}
-{{ include "syslog-ng.selectorLabels" . }}
+{{- define "rsyslog.labels" -}}
+helm.sh/chart: {{ include "rsyslog.chart" . }}
+{{ include "rsyslog.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -46,18 +45,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "syslog-ng.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "syslog-ng.name" . }}
+{{- define "rsyslog.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "rsyslog.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "syslog-ng.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "syslog-ng.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
-{{- end }}

@@ -4,8 +4,8 @@ These are currently all third party used helm charts.
 
 ## syslog
 
-It's using the official syslog-ng docker image and helm charts.
-The helm chart is from https://github.com/syslog-ng/syslog-ng/tree/master/contrib/syslog-ng-helm-chart.
+It's using an rsyslog build based on alpine Linux with log rotation.
+The Dockerfile and helm chart are from https://github.com/lawesson/rsyslog-server.git
 
 ## ntp
 

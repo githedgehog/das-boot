@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rsyslog.fullname" . }}
+  labels:
+    {{- include "rsyslog.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "rsyslog.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "rsyslog.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ROTATE_SCHEDULE
+              value: {{ .Values.rotatateSchedule | quote }}
+            - name: CRON_LOG_LEVEL
+              value: {{ .Values.cronLogLevel | quote }}
+            - name: DO_LOG_ALL
+              value: {{ .Values.logAll | quote }}
+            - name: DO_DUMP_TO_STDOUT
+              value: {{ .Values.dumpLogsToStdout | quote }}
+          ports:
+            - name: syslog-tcp
+              containerPort: 514
+              protocol: TCP
+            - name: syslog
+              containerPort: 514
+              protocol: UDP
+          readinessProbe:
+            tcpSocket:
+              port: 514
+          volumeMounts:
+            - name: var
+              mountPath: /var/log
+            - name: config
+              mountPath: /etc/rsyslog.d/my-syslog.conf
+              subPath: my-syslog.conf
+            - name: config
+              mountPath: /etc/logrotate.d/my-logrotate.conf
+              subPath: my-logrotate.conf
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: var
+          persistentVolumeClaim:
+            claimName: syslogs
+        - name: config
+          configMap:
+            name: syslog
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

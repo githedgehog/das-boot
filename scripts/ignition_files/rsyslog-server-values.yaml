@@ -1,0 +1,4 @@
+image:
+  repository: registry.local:5000/githedgehog/rsyslog
+pvc:
+  storageClassName: ""
