@@ -67,7 +67,7 @@ if [ -f ${IMAGE_DIR}/agent ]; then
     echo "Delete this file if you want to download it again. Skipping...:"
 else
     echo "Downloading Hedgehog agent..."
-    $ORAS pull -o ${IMAGE_DIR} ghcr.io/githedgehog/agent:0.2
+    $ORAS pull -o ${IMAGE_DIR} ghcr.io/githedgehog/agent:0.3
 fi
 echo
 
@@ -185,6 +185,6 @@ echo
 
 # push the CRDs into the local registry
 echo "Pusing Agent CRDs into registry..."
-( cd $IMAGE_DIR && $HELM pull --version=0.1 oci://ghcr.io/githedgehog/agent-crd )
-( cd $IMAGE_DIR && $HELM push agent-crd-0.1.tgz oci://registry.local:5000/githedgehog/helm-charts )
+( cd $IMAGE_DIR && $HELM pull --version=0.3 oci://ghcr.io/githedgehog/agent-crd )
+( cd $IMAGE_DIR && $HELM push agent-crd-0.3.tgz oci://registry.local:5000/githedgehog/helm-charts )
 echo

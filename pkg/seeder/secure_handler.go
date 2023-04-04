@@ -369,9 +369,16 @@ func (s *seeder) getAgentConfig(authz func(*http.Request) error) func(w http.Res
 		cfg := `apiVersion: fabric.githedgehog.com/v1alpha1
 kind: Agent
 metadata:
-  name: agent-sample
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/switch: switch-1
+  name: switch-1
 spec:
-  foo: bar
+  ports:
+    - name: Ethernet0
+      interfaces:
+        - ipAddress: 192.168.42.188/24
+          vlan: 42
 `
 		w.Header().Set("Content-Type", "application/yaml")
 		w.WriteHeader(http.StatusOK)
