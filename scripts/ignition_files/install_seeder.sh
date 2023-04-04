@@ -57,7 +57,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # install our CRDs
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml install --version=0.1 hedgehog-crds oci://registry.local:5000/githedgehog/helm-charts/agent-crd
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.3 hedgehog-agent-crds oci://registry.local:5000/githedgehog/helm-charts/agent-crd
 if [ $? -ne 0 ]; then
     exit 5
 fi
