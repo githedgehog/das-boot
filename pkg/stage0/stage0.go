@@ -311,7 +311,7 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	return nil
 }
 
-func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *stage.LogSettings, httpClient *http.Client, ipamResp *ipam.Response, netdev string, ipa ipam.IPAddress) (string, error) {
+func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *stage.LogSettings, httpClient *http.Client, ipamResp *ipam.Response, netdev string, ipa ipam.IPAddress) (funcRet string, funcErr error) {
 	// first things first: configure network interface
 	ipaddrnets, err := net.StringsToIPNets(ipa.IPAddresses)
 	if err != nil {
@@ -353,30 +353,40 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 	)
 
 	// configure the syslog logger so that we're not blind anymore
+	// this gets a special context so that if this function failed
+	// we will essentially stop the underlying syslog client
+	// however, we want to keep it running on success
 	logSettings.SyslogServers = ipamResp.SyslogServers
-	if err := stage.InitializeGlobalLogger(ctx, logSettings); err != nil {
-		l.Warn("Reinitializing global logger with new settings including syslog servers failed", zap.Strings("syslogServers", ipamResp.SyslogServers), zap.Error(err))
+	logCtx, logCtxCancel := context.WithCancel(ctx)
+	defer func() {
+		if funcErr != nil {
+			logCtxCancel()
+		}
+	}()
+	if err := stage.InitializeGlobalLogger(logCtx, logSettings); err != nil {
+		l.Warn("Reinitializing global logger with new settings including syslog servers failed", zap.String("netdev", netdev), zap.Strings("syslogServers", ipamResp.SyslogServers), zap.Error(err))
 	} else {
 		l = log.L()
 		l.Info("Reinitialized global logger with new settings including syslog servers",
+			zap.String("netdev", netdev),
 			zap.Strings("syslogServers", ipamResp.SyslogServers),
 		)
 	}
 
 	// now run NTP - we only fail if NTP fails, not if hardware clock sync fails
 	if err := ntp.SyncClock(ctx, ipamResp.NTPServers); err != nil && !errors.Is(err, ntp.ErrHWClockSync) {
-		l.Error("Syncing system clock with NTP failed", zap.Error(err))
+		l.Error("Syncing system clock with NTP failed", zap.String("netdev", netdev), zap.Error(err))
 		return "", fmt.Errorf("syncing clock with NTP: %w", err)
 	}
-	l.Info("System clock successfully synchronized with NTP", zap.Strings("ntpServers", ipamResp.NTPServers))
+	l.Info("System clock successfully synchronized with NTP", zap.String("netdev", netdev), zap.Strings("ntpServers", ipamResp.NTPServers))
 
 	// now try to download stage 1
 	stage1Path := filepath.Join(stagingInfo.StagingDir, "stage1")
 	if err := stage.DownloadExecutable(ctx, httpClient, ipamResp.Stage1URL, stage1Path, 60*time.Second); err != nil {
-		l.Error("Downloading stage 1 installer failed", zap.String("url", ipamResp.Stage1URL), zap.String("dest", stage1Path), zap.Error(err))
+		l.Error("Downloading stage 1 installer failed", zap.String("netdev", netdev), zap.String("url", ipamResp.Stage1URL), zap.String("dest", stage1Path), zap.Error(err))
 		return "", fmt.Errorf("downloading stage 1: %w", err)
 	}
-	l.Info("Downloading stage 1 installer completed", zap.String("url", ipamResp.Stage1URL), zap.String("dest", stage1Path))
+	l.Info("Downloading stage 1 installer completed", zap.String("netdev", netdev), zap.String("url", ipamResp.Stage1URL), zap.String("dest", stage1Path))
 
 	// these are all the pieces which are dependent on the "right" network to work
 	// we'll continue execution in the main function
