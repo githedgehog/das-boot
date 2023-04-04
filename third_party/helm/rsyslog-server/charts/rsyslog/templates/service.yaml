@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rsyslog.fullname" . }}
+  labels:
+    {{- include "rsyslog.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 514
+      protocol: TCP
+      name: syslog-tcp
+    - port: {{ .Values.service.port }}
+      targetPort: 514
+      protocol: UDP
+      name: syslog
+  selector:
+    {{- include "rsyslog.selectorLabels" . | nindent 4 }}

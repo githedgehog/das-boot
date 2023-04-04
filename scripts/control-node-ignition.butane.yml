@@ -253,10 +253,10 @@ storage:
       mode: 0600
       contents:
         source: http://10.0.2.2:8889/oci-ca-secret.yaml
-    - path: /opt/seeder/syslog-ng-values.yaml
+    - path: /opt/seeder/rsyslog-server-values.yaml
       mode: 0644
       contents:
-        source: http://10.0.2.2:8888/syslog-ng-values.yaml
+        source: http://10.0.2.2:8888/rsyslog-server-values.yaml
     - path: /opt/seeder/ntp-values.yaml
       mode: 0644
       contents:

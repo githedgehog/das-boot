@@ -10,7 +10,7 @@ settings:
   ntp_servers:
     - hedgehog-ntp-udp.default.svc.cluster.local
   syslog_servers:
-    - hedgehog-syslog-syslog-ng.default.svc.cluster.local
+    - hedgehog-syslog-rsyslog.default.svc.cluster.local
   artifacts:
     oci_registries:
     - url: oci://registry.local:5000/githedgehog

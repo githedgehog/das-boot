@@ -160,13 +160,12 @@ echo
 echo "Preparing all 3rd party products for installation..."
 mkdir -p $DEV_DIR/third_party
 echo
-echo "Preparing syslog-ng for installation..."
-$DOCKER pull balabit/syslog-ng:3.27.1
-$DOCKER tag balabit/syslog-ng:3.27.1 registry.local:5000/balabit/syslog-ng:3.27.1
-$DOCKER push registry.local:5000/balabit/syslog-ng:3.27.1
-$DOCKER image save -o $DEV_DIR/docker-images/docker-syslog.tar registry.local:5000/balabit/syslog-ng:3.27.1
-$HELM package $SCRIPT_DIR/../third_party/helm/syslog-ng --version 0.2.0 --app-version 3.27.1 -d $DEV_DIR/third_party
-$HELM push $DEV_DIR/third_party/syslog-ng-0.2.0.tgz oci://registry.local:5000/githedgehog/helm-charts
+echo "Preparing rsyslog for installation..."
+( cd $SCRIPT_DIR/../third_party/helm/rsyslog-server && $DOCKER build -t registry.local:5000/githedgehog/rsyslog:0.1.0 . )
+$DOCKER push registry.local:5000/githedgehog/rsyslog:0.1.0
+$DOCKER image save -o $DEV_DIR/docker-images/docker-syslog.tar registry.local:5000/githedgehog/rsyslog:0.1.0
+$HELM package $SCRIPT_DIR/../third_party/helm/rsyslog-server/charts/rsyslog --version 0.1.1 --app-version 0.1.0 -d $DEV_DIR/third_party
+$HELM push $DEV_DIR/third_party/rsyslog-0.1.1.tgz oci://registry.local:5000/githedgehog/helm-charts
 echo
 
 echo "Preparing ntp/chrony for installation..."

@@ -45,7 +45,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # install syslog
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f syslog-ng-values.yaml hedgehog-syslog oci://registry.local:5000/githedgehog/helm-charts/syslog-ng
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f rsyslog-server-values.yaml hedgehog-syslog oci://registry.local:5000/githedgehog/helm-charts/rsyslog
 if [ $? -ne 0 ]; then
     exit 3
 fi

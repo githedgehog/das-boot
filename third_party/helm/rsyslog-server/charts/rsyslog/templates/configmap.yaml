@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: syslog
+  labels:
+    {{- include "rsyslog.labels" . | nindent 4 }}
+data:
+  my-syslog.conf: {{ toYaml .Values.syslogconf | indent 2 }}
+  my-logrotate.conf: {{ toYaml .Values.logrotateconf | indent 2 }}
