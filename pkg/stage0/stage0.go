@@ -374,6 +374,7 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 	}
 
 	// now run NTP - we only fail if NTP fails, not if hardware clock sync fails
+	l.Info("Trying to query NTP servers now to synchronize system clock...", zap.String("netdev", netdev), zap.Strings("ntpServers", ipamResp.NTPServers))
 	if err := ntp.SyncClock(ctx, ipamResp.NTPServers); err != nil && !errors.Is(err, ntp.ErrHWClockSync) {
 		l.Error("Syncing system clock with NTP failed", zap.String("netdev", netdev), zap.Error(err))
 		return "", fmt.Errorf("syncing clock with NTP: %w", err)
