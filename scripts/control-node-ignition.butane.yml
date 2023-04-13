@@ -188,7 +188,9 @@ storage:
     - path: /opt/k3s-install.sh
       mode: 0755
       contents:
-        source: https://get.k3s.io
+        # This is currently broken upstream. See https://github.com/k3s-io/k3s/issues/7247 for details.
+        #source: https://get.k3s.io
+        source: https://raw.githubusercontent.com/k3s-io/k3s/7e59376bb91d451d3eaf16b9a3f80ae4d711b2bc/install.sh
     - path: /opt/helm-install.sh
       mode: 0755
       contents:
