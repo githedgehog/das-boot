@@ -57,8 +57,8 @@ make -C BaseTools
 ./OvmfPkg/build.sh -a X64 -D SECURE_BOOT_ENABLE -D SMM_REQUIRE -D TPM2_ENABLE -D DEBUG_ON_SERIAL_PORT=FALSE -D NETWORK_TLS_ENABLE -D NETWORK_IP6_ENABLE -D NETWORK_HTTP_BOOT_ENABLE
 ```
 
-The following patch enrolls another default "Microsoft" certificate to the "db" certificates.
-This allows to test real secure boot by signing the shim with this "Microsoft" cert and putting the UEFI firmware into standard "User Mode".
+For example the following patch enrolls another default "Microsoft" certificate to the "db" certificates into the `EnrollDefaultKeys.efi` program.
+This allows to test real secure boot by signing the shim with this "Microsoft" cert and putting the UEFI firmware into standard "User Mode" by executing `EnrollDefaultKeys.efi` from the UEFI shell.
 
 ```patch
 diff --git a/OvmfPkg/EnrollDefaultKeys/AuthData.c b/OvmfPkg/EnrollDefaultKeys/AuthData.c
@@ -200,4 +200,52 @@ index b0334fb76e..0caf600664 100755
  if [[ "$RUN_QEMU" == "yes" ]]; then
    if [[ ! -d $QEMU_FIRMWARE_DIR ]]; then
 
+```
+
+**NOTE:** when applying this patch, you might need to call `unix2dos` on the file first, and then you most likely need to apply the patch with `patch --binary -Np1 -i FILE`.
+
+## Building ArmVirt
+
+ArmVirt is essentially "OVMF for Arm".
+You can reuse the same x86_64 docker image.
+No need to run things from an arm64 machine!
+
+Customizations need to be made to `Conf/target.txt`:
+
+```text
+ACTIVE_PLATFORM       = ArmVirtPkg/ArmVirtQemu.dsc
+TARGET                = DEBUG
+TARGET_ARCH           = AARCH64
+TOOL_CHAIN_TAG        = GCC5
+```
+
+Follow the instructions above on how to star the container.
+Then inside of the container run the following:
+
+```shell
+# one time step: make the base tools
+make -C BaseTools
+
+# source the build tools
+. edksetup.sh
+
+# and now build the arm firmware
+build -D TTY_TERMINAL=TRUE -D SECURE_BOOT_ENABLE=TRUE -D TPM2_ENABLE=TRUE -D TPM2_CONFIG_ENABLE=TRUE
+```
+
+The resulting firmware images will be at:
+
+```console
+-rw-r--r-- 1 root root 2097152 Apr 14 23:15 Build/ArmVirtQemu-AARCH64/DEBUG_GCC5/FV/QEMU_EFI.fd
+-rw-r--r-- 1 root root  786432 Apr 14 23:15 Build/ArmVirtQemu-AARCH64/DEBUG_GCC5/FV/QEMU_VARS.fd
+```
+
+**NOTE:** When using the firmware images use them as the normal `pflash` files with qemu.
+However, depending on the machine type they need to be padded to the right file size.
+For example, for the standard qemu "virt" machine type (`-machine virt` on the qemu command-line) they need to be padded to 64mb.
+You can use the truncate command to achieve that:
+
+```shell
+truncate -s 64m QEMU_EFI.fd
+truncate -s 64m QEMU_VARS.fd
 ```

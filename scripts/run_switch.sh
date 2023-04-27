@@ -93,6 +93,7 @@ $QEMU_SYSTEM_X86_64 \
   -uuid "$VM_UUID" \
   -m "$VM_MEMORY" \
   -machine q35,accel=kvm,smm=on -cpu host -smp "$VM_NCPUS" \
+  -device pcie-root-port,bus=pcie.0,id=rp1,slot=1 -device pcie-pci-bridge,id=br1,bus=rp1 \
   $qemu_devices \
   -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-pci,rng=rng0 \
   -chardev socket,id=chrtpm,path="$DEV_DIR/tpm.sock.ctrl" -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
