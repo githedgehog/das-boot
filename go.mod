@@ -9,7 +9,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/opencontainers/image-spec v1.1.0-rc2
-	github.com/urfave/cli/v2 v2.25.1
+	github.com/urfave/cli/v2 v2.25.2
 	github.com/vishvananda/netlink v1.1.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/sys v0.6.0
