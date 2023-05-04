@@ -12,7 +12,7 @@ require (
 	github.com/urfave/cli/v2 v2.25.2
 	github.com/vishvananda/netlink v1.1.0
 	go.uber.org/zap v1.24.0
-	golang.org/x/sys v0.6.0
+	golang.org/x/sys v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 	oras.land/oras-go/v2 v2.0.0-rc.3
 )
