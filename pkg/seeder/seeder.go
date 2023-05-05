@@ -11,6 +11,7 @@ import (
 	"go.githedgehog.com/dasboot/pkg/seeder/errors"
 	"go.githedgehog.com/dasboot/pkg/seeder/registration"
 	"go.githedgehog.com/dasboot/pkg/seeder/server"
+	"go.githedgehog.com/dasboot/pkg/seeder/server/dynll"
 	"go.githedgehog.com/dasboot/pkg/seeder/server/generic"
 	"go.uber.org/zap"
 )
@@ -85,12 +86,21 @@ func New(ctx context.Context, cfg *config.SeederConfig) (Interface, error) {
 	// this section sets up the servers
 	errChLen := 0
 	if cfg.InsecureServer != nil {
-		var err error
-		ret.insecureServer, err = generic.NewGenericServer(cfg.InsecureServer, ret.insecureHandler())
-		if err != nil {
-			return nil, err
+		if cfg.InsecureServer.DynLL != nil {
+			var err error
+			ret.insecureServer, err = dynll.NewDynLLServer(cfg.InsecureServer.DynLL, ret.insecureHandler())
+			if err != nil {
+				return nil, err
+			}
+			errChLen += 100
+		} else if cfg.InsecureServer.Generic != nil {
+			var err error
+			ret.insecureServer, err = generic.NewGenericServer(cfg.InsecureServer.Generic, ret.insecureHandler())
+			if err != nil {
+				return nil, err
+			}
+			errChLen += len(cfg.InsecureServer.Generic.Address)
 		}
-		errChLen += len(cfg.InsecureServer.Address)
 	}
 
 	if cfg.SecureServer != nil {

@@ -6,7 +6,7 @@ import "go.githedgehog.com/dasboot/pkg/seeder/artifacts"
 type SeederConfig struct {
 	// InsecureServer will instantiate an insecure server if it is not nil. The insecure server serves
 	// all artifacts which are allowed to be served over an unsecured connection like the stage0 installer.
-	InsecureServer *BindInfo
+	InsecureServer *InsecureServer
 
 	// SecureServer will instantiate a secure server if it is not nil. The secure server serves all artifacts
 	// which must be served over a secure connection.
@@ -99,3 +99,41 @@ type RegistrySettings struct {
 	// accept and approve all registration requests.
 	KeyPath string `json:"key_path,omitempty" yaml:"key_path,omitempty"`
 }
+
+// InsecureServer are all settings on how to start the insecure server handler.
+type InsecureServer struct {
+	// DynLL uses the dynamic linklocal server detection based on Kubernetes configuration of this device
+	// and its neighbours
+	DynLL *DynLL
+
+	// Generic can be used to start the insecure server simply on given listeners.
+	// This is not the preferred way of operations and prevents some functionality from working.
+	// For example the seeder will not be able to deduce neighbours based on configuration stored in Kubernetes.
+	// You should always configure DynLL unless you have a very good reason not to.
+	Generic *BindInfo
+}
+
+// DynLL holds configuration for the dynamic linklocal insecure server listeners configuration. This mode allows
+// for detection of neighbours based on configuration in Kubernetes. It will then start linklocal listeners only
+// for those interfaces. Additionally this allows for advanced features like providing the location information
+// to the stage0 installer instead of relying on it of being provided by the client itself.
+type DynLL struct {
+	// DeviceType is used while trying to self-detect who we are. The device could be either a switch or a server.
+	// By default it tries to detect itself from both.
+	DeviceType DeviceType
+
+	// DeviceName is used while trying to self-detect who we are. Depening on the device type it is trying to look
+	// for itself as being either a fabric.githedgehog.com/Switch or a fabric.githedgehog.com/Server.
+	DeviceName string
+}
+
+type DeviceType uint8
+
+// DeviceTypeAuto means that the system is trying to detect itself as either being a switch or a server
+const DeviceTypeAuto DeviceType = 0
+
+// DeviceTypeServer means that the system is looking for an entry in fabric.githedgehog.com/Server
+const DeviceTypeServer DeviceType = 1
+
+// DeviceTypeSwitch means that the system is looking for an entry in fabric.githedgehog.com/Switch
+const DeviceTypeSwitch DeviceType = 2

@@ -121,11 +121,18 @@ func main() {
 			c := &seederconfig.SeederConfig{}
 			if cfg.Servers != nil {
 				if cfg.Servers.ServerInsecure != nil {
-					c.InsecureServer = &seederconfig.BindInfo{
-						Address:        cfg.Servers.ServerInsecure.Addresses,
-						ClientCAPath:   cfg.Servers.ServerInsecure.ClientCAPath,
-						ServerKeyPath:  cfg.Servers.ServerInsecure.ServerKeyPath,
-						ServerCertPath: cfg.Servers.ServerInsecure.ServerCertPath,
+					if cfg.Servers.ServerInsecure.DynLL != nil {
+						c.InsecureServer.DynLL = &seederconfig.DynLL{
+							DeviceType: seederconfig.DeviceType(cfg.Servers.ServerInsecure.DynLL.DeviceType),
+							DeviceName: cfg.Servers.ServerInsecure.DynLL.DeviceName,
+						}
+					} else if cfg.Servers.ServerInsecure.Generic != nil {
+						c.InsecureServer.Generic = &seederconfig.BindInfo{
+							Address:        cfg.Servers.ServerInsecure.Generic.Addresses,
+							ClientCAPath:   cfg.Servers.ServerInsecure.Generic.ClientCAPath,
+							ServerKeyPath:  cfg.Servers.ServerInsecure.Generic.ServerKeyPath,
+							ServerCertPath: cfg.Servers.ServerInsecure.Generic.ServerCertPath,
+						}
 					}
 				}
 				if cfg.Servers.ServerSecure != nil {
