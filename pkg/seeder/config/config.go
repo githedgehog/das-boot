@@ -1,9 +1,9 @@
-package seeder
+package config
 
 import "go.githedgehog.com/dasboot/pkg/seeder/artifacts"
 
-// Config is passed to a seeder instance. It will initialize the seeder based on this configuration.
-type Config struct {
+// SeederConfig is passed to a seeder instance. It will initialize the seeder based on this configuration.
+type SeederConfig struct {
 	// InsecureServer will instantiate an insecure server if it is not nil. The insecure server serves
 	// all artifacts which are allowed to be served over an unsecured connection like the stage0 installer.
 	InsecureServer *BindInfo

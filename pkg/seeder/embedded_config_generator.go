@@ -10,6 +10,8 @@ import (
 	config0 "go.githedgehog.com/dasboot/pkg/stage0/config"
 	config1 "go.githedgehog.com/dasboot/pkg/stage1/config"
 	config2 "go.githedgehog.com/dasboot/pkg/stage2/config"
+
+	seederconfig "go.githedgehog.com/dasboot/pkg/seeder/config"
 )
 
 var (
@@ -56,7 +58,7 @@ func (ecg *embeddedConfigGenerator) HedgehogAgentProvisioner(artifact []byte, cf
 	return config.GenerateExecutableWithEmbeddedConfig(artifact, cfg, ecg.key)
 }
 
-func (s *seeder) intializeEmbeddedConfigGenerator(c *EmbeddedConfigGeneratorConfig) error {
+func (s *seeder) intializeEmbeddedConfigGenerator(c *seederconfig.EmbeddedConfigGeneratorConfig) error {
 	// read key - expecting PEM format
 	key, err := readKeyFromPath(c.KeyPath)
 	if err != nil {

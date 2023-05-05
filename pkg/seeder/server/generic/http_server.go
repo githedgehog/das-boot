@@ -1,4 +1,4 @@
-package seeder
+package generic
 
 import (
 	"context"

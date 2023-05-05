@@ -1,4 +1,4 @@
-package seeder
+package generic
 
 import (
 	"context"
@@ -6,44 +6,50 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+
+	"go.githedgehog.com/dasboot/pkg/seeder/config"
+	seedererrors "go.githedgehog.com/dasboot/pkg/seeder/errors"
+	"go.githedgehog.com/dasboot/pkg/seeder/server"
 )
 
-type server struct {
+type GenericServer struct {
 	done        chan struct{}
 	err         chan error
 	httpServers []*httpServer
 }
 
-func newServer(b *BindInfo, handler http.Handler) (*server, error) {
+var _ server.ControlInterface = &GenericServer{}
+
+func NewGenericServer(b *config.BindInfo, handler http.Handler) (*GenericServer, error) {
 	if len(b.Address) == 0 {
-		return nil, invalidConfigError("no address in server config")
+		return nil, seedererrors.InvalidConfigError("no address in server config")
 	}
 	if (b.ServerKeyPath != "" && b.ServerCertPath == "") || (b.ServerCertPath != "" && b.ServerKeyPath == "") {
-		return nil, invalidConfigError("server key and server cert must always be set together")
+		return nil, seedererrors.InvalidConfigError("server key and server cert must always be set together")
 	}
 
-	ret := &server{
+	ret := &GenericServer{
 		done: make(chan struct{}),
 		err:  make(chan error, len(b.Address)),
 	}
 	for _, addr := range b.Address {
 		if addr == "" {
-			return nil, invalidConfigError("address must not be empty")
+			return nil, seedererrors.InvalidConfigError("address must not be empty")
 		}
 		ret.httpServers = append(ret.httpServers, newHttpServer(addr, b.ServerKeyPath, b.ServerCertPath, b.ClientCAPath, handler))
 	}
 	return ret, nil
 }
 
-func (s *server) Done() <-chan struct{} {
+func (s *GenericServer) Done() <-chan struct{} {
 	return s.done
 }
 
-func (s *server) Err() <-chan error {
+func (s *GenericServer) Err() <-chan error {
 	return s.err
 }
 
-func (s *server) Start() {
+func (s *GenericServer) Start() {
 	var wg sync.WaitGroup
 	wg.Add(len(s.httpServers))
 
@@ -66,7 +72,7 @@ func (s *server) Start() {
 	}()
 }
 
-func (s *server) Shutdown(ctx context.Context) error {
+func (s *GenericServer) Shutdown(ctx context.Context) error {
 	var wg sync.WaitGroup
 	var errs []error
 	errch := make(chan error, len(s.httpServers))
@@ -109,7 +115,7 @@ func (s *server) Shutdown(ctx context.Context) error {
 	}
 }
 
-func (s *server) Close() error {
+func (s *GenericServer) Close() error {
 	var wg sync.WaitGroup
 	var errs []error
 	errch := make(chan error, len(s.httpServers))
