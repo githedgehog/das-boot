@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/vishvananda/netlink"
 )
@@ -125,6 +126,26 @@ func GetInterfaces() ([]string, error) {
 		la := link.Attrs()
 		if link.Type() == "device" && la.EncapType == "ether" {
 			ret = append(ret, la.Name)
+		}
+	}
+	return ret, nil
+}
+
+// GetInterfaceAddresses returns all IP addresses for an interface.
+func GetInterfaceAddresses(device string) ([]netip.Addr, error) {
+	link, err := netlink.LinkByName(device)
+	if err != nil {
+		return nil, err
+	}
+
+	addrs, err := netlink.AddrList(link, 0)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]netip.Addr, 0, len(addrs))
+	for _, addr := range addrs {
+		if ip, ok := netip.AddrFromSlice(addr.IP); ok {
+			ret = append(ret, ip)
 		}
 	}
 	return ret, nil

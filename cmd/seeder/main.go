@@ -121,6 +121,7 @@ func main() {
 			c := &seederconfig.SeederConfig{}
 			if cfg.Servers != nil {
 				if cfg.Servers.ServerInsecure != nil {
+					c.InsecureServer = &seederconfig.InsecureServer{}
 					if cfg.Servers.ServerInsecure.DynLL != nil {
 						c.InsecureServer.DynLL = &seederconfig.DynLL{
 							DeviceType: seederconfig.DeviceType(cfg.Servers.ServerInsecure.DynLL.DeviceType),

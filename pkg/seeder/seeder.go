@@ -13,7 +13,13 @@ import (
 	"go.githedgehog.com/dasboot/pkg/seeder/server"
 	"go.githedgehog.com/dasboot/pkg/seeder/server/dynll"
 	"go.githedgehog.com/dasboot/pkg/seeder/server/generic"
+	fabricv1alpha1 "go.githedgehog.com/wiring/api/v1alpha1"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Interface interacts with a seeder instance.
@@ -44,6 +50,7 @@ type seeder struct {
 	artifactsProvider artifacts.Provider
 	installerSettings *loadedInstallerSettings
 	registry          *registration.Processor
+	k8sClient         client.WithWatch
 }
 
 var _ Interface = &seeder{}
@@ -63,9 +70,25 @@ func New(ctx context.Context, cfg *config.SeederConfig) (Interface, error) {
 		return nil, errors.InvalidConfigError("no installer settings provided")
 	}
 
+	// initialize kubernetes client
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(fabricv1alpha1.AddToScheme(scheme))
+	k8scfg, err := ctrl.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	k8sClient, err := client.NewWithWatch(k8scfg, client.Options{
+		Scheme: scheme,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	ret := &seeder{
 		done:              make(chan struct{}),
 		artifactsProvider: cfg.ArtifactsProvider,
+		k8sClient:         k8sClient,
 	}
 
 	// load the embedded configuration generator
@@ -88,7 +111,7 @@ func New(ctx context.Context, cfg *config.SeederConfig) (Interface, error) {
 	if cfg.InsecureServer != nil {
 		if cfg.InsecureServer.DynLL != nil {
 			var err error
-			ret.insecureServer, err = dynll.NewDynLLServer(cfg.InsecureServer.DynLL, ret.insecureHandler())
+			ret.insecureServer, err = dynll.NewDynLLServer(ctx, k8sClient, cfg.InsecureServer.DynLL, ret.insecureHandler())
 			if err != nil {
 				return nil, err
 			}

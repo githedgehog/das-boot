@@ -125,6 +125,9 @@ type DynLL struct {
 	// DeviceName is used while trying to self-detect who we are. Depening on the device type it is trying to look
 	// for itself as being either a fabric.githedgehog.com/Switch or a fabric.githedgehog.com/Server.
 	DeviceName string
+
+	// ListeningPort is the port that will be used for all discovered ports that we need to listen on.
+	ListeningPort uint16
 }
 
 type DeviceType uint8

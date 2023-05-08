@@ -38,7 +38,7 @@ type Servers struct {
 }
 
 type InsecureServer struct {
-	DynLL   *DynLL    `json:"dynll,omitempty" yaml:"generic,omitempty"`
+	DynLL   *DynLL    `json:"dynll,omitempty" yaml:"dynll,omitempty"`
 	Generic *BindInfo `json:"generic,omitempty" yaml:"generic,omitempty"`
 }
 
@@ -55,6 +55,9 @@ type DynLL struct {
 	// for itself as being either a fabric.githedgehog.com/Switch or a fabric.githedgehog.com/Server.
 	// If this is empty the current OS hostname is used.
 	DeviceName string `json:"device_name" yaml:"device_name"` // do not use omitempty here
+
+	// ListeningPort is the port that will be used for all discovered ports that we need to listen on.
+	ListeningPort uint16 `json:"listening_port,omitempty" yaml:"listening_port,omitempty"`
 }
 
 type DeviceType uint8
