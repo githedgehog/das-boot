@@ -15,6 +15,7 @@ import (
 	"go.githedgehog.com/dasboot/pkg/seeder/artifacts/embedded"
 	"go.githedgehog.com/dasboot/pkg/seeder/artifacts/file"
 	"go.githedgehog.com/dasboot/pkg/seeder/artifacts/oras"
+	seederconfig "go.githedgehog.com/dasboot/pkg/seeder/config"
 	"go.githedgehog.com/dasboot/pkg/version"
 
 	"github.com/urfave/cli/v2"
@@ -117,18 +118,27 @@ func main() {
 			// this is a bit stupid, and maybe we should just share the config structs
 			// however, something told me that it is good to decouple those
 			// so translate the configs
-			c := &seeder.Config{}
+			c := &seederconfig.SeederConfig{}
 			if cfg.Servers != nil {
 				if cfg.Servers.ServerInsecure != nil {
-					c.InsecureServer = &seeder.BindInfo{
-						Address:        cfg.Servers.ServerInsecure.Addresses,
-						ClientCAPath:   cfg.Servers.ServerInsecure.ClientCAPath,
-						ServerKeyPath:  cfg.Servers.ServerInsecure.ServerKeyPath,
-						ServerCertPath: cfg.Servers.ServerInsecure.ServerCertPath,
+					c.InsecureServer = &seederconfig.InsecureServer{}
+					if cfg.Servers.ServerInsecure.DynLL != nil {
+						c.InsecureServer.DynLL = &seederconfig.DynLL{
+							DeviceType:    seederconfig.DeviceType(cfg.Servers.ServerInsecure.DynLL.DeviceType),
+							DeviceName:    cfg.Servers.ServerInsecure.DynLL.DeviceName,
+							ListeningPort: cfg.Servers.ServerInsecure.DynLL.ListeningPort,
+						}
+					} else if cfg.Servers.ServerInsecure.Generic != nil {
+						c.InsecureServer.Generic = &seederconfig.BindInfo{
+							Address:        cfg.Servers.ServerInsecure.Generic.Addresses,
+							ClientCAPath:   cfg.Servers.ServerInsecure.Generic.ClientCAPath,
+							ServerKeyPath:  cfg.Servers.ServerInsecure.Generic.ServerKeyPath,
+							ServerCertPath: cfg.Servers.ServerInsecure.Generic.ServerCertPath,
+						}
 					}
 				}
 				if cfg.Servers.ServerSecure != nil {
-					c.SecureServer = &seeder.BindInfo{
+					c.SecureServer = &seederconfig.BindInfo{
 						Address:        cfg.Servers.ServerSecure.Addresses,
 						ClientCAPath:   cfg.Servers.ServerSecure.ClientCAPath,
 						ServerKeyPath:  cfg.Servers.ServerSecure.ServerKeyPath,
@@ -137,13 +147,13 @@ func main() {
 				}
 			}
 			if cfg.EmbeddedConfigGenerator != nil {
-				c.EmbeddedConfigGenerator = &seeder.EmbeddedConfigGeneratorConfig{
+				c.EmbeddedConfigGenerator = &seederconfig.EmbeddedConfigGeneratorConfig{
 					KeyPath:  cfg.EmbeddedConfigGenerator.KeyPath,
 					CertPath: cfg.EmbeddedConfigGenerator.CertPath,
 				}
 			}
 			if cfg.InstallerSettings != nil {
-				c.InstallerSettings = &seeder.InstallerSettings{
+				c.InstallerSettings = &seederconfig.InstallerSettings{
 					ServerCAPath:          cfg.InstallerSettings.ServerCAPath,
 					ConfigSignatureCAPath: cfg.InstallerSettings.ConfigSignatureCAPath,
 					SecureServerName:      cfg.InstallerSettings.SecureServerName,
@@ -153,7 +163,7 @@ func main() {
 				}
 			}
 			if cfg.RegistrySettings != nil {
-				c.RegistrySettings = &seeder.RegistrySettings{
+				c.RegistrySettings = &seederconfig.RegistrySettings{
 					CertPath: cfg.RegistrySettings.CertPath,
 					KeyPath:  cfg.RegistrySettings.KeyPath,
 				}

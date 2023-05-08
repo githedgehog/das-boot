@@ -10,15 +10,21 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
+    env:
+      GOPRIVATE: go.githedgehog.com
+      GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: setup go
         uses: actions/setup-go@v4
         with:
           go-version: '~1.20.1'
           cache: true
+      - run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
       - name: install dependencies
         run: make install-deps
       - name: Run code generators
@@ -33,15 +39,21 @@ jobs:
             build/artifacts
             !build/artifacts/.keepme
   test:
+    env:
+      GOPRIVATE: go.githedgehog.com
+      GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: setup go
         uses: actions/setup-go@v4
         with:
           go-version: '~1.20.1'
           cache: true
+      - run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
       - name: install dependencies
         run: make install-deps
       - name: Run code generators
@@ -68,15 +80,21 @@ jobs:
       - name: unit tests with race detector
         run: make test-race
   lint:
+    env:
+      GOPRIVATE: go.githedgehog.com
+      GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: setup go
         uses: actions/setup-go@v4
         with:
           go-version: '~1.20.1'
           cache: true
+      - run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
       - name: install dependencies
         run: make install-deps
       - name: Run code generators

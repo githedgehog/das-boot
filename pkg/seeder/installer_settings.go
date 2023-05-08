@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+
+	"go.githedgehog.com/dasboot/pkg/seeder/config"
 )
 
 type loadedInstallerSettings struct {
@@ -15,23 +17,23 @@ type loadedInstallerSettings struct {
 	syslogServers        []string
 }
 
-func (s *seeder) initializeInstallerSettings(config *InstallerSettings) error {
+func (s *seeder) initializeInstallerSettings(cfg *config.InstallerSettings) error {
 	// secure server name must not be empty
-	if config.SecureServerName == "" {
+	if cfg.SecureServerName == "" {
 		return fmt.Errorf("secure server name must be set")
 	}
 
 	// read server CA and store the DER bytes in the seeder
-	_, serverCADER, err := readCertFromPath(config.ServerCAPath)
+	_, serverCADER, err := readCertFromPath(cfg.ServerCAPath)
 	if err != nil {
 		return err
 	}
 
 	// read config signature CA if set
 	var configSignatureCADER []byte
-	if config.ConfigSignatureCAPath != "" {
+	if cfg.ConfigSignatureCAPath != "" {
 		var err error
-		_, configSignatureCADER, err = readCertFromPath(config.ConfigSignatureCAPath)
+		_, configSignatureCADER, err = readCertFromPath(cfg.ConfigSignatureCAPath)
 		if err != nil {
 			return err
 		}
@@ -39,10 +41,10 @@ func (s *seeder) initializeInstallerSettings(config *InstallerSettings) error {
 	s.installerSettings = &loadedInstallerSettings{
 		serverCADER:          serverCADER,
 		configSignatureCADER: configSignatureCADER,
-		secureServerName:     config.SecureServerName,
-		dnsServers:           config.DNSServers,
-		ntpServers:           config.NTPServers,
-		syslogServers:        config.SyslogServers,
+		secureServerName:     cfg.SecureServerName,
+		dnsServers:           cfg.DNSServers,
+		ntpServers:           cfg.NTPServers,
+		syslogServers:        cfg.SyslogServers,
 	}
 
 	return nil

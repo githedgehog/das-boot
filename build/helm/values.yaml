@@ -51,7 +51,11 @@ service:
 settings:
   listeners:
     insecure:
-      - "[::]:8080"
+      dynll:
+        device_name: ""
+        listening_port: 8080
+      #generic:
+      #  - "[::]:8080"
     secure:
       - ":8443"
   dns_servers:

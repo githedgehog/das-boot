@@ -2,15 +2,24 @@ package seeder
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"sync"
 	"time"
 
 	"go.githedgehog.com/dasboot/pkg/seeder/artifacts"
+	"go.githedgehog.com/dasboot/pkg/seeder/config"
 	"go.githedgehog.com/dasboot/pkg/seeder/controlplane"
+	"go.githedgehog.com/dasboot/pkg/seeder/errors"
 	"go.githedgehog.com/dasboot/pkg/seeder/registration"
+	"go.githedgehog.com/dasboot/pkg/seeder/server"
+	"go.githedgehog.com/dasboot/pkg/seeder/server/dynll"
+	"go.githedgehog.com/dasboot/pkg/seeder/server/generic"
+	fabricv1alpha1 "go.githedgehog.com/wiring/api/v1alpha1"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Interface interacts with a seeder instance.
@@ -36,91 +45,94 @@ type seeder struct {
 	done              chan struct{}
 	err               chan error
 	ecg               *embeddedConfigGenerator
-	secureServer      *server
-	insecureServer    *server
+	secureServer      server.ControlInterface
+	insecureServer    server.ControlInterface
 	artifactsProvider artifacts.Provider
 	installerSettings *loadedInstallerSettings
 	registry          *registration.Processor
+	k8sClient         client.WithWatch
 }
 
 var _ Interface = &seeder{}
 var _ controlplane.Client = &seeder{}
 
-var (
-	ErrInvalidConfig           = errors.New("seeder: invalid config")
-	ErrEmbeddedConfigGenerator = errors.New("seeder: embedded config generator")
-	ErrInstallerSettings       = errors.New("seeder: installer settings")
-	ErrRegistrySettings        = errors.New("seeder: registry settings")
-)
-
-func invalidConfigError(str string) error {
-	return fmt.Errorf("%w: %s", ErrInvalidConfig, str)
-}
-
-func embeddedConfigGeneratorError(str string) error {
-	return fmt.Errorf("%w: %s", ErrEmbeddedConfigGenerator, str)
-}
-
-func installerSettingsError(err error) error {
-	return fmt.Errorf("%w: %w", ErrInstallerSettings, err)
-}
-
-func registrySettingsError(err error) error {
-	return fmt.Errorf("%w: %w", ErrRegistrySettings, err)
-}
-
-func New(ctx context.Context, config *Config) (Interface, error) {
-	if config == nil {
-		return nil, invalidConfigError("empty config")
+func New(ctx context.Context, cfg *config.SeederConfig) (Interface, error) {
+	if cfg == nil {
+		return nil, errors.InvalidConfigError("empty config")
 	}
-	if config.InsecureServer == nil && config.SecureServer == nil {
-		return nil, invalidConfigError("neither InsecureServer nor SecureServer are set")
+	if cfg.InsecureServer == nil && cfg.SecureServer == nil {
+		return nil, errors.InvalidConfigError("neither InsecureServer nor SecureServer are set")
 	}
-	if config.ArtifactsProvider == nil {
-		return nil, invalidConfigError("no artifacts provider")
+	if cfg.ArtifactsProvider == nil {
+		return nil, errors.InvalidConfigError("no artifacts provider")
 	}
-	if config.InstallerSettings == nil {
-		return nil, invalidConfigError("no installer settings provided")
+	if cfg.InstallerSettings == nil {
+		return nil, errors.InvalidConfigError("no installer settings provided")
+	}
+
+	// initialize kubernetes client
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(fabricv1alpha1.AddToScheme(scheme))
+	k8scfg, err := ctrl.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	k8sClient, err := client.NewWithWatch(k8scfg, client.Options{
+		Scheme: scheme,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	ret := &seeder{
 		done:              make(chan struct{}),
-		artifactsProvider: config.ArtifactsProvider,
+		artifactsProvider: cfg.ArtifactsProvider,
+		k8sClient:         k8sClient,
 	}
 
 	// load the embedded configuration generator
-	if err := ret.intializeEmbeddedConfigGenerator(config.EmbeddedConfigGenerator); err != nil {
-		return nil, embeddedConfigGeneratorError(err.Error())
+	if err := ret.intializeEmbeddedConfigGenerator(cfg.EmbeddedConfigGenerator); err != nil {
+		return nil, errors.EmbeddedConfigGeneratorError(err.Error())
 	}
 
 	// load the installer settings
-	if err := ret.initializeInstallerSettings(config.InstallerSettings); err != nil {
-		return nil, installerSettingsError(err)
+	if err := ret.initializeInstallerSettings(cfg.InstallerSettings); err != nil {
+		return nil, errors.InstallerSettingsError(err)
 	}
 
 	// load the registry settings
-	if err := ret.initializeRegistrySettings(ctx, config.RegistrySettings); err != nil {
-		return nil, registrySettingsError(err)
+	if err := ret.initializeRegistrySettings(ctx, cfg.RegistrySettings); err != nil {
+		return nil, errors.RegistrySettingsError(err)
 	}
 
 	// this section sets up the servers
 	errChLen := 0
-	if config.InsecureServer != nil {
-		var err error
-		ret.insecureServer, err = newServer(config.InsecureServer, ret.insecureHandler())
-		if err != nil {
-			return nil, err
+	if cfg.InsecureServer != nil {
+		if cfg.InsecureServer.DynLL != nil {
+			var err error
+			ret.insecureServer, err = dynll.NewDynLLServer(ctx, k8sClient, cfg.InsecureServer.DynLL, ret.insecureHandler())
+			if err != nil {
+				return nil, err
+			}
+			errChLen += 100
+		} else if cfg.InsecureServer.Generic != nil {
+			var err error
+			ret.insecureServer, err = generic.NewGenericServer(cfg.InsecureServer.Generic, ret.insecureHandler())
+			if err != nil {
+				return nil, err
+			}
+			errChLen += len(cfg.InsecureServer.Generic.Address)
 		}
-		errChLen += len(config.InsecureServer.Address)
 	}
 
-	if config.SecureServer != nil {
+	if cfg.SecureServer != nil {
 		var err error
-		ret.secureServer, err = newServer(config.SecureServer, ret.secureHandler())
+		ret.secureServer, err = generic.NewGenericServer(cfg.SecureServer, ret.secureHandler())
 		if err != nil {
 			return nil, err
 		}
-		errChLen += len(config.SecureServer.Address)
+		errChLen += len(cfg.SecureServer.Address)
 	}
 	ret.err = make(chan error, errChLen)
 

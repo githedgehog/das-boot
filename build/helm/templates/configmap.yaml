@@ -10,8 +10,17 @@ data:
       # TODO: we actually should be specific here for every control node.
       # However, how to do that in a daemon set
       insecure:
-        addresses:
-          {{- toYaml .Values.settings.listeners.insecure | nindent 10 }}
+      {{- if .Values.settings.listeners.insecure.dynll }}
+        dynll:
+          device_type: 1
+          device_name: {{ .Values.settings.listeners.insecure.dynll.device_name }}
+          listening_port: {{ .Values.settings.listeners.insecure.dynll.listening_port }}
+      {{- end }}
+      {{- if .Values.settings.listeners.insecure.generic }}
+        generic:
+          addresses:
+            {{- toYaml .Values.settings.listeners.insecure.generic | nindent 12 }}
+      {{- end }}
       secure:
         addresses:
           {{- toYaml .Values.settings.listeners.secure | nindent 10 }}

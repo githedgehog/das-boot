@@ -1,4 +1,4 @@
-package seeder
+package generic
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-var ErrNoCertsAdded = errors.New("httpServer: no certs added to Client CA Pool")
+var ErrNoCertsAdded = errors.New("HTTPServer: no certs added to Client CA Pool")
 
-type httpServer struct {
+type HTTPServer struct {
 	done           chan struct{}
 	err            error
 	clientCAPath   string
@@ -25,8 +25,12 @@ type httpServer struct {
 	srv            *http.Server
 }
 
-func newHttpServer(addr, serverKeyPath, serverCertPath, clientCAPath string, handler http.Handler) *httpServer {
-	return &httpServer{
+func (s *HTTPServer) Srv() *http.Server {
+	return s.srv
+}
+
+func NewHttpServer(addr, serverKeyPath, serverCertPath, clientCAPath string, handler http.Handler) *HTTPServer {
+	return &HTTPServer{
 		done:           make(chan struct{}),
 		clientCAPath:   clientCAPath,
 		serverKeyPath:  serverKeyPath,
@@ -44,13 +48,13 @@ func newHttpServer(addr, serverKeyPath, serverCertPath, clientCAPath string, han
 
 // tlsConfig will always return an up to date version of the TLS config. This allows us to reload/redo
 // TLS configuration and we will serve those immediately to the next connection.
-func (s *httpServer) tlsConfig(*tls.ClientHelloInfo) (*tls.Config, error) {
+func (s *HTTPServer) tlsConfig(*tls.ClientHelloInfo) (*tls.Config, error) {
 	s.tlsCfgLock.RLock()
 	defer s.tlsCfgLock.RUnlock()
 	return s.tlsCfg, nil
 }
 
-func (s *httpServer) ReloadTLSConfig() error {
+func (s *HTTPServer) ReloadTLSConfig() error {
 	// nothing to do if this is not a TLS server
 	if s.serverKeyPath == "" {
 		return nil
@@ -96,15 +100,15 @@ func (s *httpServer) ReloadTLSConfig() error {
 	return nil
 }
 
-func (s *httpServer) Done() <-chan struct{} {
+func (s *HTTPServer) Done() <-chan struct{} {
 	return s.done
 }
 
-func (s *httpServer) Err() error {
+func (s *HTTPServer) Err() error {
 	return s.err
 }
 
-func (s *httpServer) Start() {
+func (s *HTTPServer) Start() {
 	// make a TLS config
 	// if we cannot make one at all, we need to abort on startup
 	if err := s.ReloadTLSConfig(); err != nil {
@@ -125,24 +129,24 @@ func (s *httpServer) Start() {
 	go s.listenAndServe()
 }
 
-func (s *httpServer) listenAndServeTLS() {
+func (s *HTTPServer) listenAndServeTLS() {
 	if err := s.srv.ListenAndServeTLS("", ""); err != nil {
 		s.err = err
 	}
 	close(s.done)
 }
 
-func (s *httpServer) listenAndServe() {
+func (s *HTTPServer) listenAndServe() {
 	if err := s.srv.ListenAndServe(); err != nil {
 		s.err = err
 	}
 	close(s.done)
 }
 
-func (s *httpServer) Shutdown(ctx context.Context) error {
+func (s *HTTPServer) Shutdown(ctx context.Context) error {
 	return s.srv.Shutdown(ctx)
 }
 
-func (s *httpServer) Close() error {
+func (s *HTTPServer) Close() error {
 	return s.srv.Close()
 }
