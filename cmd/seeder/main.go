@@ -124,8 +124,9 @@ func main() {
 					c.InsecureServer = &seederconfig.InsecureServer{}
 					if cfg.Servers.ServerInsecure.DynLL != nil {
 						c.InsecureServer.DynLL = &seederconfig.DynLL{
-							DeviceType: seederconfig.DeviceType(cfg.Servers.ServerInsecure.DynLL.DeviceType),
-							DeviceName: cfg.Servers.ServerInsecure.DynLL.DeviceName,
+							DeviceType:    seederconfig.DeviceType(cfg.Servers.ServerInsecure.DynLL.DeviceType),
+							DeviceName:    cfg.Servers.ServerInsecure.DynLL.DeviceName,
+							ListeningPort: cfg.Servers.ServerInsecure.DynLL.ListeningPort,
 						}
 					} else if cfg.Servers.ServerInsecure.Generic != nil {
 						c.InsecureServer.Generic = &seederconfig.BindInfo{

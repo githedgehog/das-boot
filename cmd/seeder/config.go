@@ -165,8 +165,9 @@ var ReferenceConfig = Config{
 	Servers: &Servers{
 		ServerInsecure: &InsecureServer{
 			DynLL: &DynLL{
-				DeviceType: DeviceTypeAuto,
-				DeviceName: "",
+				DeviceType:    DeviceTypeAuto,
+				DeviceName:    "",
+				ListeningPort: 80,
 			},
 		},
 		ServerSecure: &BindInfo{
