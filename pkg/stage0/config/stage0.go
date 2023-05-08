@@ -39,7 +39,7 @@ type Stage0 struct {
 
 	// Location will be served if stage0 was served over a link-local request and the seeder can determine
 	// the location information by configuration
-	Location *location.Info `json:"location,omitempty"`
+	Location *location.Info `json:"location,omitempty" yaml:"location,omitempty"`
 
 	// SignatureCA holds the optional DER encoded CA certificate which signed 'signature_cert'. This should better
 	// be derived from a different place.

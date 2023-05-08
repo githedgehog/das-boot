@@ -19,10 +19,10 @@ type Version struct {
 }
 
 type Info struct {
-	UUID        string `json:"uuid,omitempty"`
-	UUIDSig     []byte `json:"uuid_sig,omitempty"`
-	Metadata    string `json:"metadata,omitempty"`
-	MetadataSig []byte `json:"metadata_sig,omitempty"`
+	UUID        string `json:"uuid,omitempty" yaml:"uuid,omitempty"`
+	UUIDSig     []byte `json:"uuid_sig,omitempty" yaml:"uuid_sig,omitempty"`
+	Metadata    string `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	MetadataSig []byte `json:"metadata_sig,omitempty" yaml:"metadata_sig,omitempty"`
 }
 
 func (i *Info) MetadataDecoded() Metadata {

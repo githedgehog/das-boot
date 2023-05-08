@@ -82,7 +82,7 @@ func NewKubernetesControlPlaneClient(ctx context.Context, client client.WithWatc
 }
 
 func (c *KubernetesControlPlaneClient) GetInterfacesForNeighbours(ctx context.Context) (map[string]string, map[string]string, error) {
-	switch c.deviceType {
+	switch c.deviceType { //nolint: exhaustive
 	case config.DeviceTypeServer:
 		return c.getInterfacesForServerNeighbours(ctx)
 	case config.DeviceTypeSwitch:
@@ -174,7 +174,7 @@ func (c *KubernetesControlPlaneClient) getInterfacesForSwitchNeighbours(ctx cont
 
 // GetNeighbourSwitchByAddr finds the switch that is connected to this device by its link local IP address `addr`.
 func (c *KubernetesControlPlaneClient) GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*fabricv1alpha1.Switch, *fabricv1alpha1.SwitchPort, error) {
-	switch c.deviceType {
+	switch c.deviceType { //nolint: exhaustive
 	case config.DeviceTypeServer:
 		return c.getNeighbourSwitchByAddrForServer(ctx, addr)
 	case config.DeviceTypeSwitch:
