@@ -1,4 +1,4 @@
-VERSION ?= $(shell git describe --tags --long)
+VERSION ?= $(shell git describe --tags --long --always)
 # increment this in a commit or PR when you make changes to the helm chart
 HELM_CHART_VERSION ?= 0.1.0
 
