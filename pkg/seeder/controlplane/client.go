@@ -20,14 +20,16 @@ type Client interface {
 }
 
 const (
-	RackLabelKey   = "fabric.githedgehog.com/rack"
-	ServerLabelKey = "fabric.githedgehog.com/server"
-	SwitchLabelKey = "fabric.githedgehog.com/switch"
+	RackLabelKey     = "fabric.githedgehog.com/rack"
+	ServerLabelKey   = "fabric.githedgehog.com/server"
+	SwitchLabelKey   = "fabric.githedgehog.com/switch"
+	LocationLabelKey = "fabric.githedgehog.com/location"
 )
 
 var (
 	ErrNotFound              = errors.New("not found")
 	ErrUnsupportedDeviceType = errors.New("unsupported device type")
+	ErrNotUnique             = errors.New("not unique")
 )
 
 type KubernetesControlPlaneClient struct {
@@ -246,4 +248,27 @@ func (c *KubernetesControlPlaneClient) GetSwitchPorts(ctx context.Context, switc
 	}
 
 	return portList, nil
+}
+
+func (c *KubernetesControlPlaneClient) GetSwitchByLocationUUID(ctx context.Context, uuid string) (*fabricv1alpha1.Switch, error) {
+	// build filter with labels, this is how we expect the data in Kubernetes
+	labels := client.MatchingLabels{LocationLabelKey: uuid}
+	if c.deviceRack != "" {
+		labels[RackLabelKey] = c.deviceRack
+	}
+
+	switchList := &fabricv1alpha1.SwitchList{}
+	if err := c.client.List(ctx, switchList, labels); err != nil {
+		return nil, err
+	}
+
+	num := len(switchList.Items)
+	switch num {
+	case 0:
+		return nil, ErrNotFound
+	case 1:
+		return &switchList.Items[0], nil
+	default:
+		return nil, fmt.Errorf("%w: %d items found", ErrNotUnique, num)
+	}
 }
