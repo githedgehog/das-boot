@@ -2,6 +2,7 @@ package config
 
 import (
 	"go.githedgehog.com/dasboot/pkg/config"
+	"go.githedgehog.com/dasboot/pkg/partitions/location"
 )
 
 var _ config.EmbeddedConfig = &Stage0{}
@@ -35,6 +36,10 @@ type Stage0 struct {
 
 	// IPAMURL is the URL where the installer is going to get its IP and VLAN configuration from.
 	IPAMURL string `json:"ipam_url,omitempty" yaml:"ipam_url,omitempty"`
+
+	// Location will be served if stage0 was served over a link-local request and the seeder can determine
+	// the location information by configuration
+	Location *location.Info `json:"location,omitempty"`
 
 	// SignatureCA holds the optional DER encoded CA certificate which signed 'signature_cert'. This should better
 	// be derived from a different place.

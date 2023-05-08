@@ -1,16 +1,20 @@
 package seeder
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 
 	"go.githedgehog.com/dasboot/pkg/log"
+	"go.githedgehog.com/dasboot/pkg/partitions/location"
 	"go.githedgehog.com/dasboot/pkg/seeder/ipam"
 	config0 "go.githedgehog.com/dasboot/pkg/stage0/config"
 )
@@ -87,10 +91,37 @@ func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []by
 		}
 		return uint(n)
 	}
+
+	// this is being requested from a link-local address
+	// we are going to discover the neighbour and also serve
+	// the location information for the configured neighbour
+	var loc *location.Info
+	if strings.HasPrefix(r.Host, "fe80") {
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
+		defer cancel()
+		sw, err := s.cpc.GetNeighbourSwitchByAddr(ctx, r.Host)
+		if err != nil {
+			l.Error("failed to discover neighbouring switch", zap.String("addr", r.Host), zap.Error(err))
+		} else {
+			md, err := json.Marshal(&sw.Spec.Location)
+			if err != nil {
+				l.Error("failed to marshal location information of neighbouring switch", zap.Error(err))
+			} else {
+				loc = &location.Info{
+					UUID:        sw.Spec.LocationUUID,
+					UUIDSig:     []byte(sw.Spec.LocationSig.UUIDSig),
+					Metadata:    string(md),
+					MetadataSig: []byte(sw.Spec.LocationSig.Sig),
+				}
+			}
+		}
+	}
+
 	return s.ecg.Stage0(artifactBytes, &config0.Stage0{
 		CA:          s.installerSettings.serverCADER,
 		SignatureCA: s.installerSettings.configSignatureCADER,
 		IPAMURL:     ipamURL.String(),
+		Location:    loc,
 		OnieHeaders: &config0.OnieHeaders{
 			SerialNumber: r.Header.Get("ONIE-SERIAL-NUMBER"),
 			EthAddr:      r.Header.Get("ONIE-ETH-ADDR"),
@@ -130,7 +161,7 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 		// as the architecture has been validated by this point, we can rely on this value
 		Stage1URL: s.installerSettings.stage1URL(req.Arch),
 	}
-	resp, err := ipam.ProcessRequest(r.Context(), set, s, &req)
+	resp, err := ipam.ProcessRequest(r.Context(), set, s.cpc, &req)
 	if err != nil {
 		errorWithJSON(w, r, http.StatusInternalServerError, "failed to process IPAM request: %s", err)
 	}
