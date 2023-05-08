@@ -99,7 +99,7 @@ func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []by
 	if strings.HasPrefix(r.Host, "fe80") {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
 		defer cancel()
-		sw, err := s.cpc.GetNeighbourSwitchByAddr(ctx, r.Host)
+		sw, _, err := s.cpc.GetNeighbourSwitchByAddr(ctx, r.Host)
 		if err != nil {
 			l.Error("failed to discover neighbouring switch", zap.String("addr", r.Host), zap.Error(err))
 		} else {
@@ -154,6 +154,15 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// try to see if we can find the adjacent switch port
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
+	defer cancel()
+	adjacentSwitch, adjacentPort, err := s.cpc.GetNeighbourSwitchByAddr(ctx, r.Host)
+	if err != nil {
+		l.Error("failed to discover switch port by address", zap.String("addr", r.Host), zap.Error(err))
+	}
+	// TODO: the location UUID should match
+
 	set := &ipam.Settings{
 		DNSServers:    s.installerSettings.dnsServers,
 		NTPServers:    s.installerSettings.ntpServers,
@@ -161,7 +170,7 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 		// as the architecture has been validated by this point, we can rely on this value
 		Stage1URL: s.installerSettings.stage1URL(req.Arch),
 	}
-	resp, err := ipam.ProcessRequest(r.Context(), set, s.cpc, &req)
+	resp, err := ipam.ProcessRequest(r.Context(), set, s.cpc, &req, adjacentSwitch, adjacentPort)
 	if err != nil {
 		errorWithJSON(w, r, http.StatusInternalServerError, "failed to process IPAM request: %s", err)
 	}

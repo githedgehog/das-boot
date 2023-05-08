@@ -16,7 +16,8 @@ import (
 type Client interface {
 	GetSwitchPorts(ctx context.Context, switchName string) (*fabricv1alpha1.SwitchPortList, error)
 	GetInterfacesForNeighbours(ctx context.Context) (map[string]string, map[string]string, error)
-	GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*fabricv1alpha1.Switch, error)
+	GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*fabricv1alpha1.Switch, *fabricv1alpha1.SwitchPort, error)
+	GetSwitchByLocationUUID(ctx context.Context, uuid string) (*fabricv1alpha1.Switch, error)
 }
 
 const (
@@ -172,22 +173,22 @@ func (c *KubernetesControlPlaneClient) getInterfacesForSwitchNeighbours(ctx cont
 }
 
 // GetNeighbourSwitchByAddr finds the switch that is connected to this device by its link local IP address `addr`.
-func (c *KubernetesControlPlaneClient) GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*fabricv1alpha1.Switch, error) {
+func (c *KubernetesControlPlaneClient) GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*fabricv1alpha1.Switch, *fabricv1alpha1.SwitchPort, error) {
 	switch c.deviceType {
 	case config.DeviceTypeServer:
 		return c.getNeighbourSwitchByAddrForServer(ctx, addr)
 	case config.DeviceTypeSwitch:
 		return c.getNeighbourSwitchByAddrForSwitch(ctx, addr)
 	default:
-		return nil, ErrUnsupportedDeviceType
+		return nil, nil, ErrUnsupportedDeviceType
 	}
 }
 
-func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx context.Context, addr string) (*fabricv1alpha1.Switch, error) {
+func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx context.Context, addr string) (*fabricv1alpha1.Switch, *fabricv1alpha1.SwitchPort, error) {
 	// find ourselves first
 	obj := &fabricv1alpha1.Server{}
 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: c.deviceHostname}, obj); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	labels := client.MatchingLabels{ServerLabelKey: c.deviceHostname}
 	if rack, ok := obj.GetLabels()[RackLabelKey]; ok {
@@ -198,10 +199,10 @@ func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx con
 	// then retrieve all of our ports that belong to us
 	portList := &fabricv1alpha1.ServerPortList{}
 	if err := c.client.List(ctx, portList, labels); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(portList.Items) == 0 {
-		return nil, fmt.Errorf("no ports configured for server")
+		return nil, nil, fmt.Errorf("no ports configured for server")
 	}
 	for _, port := range portList.Items {
 		// we are only interested in "unbundled" ports and where the neighbor is a switch
@@ -209,28 +210,32 @@ func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx con
 			// get all addresses that belong to this port
 			addrs, err := seedernet.GetInterfaceAddresses(port.Spec.Unbundled.NicName)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			// iterate over them and find the match
 			for _, a := range addrs {
 				if a.Is6() && a.IsLinkLocalUnicast() && a.String() == addr {
 					// we found our match
 					// now retrieve the switch item
-					ret := &fabricv1alpha1.Switch{}
-					if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: port.Spec.Unbundled.Neighbor.Switch.Name}, ret); err != nil {
-						return nil, err
+					ret1 := &fabricv1alpha1.Switch{}
+					if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: port.Spec.Unbundled.Neighbor.Switch.Name}, ret1); err != nil {
+						return nil, nil, err
 					}
-					return ret, nil
+					ret2 := &fabricv1alpha1.SwitchPort{}
+					if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: port.Spec.Unbundled.Neighbor.Switch.Port}, ret1); err != nil {
+						return ret1, nil, err
+					}
+					return ret1, ret2, nil
 				}
 			}
 		}
 	}
-	return nil, ErrNotFound
+	return nil, nil, ErrNotFound
 }
 
-func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForSwitch(ctx context.Context, addr string) (*fabricv1alpha1.Switch, error) {
+func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForSwitch(ctx context.Context, addr string) (*fabricv1alpha1.Switch, *fabricv1alpha1.SwitchPort, error) {
 	// TODO
-	return nil, fmt.Errorf("TODO")
+	return nil, nil, fmt.Errorf("TODO")
 }
 
 // GetSwitchPorts retrieves all switch ports for a given switch
