@@ -267,8 +267,12 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 
 	// for the rest until we finished downloading stage 1, we iterate over all IP addresses that we got back
 	// and essentially retry the rest of stage 0 until it works
+	// first we try with "preferred" entries that we got back
 	var stage1Path string
 	for netdev, ipa := range ipamResp.IPAddresses {
+		if !ipa.Preferred {
+			continue
+		}
 		var err error
 		stage1Path, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
 		if err != nil {
@@ -280,6 +284,25 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 		}
 		l.Info("System network configured", zap.String("netdev", netdev), zap.Reflect("ipa", ipa))
 		break
+	}
+	// if preferred responses did not work, we will try all other responses
+	if stage1Path == "" {
+		for netdev, ipa := range ipamResp.IPAddresses {
+			if ipa.Preferred {
+				continue
+			}
+			var err error
+			stage1Path, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
+			if err != nil {
+				l.Error("System network configuration failed for netdev", zap.String("netdev", netdev), zap.Reflect("ipa", ipa), zap.Error(err))
+				if err := net.DeleteVLANDevice(vlanName); err != nil {
+					l.Warn("Deleting VLAN device failed", zap.String("vlanDevice", vlanName), zap.Error(err))
+				}
+				continue
+			}
+			l.Info("System network configured", zap.String("netdev", netdev), zap.Reflect("ipa", ipa))
+			break
+		}
 	}
 	if stage1Path == "" {
 		l.Error("System network configuration failed for all network devices")
