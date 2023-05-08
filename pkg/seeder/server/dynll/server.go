@@ -31,7 +31,6 @@ type DynLLServer struct {
 var _ server.ControlInterface = &DynLLServer{}
 
 func NewDynLLServer(ctx context.Context, k8sClient client.WithWatch, cfg *config.DynLL, handler http.Handler) (*DynLLServer, error) {
-
 	ret := &DynLLServer{
 		done:        make(chan struct{}),
 		err:         make(chan error, 100),
