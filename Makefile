@@ -269,10 +269,26 @@ test-cover: ## Runs golang unit tests and generates code coverage information
 generate: ## Runs 'go generate'
 	go generate -v ./...
 
+.PHONY: k8s-manifests
+k8s-manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=configs/crd/bases
+
+.PHONY: k8s-generate
+k8s-generate: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	controller-gen object:headerFile="docs/boilerplate.go.txt" paths="./..."
+
+.PHONY: k8s-docs ## Build simple markdown documentation for all CRDs to be used as API docs
+k8s-docs:
+	crd-ref-docs --source-path=./pkg/k8s/api/ --config=./pkg/k8s/api/docs-config.yaml --renderer=markdown --output-path=./docs/k8s-api.md
+
 .PHONY: install-deps
 install-deps: ## Installs development tool dependencies
 	@echo "Installing mockgen..."
 	go install github.com/golang/mock/mockgen@latest
+	@echo "Installing crd-ref-docs..."
+	go install github.com/elastic/crd-ref-docs@latest
+	@echo "Installing controller-gen..."
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
 
 dev-init-seeder: $(DEV_SEEDER_FILES) ## Generates development files (keys, certs, etc.pp.) for running the seeder locally
 
