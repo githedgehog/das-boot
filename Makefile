@@ -229,10 +229,10 @@ docker-push: docker ## Builds AND pushes a docker image for the seeder
 
 .PHONY: helm
 helm: ## Builds a helm chart for the seeder
-	helm lint $(BUILD_HELM_DIR)
+	helm lint $(BUILD_HELM_DIR)/seeder
 # TODO: at some point we need valid app versions too
 #	helm package $(BUILD_HELM_DIR) --version $(HELM_CHART_VERSION) --app-version $(VERSION) -d $(BUILD_ARTIFACTS_DIR)
-	helm package $(BUILD_HELM_DIR) --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION) -d $(BUILD_ARTIFACTS_DIR)
+	helm package $(BUILD_HELM_DIR)/seeder --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION) -d $(BUILD_ARTIFACTS_DIR)
 
 .PHONY: helm-clean
 helm-clean: ## Cleans the packaged helm chart for the seeder from the artifacts build directory
