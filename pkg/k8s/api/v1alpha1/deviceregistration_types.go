@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,12 +26,43 @@ import (
 // DeviceRegistrationSpec defines the properties of a device registration process
 type DeviceRegistrationSpec struct {
 	LocationUUID string `json:"locationUUID,omitempty"`
-	CSR          string `json:"csr,omitempty"`
+	CSR          []byte `json:"csr,omitempty"`
 }
 
 // DeviceRegistrationStatus defines the observed state of the device registration process
 type DeviceRegistrationStatus struct {
-	// TODO: add port status fields
+	Certificate []byte `json:"certificate,omitempty"`
+}
+
+type RequestConditionType string
+
+// These are the possible conditions for a certificate request.
+const (
+	CertificateApproved RequestConditionType = "Approved"
+	CertificateDenied   RequestConditionType = "Denied"
+	CertificateFailed   RequestConditionType = "Failed"
+)
+
+type CertificateSigningRequestCondition struct {
+	// type of the condition. Known conditions include "Approved", "Denied", and "Failed".
+	Type RequestConditionType
+	// Status of the condition, one of True, False, Unknown.
+	// Approved, Denied, and Failed conditions may not be "False" or "Unknown".
+	// If unset, should be treated as "True".
+	// +optional
+	Status corev1.ConditionStatus
+	// brief reason for the request state
+	// +optional
+	Reason string
+	// human readable message with details about the request state
+	// +optional
+	Message string
+	// timestamp for the last update to this condition
+	// +optional
+	LastUpdateTime metav1.Time
+	// lastTransitionTime is the time the condition last transitioned from one status to another.
+	// +optional
+	LastTransitionTime metav1.Time
 }
 
 //+kubebuilder:object:root=true

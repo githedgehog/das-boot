@@ -17,7 +17,8 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: DeviceRegistration is the Schema for the racks API
+        description: DeviceRegistration is the Schema for the device registration
+          within DAS BOOT
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -32,16 +33,22 @@ spec:
           metadata:
             type: object
           spec:
-            description: DeviceSpec defines the properties of a rack which we are
-              modelling
+            description: DeviceRegistrationSpec defines the properties of a device
+              registration process
             properties:
               csr:
+                format: byte
                 type: string
               locationUUID:
                 type: string
             type: object
           status:
-            description: DeviceStatus defines the observed state of Device
+            description: DeviceRegistrationStatus defines the observed state of the
+              device registration process
+            properties:
+              certificate:
+                format: byte
+                type: string
             type: object
         type: object
     served: true

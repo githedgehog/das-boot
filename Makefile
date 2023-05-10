@@ -271,7 +271,7 @@ generate: ## Runs 'go generate'
 
 .PHONY: k8s-manifests
 k8s-manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=configs/crd/bases
+	controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=configs/crd/bases output:rbac:artifacts:config=configs/rbac
 
 .PHONY: k8s-generate
 k8s-generate: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
