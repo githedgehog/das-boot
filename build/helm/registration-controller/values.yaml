@@ -31,6 +31,7 @@ securityContext:
   capabilities:
     drop:
       - "ALL"
+
 # the service will provide port 80 and 443
 # and map them
 service:
