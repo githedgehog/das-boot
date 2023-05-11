@@ -17,9 +17,9 @@ type DeviceRegistrationReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=dasboot.githedgehog.com,resources=deviceregistratoins,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=dasboot.githedgehog.com,resources=deviceregistratoins/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=dasboot.githedgehog.com,resources=deviceregistratoins/finalizers,verbs=update
+//+kubebuilder:rbac:groups=dasboot.githedgehog.com,resources=deviceregistrations,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=dasboot.githedgehog.com,resources=deviceregistrations/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=dasboot.githedgehog.com,resources=deviceregistrations/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
