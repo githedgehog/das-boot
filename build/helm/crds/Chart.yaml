@@ -1,0 +1,13 @@
+apiVersion: v2
+name: das-boot-crds
+description: The Helm chart for the CRDs of the Hedgehog Boot and Installation System - DAS BOOT
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: Marcus Heese
+    email: marcus@githedgehog.com
+icon: https://githedgehog.com/wp-content/uploads/2023/01/HEDGEHOG-Icon-Color.png
+home: https://githedgehog.com/
+sources:
+  - https://github.com/githedgehog/das-boot

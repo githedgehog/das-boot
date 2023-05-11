@@ -1,0 +1,118 @@
+# Default values for das-boot.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: ghcr.io/githedgehog/das-boot
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - "ALL"
+# the service will provide port 80 and 443
+# and map them
+service:
+  type: ClusterIP
+  ports:
+    # insecure:
+    #   port: 80
+    #   targetPort: 8080
+    secure:
+      port: 443
+      targetPort: 8443
+
+# All the following settings will be templated
+# into the config map / config file into the right places
+settings:
+  listeners:
+    insecure:
+      dynll:
+        device_name: ""
+        listening_port: 8080
+      #generic:
+      #  - "[::]:8080"
+    secure:
+      - ":8443"
+  dns_servers:
+    - "10.43.0.10"
+  ntp_servers:
+    - ntp.default.svc.cluster.local
+  syslog_servers:
+    - syslog.default.svc.cluster.local
+  # NOTE: this should *NEVER* be used in a production deployment
+  # This essentially disables device registration and approval
+  # and will simply always hand out a device certificate
+  issue_certificates: false
+  artifacts:
+    oci_registries:
+    - url: oci://ghcr.io/githedgehog
+      ca:
+        secretName: oci-ca
+        certKey: cert.pem
+        mountPath: /etc/hedgehog/seeder-certs/oci-ca
+
+# certificates and keys are being derived from secrets
+secrets:
+  clientCA:
+    name: das-boot-client-ca
+    certKey: cert.pem
+    # NOTE: This value only matters if you are using the `issue_certificates`
+    # setting above (which you should not). Otherwise its value is meaningless
+    # Essentially, if you really want to disable device registration approval
+    # then you must provide a secret which also has a key.
+    # NOTE: you also cannot scale the control node (this DaemonSet) beyond one!
+    keyKey: key.pem
+  serverCA:
+    name: das-boot-server-ca
+    certKey: cert.pem
+  configCA:
+    name: das-boot-config-ca
+    certKey: cert.pem
+  server:
+    name: das-boot-server-cert
+    keyKey: key.pem
+    certKey: cert.pem
+  config:
+    name: das-boot-config-cert
+    keyKey: key.pem
+    certKey: cert.pem
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

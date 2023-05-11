@@ -229,13 +229,19 @@ docker-push: docker ## Builds AND pushes a docker image for the seeder
 
 .PHONY: helm
 helm: ## Builds a helm chart for the seeder
+	helm lint $(BUILD_HELM_DIR)/crds
+	helm lint $(BUILD_HELM_DIR)/registration-controller
 	helm lint $(BUILD_HELM_DIR)/seeder
 # TODO: at some point we need valid app versions too
 #	helm package $(BUILD_HELM_DIR) --version $(HELM_CHART_VERSION) --app-version $(VERSION) -d $(BUILD_ARTIFACTS_DIR)
+	helm package $(BUILD_HELM_DIR)/crds --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION) -d $(BUILD_ARTIFACTS_DIR)
+	helm package $(BUILD_HELM_DIR)/registration-controller --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION) -d $(BUILD_ARTIFACTS_DIR)
 	helm package $(BUILD_HELM_DIR)/seeder --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION) -d $(BUILD_ARTIFACTS_DIR)
 
 .PHONY: helm-clean
 helm-clean: ## Cleans the packaged helm chart for the seeder from the artifacts build directory
+	rm -v $(BUILD_ARTIFACTS_DIR)/das-boot-crds-$(HELM_CHART_VERSION).tgz || true
+	rm -v $(BUILD_ARTIFACTS_DIR)/das-boot-registration-controller-$(HELM_CHART_VERSION).tgz || true
 	rm -v $(BUILD_ARTIFACTS_DIR)/das-boot-seeder-$(HELM_CHART_VERSION).tgz || true
 
 .PHONY: helm-push
@@ -271,7 +277,9 @@ generate: ## Runs 'go generate'
 
 .PHONY: k8s-manifests
 k8s-manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=configs/crd/bases output:rbac:artifacts:config=configs/rbac
+	controller-gen rbac:roleName=registration-controller-role crd webhook paths="./..." \
+		output:crd:artifacts:config=$(MKFILE_DIR)/build/helm/crds/templates \
+		output:rbac:artifacts:config=$(MKFILE_DIR)/build/helm/registration-controller/templates
 
 .PHONY: k8s-generate
 k8s-generate: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
