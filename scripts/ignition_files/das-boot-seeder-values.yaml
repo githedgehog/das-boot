@@ -1,9 +1,9 @@
 image:
-  repository: registry.local:5000/githedgehog/das-boot
+  repository: registry.local:5000/githedgehog/das-boot-seeder
   tag: latest
   pullPolicy: Always
 settings:
-  issue_certificates: true
+  issue_certificates: false
   listeners:
     insecure:
     - ":80"
