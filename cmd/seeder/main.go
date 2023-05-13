@@ -260,6 +260,6 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		l.Fatal("integ-disk failed", zap.Error(err))
+		l.Fatal("seeder failed", zap.Error(err))
 	}
 }
