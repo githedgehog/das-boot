@@ -40,7 +40,7 @@ spec:
       containers:
       - name: manager
         command:
-        - /manager
+        - /bin/registration-controller
         args:
         - --leader-elect
         securityContext:

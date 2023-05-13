@@ -24,3 +24,23 @@ rules:
   - deviceregistrations/status
   verbs:
   - get
+- apiGroups:
+  - fabric.githedgehog.com
+  resources:
+  - servers
+  - serverports
+  - switches
+  - switchports
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - fabric.githedgehog.com
+  resources:
+  - servers/status
+  - serverports/status
+  - switches/status
+  - switchports/status
+  verbs:
+  - get

@@ -16,7 +16,7 @@
 
 // Package v1alpha1 contains API Schema definitions for the fabric v1alpha1 API group
 // +kubebuilder:object:generate=true
-// +groupName=fabric.githedgehog.com
+// +groupName=dasboot.githedgehog.com
 package v1alpha1
 
 import (

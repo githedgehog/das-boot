@@ -6,7 +6,9 @@ settings:
   issue_certificates: false
   listeners:
     insecure:
-    - ":80"
+      dynll:
+        device_name: ""
+        listening_port: 80
   ntp_servers:
     - hedgehog-ntp-udp.default.svc.cluster.local
   syslog_servers:
