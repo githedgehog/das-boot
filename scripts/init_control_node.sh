@@ -187,7 +187,7 @@ echo
 echo "Pusing Agent and Wiring CRDs into registry..."
 ( cd $IMAGE_DIR && $HELM pull --version=0.3 oci://ghcr.io/githedgehog/agent-crd )
 ( cd $IMAGE_DIR && $HELM push agent-crd-0.3.tgz oci://registry.local:5000/githedgehog/helm-charts )
-( cd $IMAGE_DIR && $HELM pull --version=0.3.0 oci://ghcr.io/githedgehog/wiring-crd )
+( cd $IMAGE_DIR && if [ ! -f wiring-crd-0.3.0.tgz ] ; then $HELM pull --version=0.3.0 oci://ghcr.io/githedgehog/wiring-crd ; fi )
 ( cd $IMAGE_DIR && $HELM push wiring-crd-0.3.0.tgz oci://registry.local:5000/githedgehog/helm-charts )
 ( cd $IMAGE_DIR && $HELM pull --version=0.2.0 oci://ghcr.io/githedgehog/fabric-helm )
 ( cd $IMAGE_DIR && $HELM push fabric-helm-0.2.0.tgz oci://registry.local:5000/githedgehog/helm-charts )

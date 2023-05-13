@@ -267,3 +267,7 @@ storage:
       mode: 0644
       contents:
         source: http://10.0.2.2:8888/ntp-values.yaml
+    - path: /opt/seeder/wiring.yaml
+      mode: 0644
+      contents:
+        source: http://10.0.2.2:8888/wiring.yaml

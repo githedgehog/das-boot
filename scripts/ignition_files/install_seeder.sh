@@ -60,24 +60,33 @@ if [ $? -ne 0 ]; then
     exit 5
 fi
 
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.2.0 hedgehog-fabric oci://registry.local:5000/githedgehog/helm-charts/fabric-helm
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install hedgehog-das-boot-crds oci://registry.local:5000/githedgehog/helm-charts/das-boot-crds
 if [ $? -ne 0 ]; then
     exit 6
 fi
 
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install hedgehog-das-boot-crds oci://registry.local:5000/githedgehog/helm-charts/das-boot-crds
+# apply wiring yaml
+kubectl apply -f wiring.yaml
 if [ $? -ne 0 ]; then
     exit 7
 fi
 
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-registration-controller-values.yaml hedgehog-registration-controller oci://registry.local:5000/githedgehog/helm-charts/das-boot-registration-controller
+# install the fabric controller
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.2.0 hedgehog-fabric oci://registry.local:5000/githedgehog/helm-charts/fabric-helm
 if [ $? -ne 0 ]; then
     exit 8
 fi
 
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-seeder-values.yaml hedgehog-seeder oci://registry.local:5000/githedgehog/helm-charts/das-boot-seeder
+# install DAS BOOT - registration controller
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-registration-controller-values.yaml hedgehog-registration-controller oci://registry.local:5000/githedgehog/helm-charts/das-boot-registration-controller
 if [ $? -ne 0 ]; then
     exit 9
+fi
+
+# install DAS BOOT - seeder
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-seeder-values.yaml hedgehog-seeder oci://registry.local:5000/githedgehog/helm-charts/das-boot-seeder
+if [ $? -ne 0 ]; then
+    exit 10
 fi
 
 touch /opt/seeder/installed

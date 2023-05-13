@@ -35,10 +35,11 @@ spec:
             - name: https
               containerPort: {{ .Values.service.ports.secure.targetPort }}
               protocol: TCP
-          readinessProbe:
-            httpGet:
-              path: /healthz
-              port: 80
+          # TODO: we have to rethink how we would like to do the readiness check
+          #readinessProbe:
+          #  httpGet:
+          #    path: /healthz
+          #    port: 80
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
