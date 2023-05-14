@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/x509"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -15,6 +17,12 @@ import (
 type DeviceRegistrationReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	// Key (CA) used to sign requests with
+	Key *ecdsa.PrivateKey
+
+	// Public Cert (CA used to sign requests with
+	Cert *x509.Certificate
 }
 
 //+kubebuilder:rbac:groups=dasboot.githedgehog.com,resources=deviceregistrations,verbs=get;list;watch;create;update;patch;delete

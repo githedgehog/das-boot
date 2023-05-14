@@ -52,8 +52,12 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var keyPath string
+	var certPath string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&keyPath, "key-path", "/etc/registration-controller/ca/key.pem", "The path to the PEM encodeded signing key (CA) for requests.")
+	flag.StringVar(&certPath, "cert-path", "/etc/registration-controller/ca/cert.pem", "The path to the PEM encoded certificate (CA) which signs requests.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -64,6 +68,17 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	key, err := readKeyFromPath(keyPath)
+	if err != nil {
+		setupLog.Error(err, "unable to read key")
+		os.Exit(1)
+	}
+	cert, _, err := readCertFromPath(certPath)
+	if err != nil {
+		setupLog.Error(err, "unable to read cert")
+		os.Exit(1)
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -92,6 +107,8 @@ func main() {
 	if err = (&controllers.DeviceRegistrationReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Key:    key,
+		Cert:   cert,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Frigate")
 		os.Exit(1)
