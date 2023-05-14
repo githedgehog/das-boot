@@ -325,6 +325,8 @@ github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9dec
 github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
 go.githedgehog.com/wiring v0.0.0-20230505013616-cce3d20e7be4 h1:HSGaWHLjcoGv6xXlUuh5j5X08GHzBFahwHrS19VYDG4=
 go.githedgehog.com/wiring v0.0.0-20230505013616-cce3d20e7be4/go.mod h1:uMTn7gKH1APzDd5J9o1aaJvHGc3hlfexoAs8jwj9gs0=
+go.githedgehog.com/wiring v0.0.0-20230509145801-ea48c1feba53 h1:RKgirSQpRJHmzTFAVWt1DzdgEfTRKXCaO6WKzIjXgIY=
+go.githedgehog.com/wiring v0.0.0-20230509145801-ea48c1feba53/go.mod h1:3iyruxEFgZChLxRZlPTA6oyQUtL/GM7mcNsmhYDq51I=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.opencensus.io v0.22.0/go.mod h1:+kGneAE2xo2IficOXnaByMWTGM9T73dGwxeWcUqIpI8=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=

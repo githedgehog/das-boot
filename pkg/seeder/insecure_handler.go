@@ -159,9 +159,10 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 	// try to see if we can find the adjacent switch port
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
 	defer cancel()
-	adjacentSwitch, adjacentPort, err := s.cpc.GetNeighbourSwitchByAddr(ctx, r.Host)
+	host := strings.TrimSuffix(strings.TrimPrefix(r.Host, "["), "]")
+	adjacentSwitch, adjacentPort, err := s.cpc.GetNeighbourSwitchByAddr(ctx, host)
 	if err != nil {
-		log.L().Error("failed to discover switch port by address", zap.String("addr", r.Host), zap.Error(err))
+		log.L().Error("failed to discover switch port by address", zap.String("addr", host), zap.Error(err))
 	}
 	// TODO: the location UUID should match
 

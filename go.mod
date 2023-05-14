@@ -11,7 +11,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0-rc.3
 	github.com/urfave/cli/v2 v2.25.2
 	github.com/vishvananda/netlink v1.1.0
-	go.githedgehog.com/wiring v0.0.0-20230505013616-cce3d20e7be4
+	go.githedgehog.com/wiring v0.0.0-20230509145801-ea48c1feba53
 	go.uber.org/zap v1.24.0
 	golang.org/x/sys v0.8.0
 	gopkg.in/yaml.v3 v3.0.1

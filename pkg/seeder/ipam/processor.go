@@ -98,16 +98,29 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 		}
 
 		// build the response for this port
+		var routes []*Route
+		if len(port.Spec.ONIE.Routes) > 0 {
+			routes = make([]*Route, 0, len(port.Spec.ONIE.Routes))
+			for _, onieRoute := range port.Spec.ONIE.Routes {
+				route := &Route{
+					Gateway: onieRoute.Gateway,
+				}
+				route.Destinations = make([]string, len(onieRoute.Destinations))
+				copy(route.Destinations, onieRoute.Destinations)
+				routes = append(routes, route)
+			}
+		}
 		netif := port.Spec.ONIE.PortName
 		ipa := IPAddress{
 			IPAddresses: []string{port.Spec.ONIE.BootstrapIP},
 			VLAN:        port.Spec.ONIE.VLAN,
-			Routes:      mockedRoutes(),
+			Routes:      routes,
 		}
 
 		// if the adjacent port was passed in, then we'll let the
 		// client know that this is the preferred connection to
 		// try first before any other
+		log.L().Info("Port and Adjacent Port", zap.Reflect("port", port), zap.Reflect("adjacentPort", adjacentPort))
 		if adjacentPort != nil && port.Name == adjacentPort.Name {
 			ipa.Preferred = true
 		}
@@ -150,17 +163,17 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 // 	return 42
 // }
 
-func mockedRoutes() []*Route {
-	return []*Route{
-		{
-			Destinations: []string{
-				"10.42.0.0/16",
-				"10.43.0.0/16",
-			},
-			Gateway: "192.168.42.11",
-		},
-	}
-}
+// func mockedRoutes() []*Route {
+// 	return []*Route{
+// 		{
+// 			Destinations: []string{
+// 				"10.42.0.0/16",
+// 				"10.43.0.0/16",
+// 			},
+// 			Gateway: "192.168.42.11",
+// 		},
+// 	}
+// }
 
 // var curIP byte = 0
 
