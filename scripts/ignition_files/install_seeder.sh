@@ -38,29 +38,29 @@ yq -M '.clusters[0].cluster.server="https://192.168.42.11:6443"' /etc/rancher/k3
 kubectl create secret generic das-boot-kubeconfig --from-file=k3s.yaml=/opt/seeder/k3s.yaml
 
 # install syslog
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f rsyslog-server-values.yaml hedgehog-syslog oci://registry.local:5000/githedgehog/helm-charts/rsyslog
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f rsyslog-server-values.yaml hh-syslog oci://registry.local:5000/githedgehog/helm-charts/rsyslog
 if [ $? -ne 0 ]; then
     exit 2
 fi
 
 # install ntp
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f ntp-values.yaml hedgehog-ntp oci://registry.local:5000/githedgehog/helm-charts/ntp
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f ntp-values.yaml hh-ntp oci://registry.local:5000/githedgehog/helm-charts/ntp
 if [ $? -ne 0 ]; then
     exit 3
 fi
 
 # install our CRDs
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.3 hedgehog-agent-crds oci://registry.local:5000/githedgehog/helm-charts/agent-crd
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.3 hh-agent-crds oci://registry.local:5000/githedgehog/helm-charts/agent-crd
 if [ $? -ne 0 ]; then
     exit 4
 fi
 
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.3.0 hedgehog-wiring-crds oci://registry.local:5000/githedgehog/helm-charts/wiring-crd
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.3.0 hh-wiring-crds oci://registry.local:5000/githedgehog/helm-charts/wiring-crd
 if [ $? -ne 0 ]; then
     exit 5
 fi
 
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install hedgehog-das-boot-crds oci://registry.local:5000/githedgehog/helm-charts/das-boot-crds
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install hh-das-boot-crds oci://registry.local:5000/githedgehog/helm-charts/das-boot-crds
 if [ $? -ne 0 ]; then
     exit 6
 fi
@@ -72,19 +72,19 @@ if [ $? -ne 0 ]; then
 fi
 
 # install the fabric controller
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.2.0 hedgehog-fabric oci://registry.local:5000/githedgehog/helm-charts/fabric-helm
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.2.0 hh-fabric oci://registry.local:5000/githedgehog/helm-charts/fabric-helm
 if [ $? -ne 0 ]; then
     exit 8
 fi
 
 # install DAS BOOT - registration controller
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-registration-controller-values.yaml hedgehog-registration-controller oci://registry.local:5000/githedgehog/helm-charts/das-boot-registration-controller
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-registration-controller-values.yaml hh-rc oci://registry.local:5000/githedgehog/helm-charts/das-boot-registration-controller
 if [ $? -ne 0 ]; then
     exit 9
 fi
 
 # install DAS BOOT - seeder
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-seeder-values.yaml hedgehog-seeder oci://registry.local:5000/githedgehog/helm-charts/das-boot-seeder
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-seeder-values.yaml hh-seeder oci://registry.local:5000/githedgehog/helm-charts/das-boot-seeder
 if [ $? -ne 0 ]; then
     exit 10
 fi
