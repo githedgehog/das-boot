@@ -96,16 +96,17 @@ func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []by
 	// we are going to discover the neighbour and also serve
 	// the location information for the configured neighbour
 	var loc *location.Info
-	if strings.HasPrefix(r.Host, "fe80") {
+	if strings.HasPrefix(r.Host, "[fe80:") {
+		host := strings.TrimSuffix(strings.TrimPrefix(r.Host, "["), "]")
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
 		defer cancel()
-		sw, _, err := s.cpc.GetNeighbourSwitchByAddr(ctx, r.Host)
+		sw, _, err := s.cpc.GetNeighbourSwitchByAddr(ctx, host)
 		if err != nil {
-			l.Error("failed to discover neighbouring switch", zap.String("addr", r.Host), zap.Error(err))
+			log.L().Error("failed to discover neighbouring switch", zap.String("addr", host), zap.Error(err))
 		} else {
 			md, err := json.Marshal(&sw.Spec.Location)
 			if err != nil {
-				l.Error("failed to marshal location information of neighbouring switch", zap.Error(err))
+				log.L().Error("failed to marshal location information of neighbouring switch", zap.Error(err))
 			} else {
 				loc = &location.Info{
 					UUID:        sw.Spec.LocationUUID,
@@ -113,6 +114,7 @@ func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []by
 					Metadata:    string(md),
 					MetadataSig: []byte(sw.Spec.LocationSig.Sig),
 				}
+				log.L().Info("Serving location information for request", zap.Reflect("loc", loc))
 			}
 		}
 	}
@@ -159,7 +161,7 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	adjacentSwitch, adjacentPort, err := s.cpc.GetNeighbourSwitchByAddr(ctx, r.Host)
 	if err != nil {
-		l.Error("failed to discover switch port by address", zap.String("addr", r.Host), zap.Error(err))
+		log.L().Error("failed to discover switch port by address", zap.String("addr", r.Host), zap.Error(err))
 	}
 	// TODO: the location UUID should match
 
@@ -177,7 +179,7 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		l.Error("processIPAMRequest: failed to encode JSON response",
+		log.L().Error("processIPAMRequest: failed to encode JSON response",
 			zap.String("request", middleware.GetReqID(r.Context())),
 			zap.Error(err),
 		)

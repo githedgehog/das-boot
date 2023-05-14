@@ -222,7 +222,7 @@ func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx con
 						return nil, nil, err
 					}
 					ret2 := &fabricv1alpha1.SwitchPort{}
-					if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: port.Spec.Unbundled.Neighbor.Switch.Port}, ret1); err != nil {
+					if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: port.Spec.Unbundled.Neighbor.Switch.Port}, ret2); err != nil {
 						return ret1, nil, err
 					}
 					return ret1, ret2, nil
