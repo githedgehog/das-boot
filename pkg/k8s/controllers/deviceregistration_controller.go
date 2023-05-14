@@ -3,7 +3,14 @@ package controllers
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha1"
 	"crypto/x509"
+	"fmt"
+	"math/big"
+	mathrand "math/rand"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -12,6 +19,8 @@ import (
 
 	dasbootv1alpha1 "go.githedgehog.com/dasboot/pkg/k8s/api/v1alpha1"
 )
+
+var certificateValidity = time.Hour * 24 * 360
 
 // DeviceRegistrationReconciler reconciles a DeviceRegistration object
 type DeviceRegistrationReconciler struct {
@@ -39,9 +48,62 @@ type DeviceRegistrationReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *DeviceRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	l := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	var dr dasbootv1alpha1.DeviceRegistration
+	if err := r.Get(ctx, req.NamespacedName, &dr); err != nil {
+		l.Error(err, "unable to fetch DeviceRegistration")
+		// we'll ignore not-found errors, since they can't be fixed by an immediate
+		// requeue (we'll need to wait for a new notification), and we can get them
+		// on deleted requests.
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	l.Info("Got DeviceRegistration", "req", req.NamespacedName, "dr", dr)
+
+	csr, err := x509.ParseCertificateRequest(dr.Spec.CSR)
+	if err != nil {
+		l.Error(err, "Parsing CSR failed", "req", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+	if csr.Subject.CommonName == "" {
+		err = fmt.Errorf("CN in CSR empty")
+		l.Error(err, "Processing CSR", "req", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+	if csr.Subject.CommonName != req.Name {
+		err = fmt.Errorf("device ID mismatch: CN != Device ID (%s != %s)", csr.Subject.CommonName, req.Name)
+		l.Error(err, "Processing CSR", "req", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+	csrPub, ok := csr.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		err = fmt.Errorf("CSR must contain ECDSA key")
+		l.Error(err, "Processing CSR", "req", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+	csrPubBytes := elliptic.Marshal(csrPub.Curve, csrPub.X, csrPub.Y)
+	subjectKeyId := sha1.Sum(csrPubBytes) //nolint: gosec
+	template := &x509.Certificate{
+		// we copy the subject from the CSR
+		SerialNumber: big.NewInt(mathrand.Int63()), //nolint: gosec
+		Subject:      csr.Subject,
+		SubjectKeyId: subjectKeyId[:],
+		NotBefore:    time.Now().Add(time.Minute * -5), // giving it a 5min grace period
+		NotAfter:     time.Now().Add(certificateValidity),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	signedCert, err := x509.CreateCertificate(rand.Reader, template, r.Cert, csr.PublicKey, r.Key)
+	if err != nil {
+		l.Error(err, "Signing CSR", "req", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+
+	dr.Status.Certificate = signedCert
+	if err := r.Status().Update(ctx, &dr); err != nil {
+		l.Error(err, "Updating Status failed", "req", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
