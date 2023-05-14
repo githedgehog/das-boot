@@ -1,20 +1,63 @@
 package registration
 
-import "context"
+import (
+	"context"
+
+	dasbootv1alpha1 "go.githedgehog.com/dasboot/pkg/k8s/api/v1alpha1"
+	"go.githedgehog.com/dasboot/pkg/log"
+	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 func (p *Processor) getRequestWithControlPlane(ctx context.Context, req *Request) (*cert, bool) {
-	// TODO: implement processRequestWithControlPlane
-	return nil, false
+	reg, err := p.cpc.GetDeviceRegistration(ctx, req.DeviceID)
+	if err != nil {
+		// in case of not found error, we return as such which will trigger a call to addRequestWithControlPlane
+		if apierrors.IsNotFound(err) {
+			return nil, false
+		}
+
+		// TODO: not entirely sure what is best here
+		// turning this into an error is probably wrong as the client aborts completely
+		return &cert{}, true
+	}
+
+	// TODO: evaluate status of object properly
+	reason := "issued by registration-controller"
+	rejected := false
+	return &cert{
+		der:      reg.Status.Certificate,
+		reason:   reason,
+		rejected: rejected,
+	}, true
 }
 
 func (p *Processor) addRequestWithControlPlane(ctx context.Context, req *Request) {
-	// TODO: implement processRequestWithControlPlane
-}
-
-func (p *Processor) deleteRequestWithControlPlane(ctx context.Context, req *Request) {
-	// TODO: implement processRequestWithControlPlane
+	l := log.L()
+	regReq := &dasbootv1alpha1.DeviceRegistration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: req.DeviceID,
+		},
+		Spec: dasbootv1alpha1.DeviceRegistrationSpec{
+			LocationUUID: req.LocationInfo.UUID,
+			CSR:          req.CSR,
+		},
+	}
+	ret, err := p.cpc.CreateDeviceRegistration(ctx, regReq)
+	if err != nil {
+		l.Error("Creating device registration object failed", zap.Error(err))
+		return
+	}
+	l.Info("Device registration object created", zap.Reflect("deviceregistration", ret))
 }
 
 func (p *Processor) processRequestWithControlPlane(req *Request) {
-	// TODO: implement processRequestWithControlPlane
+	// nothing to do here when we are using the control plane
+	// this is done by the registration controller
+}
+
+func (p *Processor) deleteRequestWithControlPlane(ctx context.Context, req *Request) {
+	// nothing to do here when we are using the control plane
+	// this is done by the registration controller
 }

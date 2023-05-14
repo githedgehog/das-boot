@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	dasbootv1alpha1 "go.githedgehog.com/dasboot/pkg/k8s/api/v1alpha1"
 	seedernet "go.githedgehog.com/dasboot/pkg/net"
 	"go.githedgehog.com/dasboot/pkg/seeder/config"
 	fabricv1alpha1 "go.githedgehog.com/wiring/api/v1alpha1"
@@ -18,6 +19,8 @@ type Client interface {
 	GetInterfacesForNeighbours(ctx context.Context) (map[string]string, map[string]string, error)
 	GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*fabricv1alpha1.Switch, *fabricv1alpha1.SwitchPort, error)
 	GetSwitchByLocationUUID(ctx context.Context, uuid string) (*fabricv1alpha1.Switch, error)
+	GetDeviceRegistration(ctx context.Context, deviceID string) (*dasbootv1alpha1.DeviceRegistration, error)
+	CreateDeviceRegistration(ctx context.Context, reg *dasbootv1alpha1.DeviceRegistration) (*dasbootv1alpha1.DeviceRegistration, error)
 }
 
 const (
@@ -276,4 +279,20 @@ func (c *KubernetesControlPlaneClient) GetSwitchByLocationUUID(ctx context.Conte
 	default:
 		return nil, fmt.Errorf("%w: %d items found", ErrNotUnique, num)
 	}
+}
+
+func (c *KubernetesControlPlaneClient) GetDeviceRegistration(ctx context.Context, deviceID string) (*dasbootv1alpha1.DeviceRegistration, error) {
+	obj := &dasbootv1alpha1.DeviceRegistration{}
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: deviceID}, obj); err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func (c *KubernetesControlPlaneClient) CreateDeviceRegistration(ctx context.Context, reg *dasbootv1alpha1.DeviceRegistration) (*dasbootv1alpha1.DeviceRegistration, error) {
+	obj := reg.DeepCopy()
+	if err := c.client.Create(ctx, reg); err != nil {
+		return nil, err
+	}
+	return obj, nil
 }
