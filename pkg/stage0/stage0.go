@@ -194,6 +194,10 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	devices := partitions.Discover()
 
 	// retrieve location info
+	// - location info from partition has priority
+	// - if it also found in configuration (either manually added, or served through link-local discovery), then it must match, or we must abort otherwise
+	// - location info is not mandatory necessarily (TODO: IPAM needs work though for that)
+	// - also export it to staging info
 	locationPartition, err := stage.MountLocationPartition(l, devices)
 	if err != nil {
 		l.Warn("Location partition failed to open", zap.Error(err))
@@ -222,6 +226,13 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 		l.Info("Location information provided through configuration", zap.Reflect("locationInfo", locationInfo))
 	} else {
 		l.Warn("No location information was detected")
+	}
+
+	if locationInfo != nil {
+		stagingInfo.LocationInfo = locationInfo
+		if err := stagingInfo.Export(); err != nil {
+			l.Warn("Failed to export staging area information", zap.Error(err))
+		}
 	}
 
 	// retrieve device ID

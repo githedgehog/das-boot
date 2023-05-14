@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"go.githedgehog.com/dasboot/pkg/devid"
+	"go.githedgehog.com/dasboot/pkg/partitions/location"
 	"go.githedgehog.com/dasboot/pkg/stage0/config"
 )
 
@@ -137,6 +138,7 @@ type StagingInfo struct {
 	ConfigSignatureCA []byte
 	LogSettings       LogSettings
 	OnieHeaders       *config.OnieHeaders
+	LocationInfo      *location.Info
 	DeviceID          string
 }
 
@@ -146,11 +148,13 @@ const (
 	envNameConfigSignatureCA = "dasboot_config_signature_ca"
 	envNameLogSettings       = "dasboot_log_settings"
 	envNameOnieHeaders       = "dasboot_onie_headers"
+	envNameLocationInfo      = "dasboot_location_info"
 	envNameDeviceID          = "dasboot_hhdevid"
 	pathServerCA             = "server-ca.der"
 	pathConfigSignatureCA    = "config-signature-ca.der"
 	pathLogSettings          = "log-settings.json"
 	pathOnieHeaders          = "onie-headers.json"
+	pathLocationInfo         = "location-info.json"
 )
 
 func (si *StagingInfo) Export() error {
@@ -165,6 +169,15 @@ func (si *StagingInfo) Export() error {
 		onieHeadersBytes, err = json.Marshal(si.OnieHeaders)
 		if err != nil {
 			return fmt.Errorf("failed to JSON encode ONIE headers: %w", err)
+		}
+	}
+
+	var locationInfoBytes []byte
+	if si.LocationInfo != nil {
+		var err error
+		locationInfoBytes, err = json.Marshal(si.LocationInfo)
+		if err != nil {
+			return fmt.Errorf("failed to JSON encode location information: %w", err)
 		}
 	}
 
@@ -209,6 +222,13 @@ func (si *StagingInfo) Export() error {
 				return fmt.Errorf("failed to write ONIE headers to disk at '%s': %w", onieHeadersPath, err)
 			}
 		}
+
+		if len(locationInfoBytes) > 0 {
+			locationInfoPath := filepath.Join(si.StagingDir, pathLocationInfo)
+			if err := writeFile(locationInfoPath, locationInfoBytes); err != nil {
+				return fmt.Errorf("failed to write location info to disk at '%s': %w", locationInfoPath, err)
+			}
+		}
 	}
 
 	// now export environment variables
@@ -235,6 +255,11 @@ func (si *StagingInfo) Export() error {
 	if len(onieHeadersBytes) > 0 {
 		if err := os.Setenv(envNameOnieHeaders, string(onieHeadersBytes)); err != nil {
 			return fmt.Errorf("failed to set '%s' environment variable: %w", envNameOnieHeaders, err)
+		}
+	}
+	if len(locationInfoBytes) > 0 {
+		if err := os.Setenv(envNameLocationInfo, string(locationInfoBytes)); err != nil {
+			return fmt.Errorf("failed to set '%s' environment variable: %w", envNameLocationInfo, err)
 		}
 	}
 	if si.DeviceID != "" {
@@ -352,6 +377,28 @@ func ReadStagingInfo() (*StagingInfo, error) {
 			return nil, fmt.Errorf("failed to JSON decode ONIE headers from environment variable '%s' (value: '%s'): %w", envNameOnieHeaders, onieHeadersJSONString, err)
 		}
 		ret.OnieHeaders = &oh
+	}
+
+	locationInfoJSONString, ok := os.LookupEnv(envNameLocationInfo)
+	if !ok {
+		// environment variable not set, so we'll try to read it from disk
+		locationInfoPath := filepath.Join(ret.StagingDir, pathLocationInfo)
+		locationInfoBytes, err := readFile(locationInfoPath)
+		if err != nil {
+			return nil, fmt.Errorf("environment variable '%s' not set, and failed to read location info from file '%s': %w", envNameLocationInfo, locationInfoPath, err)
+		}
+		var li location.Info
+		if err := json.Unmarshal(locationInfoBytes, &li); err != nil {
+			return nil, fmt.Errorf("environment variable '%s' not set, and failed to JSON decode location info from file '%s': %w", envNameLocationInfo, locationInfoPath, err)
+		}
+		ret.LocationInfo = &li
+	} else {
+		// environment variable is set, try to JSON decode the value from it
+		var li location.Info
+		if err := json.Unmarshal([]byte(locationInfoJSONString), &li); err != nil {
+			return nil, fmt.Errorf("failed to JSON decode location info from environment variable '%s' (value: '%s'): %w", envNameLocationInfo, locationInfoJSONString, err)
+		}
+		ret.LocationInfo = &li
 	}
 
 	ret.DeviceID, ok = os.LookupEnv(envNameDeviceID)
