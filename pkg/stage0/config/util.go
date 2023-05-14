@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"go.githedgehog.com/dasboot/pkg/partitions/location"
 	"gopkg.in/yaml.v3"
 )
 
@@ -84,6 +85,16 @@ func MergeConfigs(embedded *Stage0, override *Stage0) *Stage0 {
 	// IPAMURL can be overridden
 	if override.IPAMURL != "" {
 		ret.IPAMURL = override.IPAMURL
+	}
+
+	// location information can be overridden
+	if override.Location != nil {
+		ret.Location = &location.Info{
+			UUID:        override.Location.UUID,
+			UUIDSig:     override.Location.UUIDSig,
+			Metadata:    override.Location.Metadata,
+			MetadataSig: override.Location.MetadataSig,
+		}
 	}
 
 	return &ret

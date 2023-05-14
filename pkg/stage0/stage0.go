@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -208,6 +209,19 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 			return ErrExecution
 		}
 		l.Info("Location information found on location partition", zap.Reflect("locationInfo", locationInfo))
+		if cfg.Location != nil {
+			l.Warn("Location information was also provided through configuration. You should not provide location information through configuration if you are using the location partition feature.")
+			if !reflect.DeepEqual(locationInfo, cfg.Location) {
+				err := fmt.Errorf("location information form partition does not match location information from configuration (fix this setup)")
+				l.Error("Location information mismatch", zap.Error(err), zap.Reflect("locationInfoPartition", locationInfo), zap.Reflect("locationInfoConfig", cfg.Location))
+				return executionError(err)
+			}
+		}
+	} else if cfg.Location != nil {
+		locationInfo = cfg.Location
+		l.Info("Location information provided through configuration", zap.Reflect("locationInfo", locationInfo))
+	} else {
+		l.Warn("No location information was detected")
 	}
 
 	// retrieve device ID
