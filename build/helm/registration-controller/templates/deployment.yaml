@@ -37,12 +37,24 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: client-ca
+        secret:
+          secretName: {{ .Values.secrets.clientCA.name }}
       containers:
       - name: manager
         command:
         - /bin/registration-controller
         args:
         - --leader-elect
+        - --key-path
+        - /etc/hedgehog/seeder-certs/client-ca/{{ .Values.secrets.clientCA.keyKey }}
+        - --cert-path
+        - /etc/hedgehog/seeder-certs/client-ca/{{ .Values.secrets.clientCA.certKey }}
+        volumeMounts:
+        - name: client-ca
+          mountPath: "/etc/hedgehog/seeder-certs/client-ca"
+          readOnly: true
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"

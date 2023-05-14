@@ -2,7 +2,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: registration-controller-role
+  name: {{ include "das-boot.fullname" . }}-manager-role
+  labels:
+    {{- include "das-boot.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - dasboot.githedgehog.com
