@@ -416,7 +416,7 @@ func (s *seeder) getAgentConfig(authz func(*http.Request) error) func(w http.Res
 
 		w.Header().Set("Content-Type", "application/yaml")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(agentCfgBytes)); err != nil {
+		if _, err := w.Write(agentCfgBytes); err != nil {
 			l.Error("failed to write agent config to HTTP response", zap.Error(err))
 		}
 	}
@@ -455,7 +455,7 @@ func (s *seeder) getAgentKubeconfig(authz func(*http.Request) error) func(w http
 
 		w.Header().Set("Content-Type", "application/yaml")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(agentKubeconfigBytes)); err != nil {
+		if _, err := w.Write(agentKubeconfigBytes); err != nil {
 			l.Error("failed to write agent config to HTTP response", zap.Error(err))
 		}
 	}
