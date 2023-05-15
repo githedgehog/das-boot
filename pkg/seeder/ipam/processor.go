@@ -120,7 +120,6 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 		// if the adjacent port was passed in, then we'll let the
 		// client know that this is the preferred connection to
 		// try first before any other
-		log.L().Info("Port and Adjacent Port", zap.Reflect("port", port), zap.Reflect("adjacentPort", adjacentPort))
 		if adjacentPort != nil && port.Name == adjacentPort.Name {
 			ipa.Preferred = true
 		}
