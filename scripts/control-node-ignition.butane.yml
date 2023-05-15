@@ -126,23 +126,69 @@ storage:
       contents:
         source: http://10.0.2.2:8888/hosts
     # network configuration
-    - path: /etc/systemd/network/01-control.netdev 
+    - path: /etc/systemd/network/01-control1.netdev 
       mode: 0644
       contents:
         inline: |
           [NetDev]
-          Name=control
+          Name=control1
           Kind=vlan
           
           [VLAN]
           Id=42
-    - path: /etc/systemd/network/01-control.network 
+    - path: /etc/systemd/network/01-control1.network 
       mode: 0644
       contents:
         inline: |
           [Match]
-          Name=control
-          Type=vlan
+          Name=control1
+          Kind=vlan
+          
+          [Network]
+          Bridge=bridge0
+    - path: /etc/systemd/network/01-control2.netdev 
+      mode: 0644
+      contents:
+        inline: |
+          [NetDev]
+          Name=control2
+          Kind=vlan
+          
+          [VLAN]
+          Id=42
+    - path: /etc/systemd/network/01-control2.network 
+      mode: 0644
+      contents:
+        inline: |
+          [Match]
+          Name=control2
+          Kind=vlan
+          
+          [Network]
+          Bridge=bridge0
+    - path: /etc/systemd/network/03-bridge.netdev 
+      mode: 0644
+      contents:
+        inline: |
+          [NetDev]
+          Name=bridge0
+          Kind=bridge
+
+          [Bridge]
+          DefaultPVID=none
+          VLANFiltering=no
+    - path: /etc/systemd/network/03-bridge.network 
+      mode: 0644
+      contents:
+        inline: |
+          # We essentially want all ethernet links
+          # but NOT eth0 which is the QEMU user NIC
+          [Match]
+          Name=bridge0
+          Kind=bridge
+          
+          [Link]
+          RequiredForOnline=no
           
           [Network]
           Address=192.168.42.11/24
@@ -151,7 +197,7 @@ storage:
           EmitLLDP=no
           IPv6AcceptRA=no
           IPv6SendRA=no
-    - path: /etc/systemd/network/01-switch1.link
+    - path: /etc/systemd/network/11-switch1.link
       mode: 0644
       contents:
         inline: |
@@ -164,21 +210,48 @@ storage:
           [Link]
           Name=switch1
           Description=Connected to switch1
-    - path: /etc/systemd/network/01-switch1.network 
+    - path: /etc/systemd/network/11-switch1.network
       mode: 0644
       contents:
         inline: |
           # Make sure you match that with the QEMU mac address
-          # for the NIC which connects to switch1
+          # for the NIC which connects to switch2
           [Match]
-          MACAddress=0c:20:12:fe:00:01
           Name=switch1
+          Type=ether
+
+          [Network]
+          VLAN=control1
+          LinkLocalAddressing=ipv6
+          LLDP=yes
+          EmitLLDP=yes
+          IPv6AcceptRA=yes
+          IPv6SendRA=yes
+    - path: /etc/systemd/network/12-switch2.link
+      mode: 0644
+      contents:
+        inline: |
+          # Make sure you match that with the QEMU mac address
+          # for the NIC which connects to switch2
+          [Match]
+          MACAddress=0c:20:12:fe:00:02
+          Type=ether
           
           [Link]
-          RequiredForOnline=no
-          
+          Name=switch2
+          Description=Connected to switch2
+    - path: /etc/systemd/network/12-switch2.network
+      mode: 0644
+      contents:
+        inline: |
+          # Make sure you match that with the QEMU mac address
+          # for the NIC which connects to switch2
+          [Match]
+          Name=switch2
+          Type=ether
+
           [Network]
-          VLAN=control
+          VLAN=control2
           LinkLocalAddressing=ipv6
           LLDP=yes
           EmitLLDP=yes

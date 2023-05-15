@@ -115,6 +115,8 @@ $QEMU_SYSTEM_X86_64 \
   -device virtio-net-pci,netdev=eth0,mac=0c:20:12:fe:00:00 \
   -netdev socket,id=eth1,udp=127.0.0.1:21011,localaddr=127.0.0.1:21001 \
   -device virtio-net-pci,netdev=eth1,mac=0c:20:12:fe:00:01 \
+  -netdev socket,id=eth2,udp=127.0.0.1:21032,localaddr=127.0.0.1:21002 \
+  -device virtio-net-pci,netdev=eth2,mac=0c:20:12:fe:00:02 \
   -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-pci,rng=rng0 \
   -chardev socket,id=chrtpm,path="$DEV_DIR/tpm.sock.ctrl" -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
   -fw_cfg name=opt/org.flatcar-linux/config,file="$DEV_DIR/ignition.json" \
