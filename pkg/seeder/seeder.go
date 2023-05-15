@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	agentv1alpha1 "go.githedgehog.com/agent/api/v1alpha1"
+	dasbootv1alpha1 "go.githedgehog.com/dasboot/pkg/k8s/api/v1alpha1"
 	"go.githedgehog.com/dasboot/pkg/seeder/artifacts"
 	"go.githedgehog.com/dasboot/pkg/seeder/config"
 	"go.githedgehog.com/dasboot/pkg/seeder/controlplane"
@@ -50,11 +52,10 @@ type seeder struct {
 	artifactsProvider artifacts.Provider
 	installerSettings *loadedInstallerSettings
 	registry          *registration.Processor
-	k8sClient         client.WithWatch
+	cpc               controlplane.Client
 }
 
 var _ Interface = &seeder{}
-var _ controlplane.Client = &seeder{}
 
 func New(ctx context.Context, cfg *config.SeederConfig) (Interface, error) {
 	if cfg == nil {
@@ -73,7 +74,9 @@ func New(ctx context.Context, cfg *config.SeederConfig) (Interface, error) {
 	// initialize kubernetes client
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(agentv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(fabricv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(dasbootv1alpha1.AddToScheme(scheme))
 	k8scfg, err := ctrl.GetConfig()
 	if err != nil {
 		return nil, err
@@ -85,10 +88,22 @@ func New(ctx context.Context, cfg *config.SeederConfig) (Interface, error) {
 		return nil, err
 	}
 
+	// and build the controlplane client with that
+	var selfHostname string
+	var dt config.DeviceType
+	if cfg.InsecureServer != nil && cfg.InsecureServer.DynLL != nil {
+		selfHostname = cfg.InsecureServer.DynLL.DeviceName
+		dt = cfg.InsecureServer.DynLL.DeviceType
+	}
+	cpc, err := controlplane.NewKubernetesControlPlaneClient(ctx, k8sClient, selfHostname, dt)
+	if err != nil {
+		return nil, err
+	}
+
 	ret := &seeder{
 		done:              make(chan struct{}),
 		artifactsProvider: cfg.ArtifactsProvider,
-		k8sClient:         k8sClient,
+		cpc:               cpc,
 	}
 
 	// load the embedded configuration generator
@@ -102,7 +117,7 @@ func New(ctx context.Context, cfg *config.SeederConfig) (Interface, error) {
 	}
 
 	// load the registry settings
-	if err := ret.initializeRegistrySettings(ctx, cfg.RegistrySettings); err != nil {
+	if err := ret.initializeRegistrySettings(ctx, cfg.RegistrySettings, cpc); err != nil {
 		return nil, errors.RegistrySettingsError(err)
 	}
 

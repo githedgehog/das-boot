@@ -11,7 +11,7 @@ kind: Switch
 metadata:
   labels:
     fabric.githedgehog.com/rack: rack-1
-    fabric.githedgehog.com/positionUUID: "blah"
+    fabric.githedgehog.com/location: "4fedca88-bd00-42fd-87a0-b0fc36c9ab3b"
   name: leaf-1
 spec:
   bgpConfig:
@@ -68,10 +68,16 @@ spec:
     managementIP: 10.0.101.0
     systemDescription: This is leaf-1
     systemName: leaf-1
-  # TODO: this is how we recognize the switch
-  location: {}
+  location:
+    location: DC1-Fl
+    aisle: "10"
+    row: "2"
+    slot: "24"
+    rack: "1"
   locationUUID: "4fedca88-bd00-42fd-87a0-b0fc36c9ab3b"
-  locationSig: {}
+  locationSig:
+    sig: "long-signature"
+    uuidSig: "also-long-signature"
   role: leaf
   vrfs:
   - VrfHHMgmt
@@ -87,11 +93,11 @@ metadata:
 spec:
   nosPortName: Ethernet0
   nosPortNum: 0
-  onie:
-    portNum: 0
-    portName: eth0
-    bootstrapIP: 192.168.42.200/24
-    vlan: 42
+  # onie:
+  #   portNum: 0
+  #   portName: eth0
+  #   bootstrapIP: 192.168.42.200/24
+  #   vlan: 42
   role: leaf-server-l2-tagged
 ---
 apiVersion: fabric.githedgehog.com/v1alpha1
@@ -113,6 +119,11 @@ spec:
     portName: eth1
     bootstrapIP: 192.168.42.201/24
     vlan: 42
+    routes:
+    - destinations:
+      - 10.42.0.0/16 
+      - 10.43.0.0/16
+      gateway: 192.168.42.11 
   role: leaf-server-l2-tagged
 ---
 apiVersion: fabric.githedgehog.com/v1alpha1
@@ -157,6 +168,11 @@ spec:
     portName: eth2
     bootstrapIP: 192.168.42.202/24
     vlan: 42
+    routes:
+    - destinations:
+      - 10.42.0.0/16 
+      - 10.43.0.0/16
+      gateway: 192.168.42.11 
   role: leaf-fabric
 status: {}
 ---

@@ -203,6 +203,10 @@ storage:
       mode: 0644
       contents:
         source: http://10.0.2.2:8889/docker-seeder.tar
+    - path: /opt/docker-images/docker-registration-controller.tar
+      mode: 0644
+      contents:
+        source: http://10.0.2.2:8889/docker-registration-controller.tar
     - path: /opt/docker-images/docker-syslog.tar
       mode: 0644
       contents:
@@ -231,6 +235,10 @@ storage:
       mode: 0644
       contents:
         source: http://10.0.2.2:8888/das-boot-seeder-values.yaml
+    - path: /opt/seeder/das-boot-registration-controller-values.yaml
+      mode: 0644
+      contents:
+        source: http://10.0.2.2:8888/das-boot-registration-controller-values.yaml
     - path: /opt/seeder/das-boot-client-ca-secret.yaml
       mode: 0600
       contents:
@@ -263,3 +271,7 @@ storage:
       mode: 0644
       contents:
         source: http://10.0.2.2:8888/ntp-values.yaml
+    - path: /opt/seeder/wiring.yaml
+      mode: 0644
+      contents:
+        source: http://10.0.2.2:8888/wiring.yaml

@@ -1,0 +1,4 @@
+image:
+  repository: registry.local:5000/githedgehog/das-boot-registration-controller
+  tag: latest
+  pullPolicy: Always

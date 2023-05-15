@@ -1,16 +1,28 @@
 image:
-  repository: registry.local:5000/githedgehog/das-boot
+  repository: registry.local:5000/githedgehog/das-boot-seeder
   tag: latest
   pullPolicy: Always
+service:
+  type: ClusterIP
+  clusterIP: 10.43.42.42
+  ports:
+    # insecure:
+    #   port: 80
+    #   targetPort: 8080
+    secure:
+      port: 443
+      targetPort: 8443
 settings:
-  issue_certificates: true
+  issue_certificates: false
   listeners:
     insecure:
-    - ":80"
+      dynll:
+        device_name: ""
+        listening_port: 80
   ntp_servers:
-    - hedgehog-ntp-udp.default.svc.cluster.local
+    - hh-ntp-udp.default.svc.cluster.local
   syslog_servers:
-    - hedgehog-syslog-rsyslog.default.svc.cluster.local
+    - hh-syslog-rsyslog.default.svc.cluster.local
   artifacts:
     oci_registries:
     - url: oci://registry.local:5000/githedgehog

@@ -19,6 +19,7 @@ type IPAddress struct {
 	IPAddresses []string `json:"ip_addresses,omitempty"`
 	VLAN        uint16   `json:"vlan,omitempty"`
 	Routes      []*Route `json:"routes,omitempty"`
+	Preferred   bool     `json:"preferred"`
 }
 
 // Route holds the information for a route which should be added to the VLAN device which we want to create

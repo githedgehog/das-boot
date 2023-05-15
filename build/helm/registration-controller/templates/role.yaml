@@ -1,0 +1,34 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "das-boot.fullname" . }}-manager-role
+  labels:
+    {{- include "das-boot.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - dasboot.githedgehog.com
+  resources:
+  - deviceregistrations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - dasboot.githedgehog.com
+  resources:
+  - deviceregistrations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - dasboot.githedgehog.com
+  resources:
+  - deviceregistrations/status
+  verbs:
+  - get
+  - patch
+  - update

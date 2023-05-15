@@ -153,6 +153,19 @@ func Run(ctx context.Context, override *configstage.Stage1, logSettings *stage.L
 			return ErrExecution
 		}
 		l.Info("Location information found on location partition", zap.Reflect("locationInfo", locationInfo))
+		if si.LocationInfo != nil {
+			l.Warn("Location information was also provided through configuration. You should not provide location information through configuration if you are using the location partition feature.")
+			if !reflect.DeepEqual(locationInfo, si.LocationInfo) {
+				err := fmt.Errorf("location information form partition does not match location information from configuration (fix this setup)")
+				l.Error("Location information mismatch", zap.Error(err), zap.Reflect("locationInfoPartition", locationInfo), zap.Reflect("locationInfoConfig", si.LocationInfo))
+				return executionError(err)
+			}
+		}
+	} else if si.LocationInfo != nil {
+		locationInfo = si.LocationInfo
+		l.Info("Location information provided through configuration", zap.Reflect("locationInfo", locationInfo))
+	} else {
+		l.Warn("No location information was detected")
 	}
 
 	// now mount (or create and mount) the identity partition

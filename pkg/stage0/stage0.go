@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -193,6 +194,10 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	devices := partitions.Discover()
 
 	// retrieve location info
+	// - location info from partition has priority
+	// - if it also found in configuration (either manually added, or served through link-local discovery), then it must match, or we must abort otherwise
+	// - location info is not mandatory necessarily (TODO: IPAM needs work though for that)
+	// - also export it to staging info
 	locationPartition, err := stage.MountLocationPartition(l, devices)
 	if err != nil {
 		l.Warn("Location partition failed to open", zap.Error(err))
@@ -208,6 +213,26 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 			return ErrExecution
 		}
 		l.Info("Location information found on location partition", zap.Reflect("locationInfo", locationInfo))
+		if cfg.Location != nil {
+			l.Warn("Location information was also provided through configuration. You should not provide location information through configuration if you are using the location partition feature.")
+			if !reflect.DeepEqual(locationInfo, cfg.Location) {
+				err := fmt.Errorf("location information form partition does not match location information from configuration (fix this setup)")
+				l.Error("Location information mismatch", zap.Error(err), zap.Reflect("locationInfoPartition", locationInfo), zap.Reflect("locationInfoConfig", cfg.Location))
+				return executionError(err)
+			}
+		}
+	} else if cfg.Location != nil {
+		locationInfo = cfg.Location
+		l.Info("Location information provided through configuration", zap.Reflect("locationInfo", locationInfo))
+	} else {
+		l.Warn("No location information was detected")
+	}
+
+	if locationInfo != nil {
+		stagingInfo.LocationInfo = locationInfo
+		if err := stagingInfo.Export(); err != nil {
+			l.Warn("Failed to export staging area information", zap.Error(err))
+		}
 	}
 
 	// retrieve device ID
@@ -267,8 +292,12 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 
 	// for the rest until we finished downloading stage 1, we iterate over all IP addresses that we got back
 	// and essentially retry the rest of stage 0 until it works
+	// first we try with "preferred" entries that we got back
 	var stage1Path string
 	for netdev, ipa := range ipamResp.IPAddresses {
+		if !ipa.Preferred {
+			continue
+		}
 		var err error
 		stage1Path, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
 		if err != nil {
@@ -280,6 +309,25 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 		}
 		l.Info("System network configured", zap.String("netdev", netdev), zap.Reflect("ipa", ipa))
 		break
+	}
+	// if preferred responses did not work, we will try all other responses
+	if stage1Path == "" {
+		for netdev, ipa := range ipamResp.IPAddresses {
+			if ipa.Preferred {
+				continue
+			}
+			var err error
+			stage1Path, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
+			if err != nil {
+				l.Error("System network configuration failed for netdev", zap.String("netdev", netdev), zap.Reflect("ipa", ipa), zap.Error(err))
+				if err := net.DeleteVLANDevice(vlanName); err != nil {
+					l.Warn("Deleting VLAN device failed", zap.String("vlanDevice", vlanName), zap.Error(err))
+				}
+				continue
+			}
+			l.Info("System network configured", zap.String("netdev", netdev), zap.Reflect("ipa", ipa))
+			break
+		}
 	}
 	if stage1Path == "" {
 		l.Error("System network configuration failed for all network devices")

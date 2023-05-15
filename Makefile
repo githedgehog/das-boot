@@ -2,24 +2,28 @@ VERSION ?= $(shell git describe --tags --long --always)
 # increment this in a commit or PR when you make changes to the helm chart
 HELM_CHART_VERSION ?= 0.1.0
 
-DOCKER_REPO ?= registry.local:5000/githedgehog/das-boot
+DOCKER_REPO_SEEDER ?= registry.local:5000/githedgehog/das-boot-seeder
+DOCKER_REPO_REGISTRATION_CONTROLLER ?= registry.local:5000/githedgehog/das-boot-registration-controller
 HELM_CHART_REPO ?= registry.local:5000/githedgehog/helm-charts
 
 MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 's#/$$##')
 BUILD_DIR := $(MKFILE_DIR)/build
 BUILD_ARTIFACTS_DIR := $(BUILD_DIR)/artifacts
 BUILD_COVERAGE_DIR := $(BUILD_DIR)/coverage
-BUILD_DOCKER_DIR := $(BUILD_DIR)/docker
+BUILD_DOCKER_SEEDER_DIR := $(BUILD_DIR)/docker/seeder
+BUILD_DOCKER_REGISTRATION_CONTROLLER_DIR := $(BUILD_DIR)/docker/registration-controller
 BUILD_HELM_DIR := $(BUILD_DIR)/helm
 DEV_DIR := $(MKFILE_DIR)/dev
 
 SRC_COMMON := $(shell find $(MKFILE_DIR)/pkg -type f -name "*.go")
+SRC_K8S_COMMON := $(shell find $(MKFILE_DIR)/pkg/k8s -type f -name "*.go")
 SRC_HHDEVID := $(shell find $(MKFILE_DIR)/cmd/hhdevid -type f -name "*.go")
 SRC_STAGE0 := $(shell find $(MKFILE_DIR)/cmd/stage0 -type f -name "*.go")
 SRC_STAGE1 := $(shell find $(MKFILE_DIR)/cmd/stage1 -type f -name "*.go")
 SRC_STAGE2 := $(shell find $(MKFILE_DIR)/cmd/stage2 -type f -name "*.go")
 SRC_HHAGENTPROV := $(shell find $(MKFILE_DIR)/cmd/hedgehog-agent-provisioner -type f -name "*.go")
 SRC_SEEDER := $(shell find $(MKFILE_DIR)/cmd/seeder -type f -name "*.go")
+SRC_REGISTRATION_CONTROLLER := $(shell find $(MKFILE_DIR)/cmd/registration-controller -type f -name "*.go")
 
 SEEDER_ARTIFACTS_DIR := $(MKFILE_DIR)/pkg/seeder/artifacts/embedded/artifacts
 
@@ -51,9 +55,9 @@ help: ## Display this help.
 
 all: generate build ## Runs 'generate' and 'build' targets
 
-build: hhdevid stage0 stage1 stage2 hedgehog-agent-provisioner seeder ## Builds all golang binaries for all platforms: hhdevid, stage0, stage1, stage2, hedgehog-agent-provisioner and seeder
+build: hhdevid stage0 stage1 stage2 hedgehog-agent-provisioner seeder registration-controller ## Builds all golang binaries for all platforms: hhdevid, stage0, stage1, stage2, hedgehog-agent-provisioner, seeder and registration-controller
 
-clean: hhdevid-clean stage0-clean stage1-clean stage2-clean hedgehog-agent-provisioner-clean seeder-clean docker-clean helm-clean ## Cleans all golang binaries for all platforms: hhdevid, stage0, stage1, stage2, hedgehog-agent-provisioner and seeder, as well as the seeder docker image and the packaged helm chart
+clean: hhdevid-clean stage0-clean stage1-clean stage2-clean hedgehog-agent-provisioner-clean seeder-clean registration-controller-clean docker-clean helm-clean ## Cleans all golang binaries for all platforms: hhdevid, stage0, stage1, stage2, hedgehog-agent-provisioner, seeder and registration-controller, as well as the seeder docker image and the packaged helm chart
 
 hhdevid:  $(BUILD_ARTIFACTS_DIR)/hhdevid-amd64  $(BUILD_ARTIFACTS_DIR)/hhdevid-arm64  $(BUILD_ARTIFACTS_DIR)/hhdevid-arm ## Builds 'hhdevid' for all platforms
 
@@ -189,19 +193,32 @@ hedgehog-agent-provisioner-clean: ## Cleans all 'hedgehog-agent-provisioner' gol
 	rm -v $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm64 || true
 	rm -v $(BUILD_ARTIFACTS_DIR)/hedgehog-agent-provisioner-arm || true
 
-seeder: $(BUILD_ARTIFACTS_DIR)/seeder $(BUILD_DOCKER_DIR)/seeder ## Builds the 'seeder' for x86_64
+seeder: $(BUILD_ARTIFACTS_DIR)/seeder $(BUILD_DOCKER_SEEDER_DIR)/seeder ## Builds the 'seeder' for x86_64
 
 # TODO: removing "-buildmode=pie" from the ldflags for now, as it requires a dynamic linker
 $(BUILD_ARTIFACTS_DIR)/seeder: $(SRC_COMMON) $(SRC_SEEDER) $(SEEDER_DEPS)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_ARTIFACTS_DIR)/seeder -ldflags="-w -s -X 'go.githedgehog.com/dasboot/pkg/version.Version=$(VERSION)'" ./cmd/seeder
 
-$(BUILD_DOCKER_DIR)/seeder: $(BUILD_ARTIFACTS_DIR)/seeder
-	cp -v $(BUILD_ARTIFACTS_DIR)/seeder $(BUILD_DOCKER_DIR)/seeder
+$(BUILD_DOCKER_SEEDER_DIR)/seeder: $(BUILD_ARTIFACTS_DIR)/seeder
+	cp -v $(BUILD_ARTIFACTS_DIR)/seeder $(BUILD_DOCKER_SEEDER_DIR)/seeder
 
 .PHONY: seeder-clean
 seeder-clean: ## Cleans the 'seeder' x86_64 golang binary
 	rm -v $(BUILD_ARTIFACTS_DIR)/seeder || true
-	rm -v $(BUILD_DOCKER_DIR)/seeder || true
+	rm -v $(BUILD_DOCKER_SEEDER_DIR)/seeder || true
+
+registration-controller: $(BUILD_ARTIFACTS_DIR)/registration-controller $(BUILD_DOCKER_REGISTRATION_CONTROLLER_DIR)/registration-controller ## Builds the 'registration-controller' for x86_64
+
+$(BUILD_ARTIFACTS_DIR)/registration-controller: $(SRC_K8S_COMMON) $(SRC_REGISTRATION_CONTROLLER)
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_ARTIFACTS_DIR)/registration-controller -ldflags="-w -s -X 'go.githedgehog.com/dasboot/pkg/version.Version=$(VERSION)'" ./cmd/registration-controller
+
+$(BUILD_DOCKER_REGISTRATION_CONTROLLER_DIR)/registration-controller: $(BUILD_ARTIFACTS_DIR)/registration-controller
+	cp -v $(BUILD_ARTIFACTS_DIR)/registration-controller $(BUILD_DOCKER_REGISTRATION_CONTROLLER_DIR)/registration-controller
+
+.PHONY: registration-controller-clean
+registration-controller-clean: ## Cleans the 'registration-controller' x86_64 golang binary
+	rm -v $(BUILD_ARTIFACTS_DIR)/registration-controller || true
+	rm -v $(BUILD_DOCKER_REGISTRATION_CONTROLLER_DIR)/registration-controller || true
 
 dev-init-oci-certs: $(DEV_OCI_REPO_CERT_FILES) ## Generates a local CA and server certificate to use for our docker registry
 
@@ -213,33 +230,65 @@ run-docker-registry: dev-init-oci-certs ## Runs a local docker registry in a doc
 	$(MKFILE_DIR)/scripts/run_registry.sh
 
 .PHONY: docker
-docker: seeder ## Builds a docker image for the seeder
-	cd $(BUILD_DOCKER_DIR) && docker build -t $(DOCKER_REPO):latest .
+docker: docker-seeder docker-registration-controller ## Builds all docker images
 
 .PHONY: docker-clean
-docker-clean: ## Removes the docker image from the local docker images
-	docker rmi $(DOCKER_REPO):latest || true
+docker-clean: docker-seeder-clean docker-registration-controller-clean ## Removes all docker images from the local docker images
 
 .PHONY: docker-push
-docker-push: docker ## Builds AND pushes a docker image for the seeder
+docker-push: docker-seeder-push docker-registration-controller-push ## Builds AND pushes all docker images
+
+.PHONY: docker-seeder
+docker-seeder: seeder ## Builds a docker images for the seeder
+	cd $(BUILD_DOCKER_SEEDER_DIR) && docker build -t $(DOCKER_REPO_SEEDER):latest .
+
+.PHONY: docker-seeder-clean
+docker-seeder-clean: ## Removes the docker image from the local docker images
+	docker rmi $(DOCKER_REPO_SEEDER):latest || true
+
+.PHONY: docker-seeder-push
+docker-seeder-push: docker ## Builds AND pushes a docker image for the seeder
 	@echo
-	@[ "$(DOCKER_REPO)" = "registry.local:5000/githedgehog/das-boot" ] && $(MKFILE_DIR)/scripts/run_registry.sh || echo "Not trying to run local registry, different docker repository..."
+	@[ "$(DOCKER_REPO_SEEDER)" = "registry.local:5000/githedgehog/das-boot-seeder" ] && $(MKFILE_DIR)/scripts/run_registry.sh || echo "Not trying to run local registry, different docker repository..."
 	@echo
-	docker push $(DOCKER_REPO):latest
+	docker push $(DOCKER_REPO_SEEDER):latest
+
+.PHONY: docker-registration-controller
+docker-registration-controller: registration-controller ## Builds a docker images for the registration-controller
+	cd $(BUILD_DOCKER_REGISTRATION_CONTROLLER_DIR) && docker build -t $(DOCKER_REPO_REGISTRATION_CONTROLLER):latest .
+
+.PHONY: docker-registration-controller-clean
+docker-registration-controller-clean: ## Removes the docker image from the local docker images
+	docker rmi $(DOCKER_REPO_REGISTRATION_CONTROLLER):latest || true
+
+.PHONY: docker-registration-controller-push
+docker-registration-controller-push: docker ## Builds AND pushes a docker image for the registration-controller
+	@echo
+	@[ "$(DOCKER_REPO_REGISTRATION_CONTROLLER)" = "registry.local:5000/githedgehog/das-boot-registration-controller" ] && $(MKFILE_DIR)/scripts/run_registry.sh || echo "Not trying to run local registry, different docker repository..."
+	@echo
+	docker push $(DOCKER_REPO_REGISTRATION_CONTROLLER):latest
 
 .PHONY: helm
 helm: ## Builds a helm chart for the seeder
-	helm lint $(BUILD_HELM_DIR)
+	helm lint $(BUILD_HELM_DIR)/crds
+	helm lint $(BUILD_HELM_DIR)/registration-controller
+	helm lint $(BUILD_HELM_DIR)/seeder
 # TODO: at some point we need valid app versions too
 #	helm package $(BUILD_HELM_DIR) --version $(HELM_CHART_VERSION) --app-version $(VERSION) -d $(BUILD_ARTIFACTS_DIR)
-	helm package $(BUILD_HELM_DIR) --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION) -d $(BUILD_ARTIFACTS_DIR)
+	helm package $(BUILD_HELM_DIR)/crds --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION) -d $(BUILD_ARTIFACTS_DIR)
+	helm package $(BUILD_HELM_DIR)/registration-controller --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION) -d $(BUILD_ARTIFACTS_DIR)
+	helm package $(BUILD_HELM_DIR)/seeder --version $(HELM_CHART_VERSION) --app-version $(HELM_CHART_VERSION) -d $(BUILD_ARTIFACTS_DIR)
 
 .PHONY: helm-clean
 helm-clean: ## Cleans the packaged helm chart for the seeder from the artifacts build directory
+	rm -v $(BUILD_ARTIFACTS_DIR)/das-boot-crds-$(HELM_CHART_VERSION).tgz || true
+	rm -v $(BUILD_ARTIFACTS_DIR)/das-boot-registration-controller-$(HELM_CHART_VERSION).tgz || true
 	rm -v $(BUILD_ARTIFACTS_DIR)/das-boot-seeder-$(HELM_CHART_VERSION).tgz || true
 
 .PHONY: helm-push
 helm-push: helm ## Builds AND pushes the helm chart for the seeder
+	helm push $(BUILD_ARTIFACTS_DIR)/das-boot-crds-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
+	helm push $(BUILD_ARTIFACTS_DIR)/das-boot-registration-controller-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
 	helm push $(BUILD_ARTIFACTS_DIR)/das-boot-seeder-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
 
 # Use this target only for local linting. In CI we use a dedicated github action
@@ -269,10 +318,28 @@ test-cover: ## Runs golang unit tests and generates code coverage information
 generate: ## Runs 'go generate'
 	go generate -v ./...
 
+.PHONY: k8s-manifests
+k8s-manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	controller-gen rbac:roleName=registration-controller-role crd webhook paths="./..." \
+		output:crd:artifacts:config=$(MKFILE_DIR)/build/helm/crds/templates \
+		output:rbac:artifacts:config=$(MKFILE_DIR)/build/helm/registration-controller/templates
+
+.PHONY: k8s-generate
+k8s-generate: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	controller-gen object:headerFile="docs/boilerplate.go.txt" paths="./..."
+
+.PHONY: k8s-docs ## Build simple markdown documentation for all CRDs to be used as API docs
+k8s-docs:
+	crd-ref-docs --source-path=./pkg/k8s/api/ --config=./pkg/k8s/api/docs-config.yaml --renderer=markdown --output-path=./docs/k8s-api.md
+
 .PHONY: install-deps
 install-deps: ## Installs development tool dependencies
 	@echo "Installing mockgen..."
 	go install github.com/golang/mock/mockgen@latest
+	@echo "Installing crd-ref-docs..."
+	go install github.com/elastic/crd-ref-docs@latest
+	@echo "Installing controller-gen..."
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
 
 dev-init-seeder: $(DEV_SEEDER_FILES) ## Generates development files (keys, certs, etc.pp.) for running the seeder locally
 
