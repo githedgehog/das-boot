@@ -172,7 +172,7 @@ var ReferenceConfig = Config{
 		},
 		ServerSecure: &BindInfo{
 			Addresses: []string{
-				"192.168.42.11",
+				"192.168.42.1",
 			},
 			ClientCAPath:   "/etc/hedgehog/seeder/client-ca-cert.pem",
 			ServerKeyPath:  "/etc/hedgehog/seeder/server-key.pem",
@@ -187,9 +187,9 @@ var ReferenceConfig = Config{
 		ServerCAPath:          "/etc/hedgehog/seeder/server-ca-cert.pem",
 		ConfigSignatureCAPath: "/etc/hedgehog/seeder/embedded-config-generator-ca-cert.pem",
 		SecureServerName:      "das-boot.hedgehog.svc.cluster.local",
-		DNSServers:            []string{"192.168.42.11", "192.168.42.12"},
-		NTPServers:            []string{"192.168.42.11", "192.168.42.12"},
-		SyslogServers:         []string{"192.168.42.11"},
+		DNSServers:            []string{"192.168.42.1", "192.168.42.2"},
+		NTPServers:            []string{"192.168.42.1", "192.168.42.2"},
+		SyslogServers:         []string{"192.168.42.1"},
 	},
 }
 

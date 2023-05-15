@@ -24,7 +24,7 @@ func main() {
 	app := &cli.App{
 		Name:                 "integ-log",
 		Usage:                "integration test for zap logger for syslog and console combined",
-		UsageText:            "integ-log --log-level debug --syslog-server 192.168.42.11",
+		UsageText:            "integ-log --log-level debug --syslog-server 192.168.42.1",
 		Description:          "Should be running in ONIE, needs networking configured, and should reconfigure network during logging",
 		Version:              version.Version,
 		EnableBashCompletion: true,
@@ -47,7 +47,7 @@ func main() {
 			&cli.StringFlag{
 				Name:  "syslog-server",
 				Usage: "NTP server IP addresses or hostnames or FQDNs",
-				Value: "192.168.42.11",
+				Value: "192.168.42.1",
 			},
 			&cli.GenericFlag{
 				Name:  "syslog-facility",

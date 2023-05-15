@@ -431,3 +431,73 @@ access-switch1-monitor: ## Access the QEMU monitor (control interface) of the sw
 .PHONY: access-switch1-qnp
 access-switch1-qnp:
 	nc -U $(DEV_DIR)/switch1/qnp.sock
+
+.PHONY: init-switch2
+init-switch2: ## Prepares a QEMU VM to run switch2
+	SSH_PORT="2212" NETDEVS="devid=eth0 mac=0c:20:12:fe:02:00 devid=eth1 mac=0c:20:12:fe:02:01 local_port=127.0.0.1:21021 dest_port=127.0.0.1:21002 devid=eth2 mac=0c:20:12:fe:02:02 local_port=127.0.0.1:21022 dest_port=127.0.0.1:21032" $(MKFILE_DIR)/scripts/init_switch.sh switch2
+
+.PHONY: run-switch2
+run-switch2: ## Runs the VM for switch2
+	$(MKFILE_DIR)/scripts/run_switch.sh switch2
+
+.PHONY: run-switch2-tpm
+run-switch2-tpm: ## Runs the software TPM for th switch2 VM (NOTE: not needed to run separately, will be started automatically)
+	$(MKFILE_DIR)/scripts/run_switch_tpm.sh switch2
+
+.PHONE: clean-switch2
+clean-switch2: ## Deletes the switch2 VM and its supporting files
+	rm -rvf $(DEV_DIR)/switch2 || true
+
+.PHONY: access-switch2-serial
+access-switch2-serial: ## Access the serial console of the switch2 VM
+	@echo "Use ^] to disconnect from serial console"
+	socat -,rawer,escape=0x1d unix-connect:$(DEV_DIR)/switch2/serial.sock
+
+.PHONY: access-switch2-ssh
+access-switch2-ssh: ## SSH into switch2 VM (NOTE: requires a successful SONiC installation)
+	@echo "Use password 'githedgehog' for our own SONiC VS builds (default)."
+	@echo "Change the username in the Makefile to 'admin' for upstream SONiC VS builds. Password for this is 'YourPaSsWoRd'."
+	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p 2212 githedgehog@127.0.0.1
+
+.PHONY: access-switch2-monitor
+access-switch2-monitor: ## Access the QEMU monitor (control interface) of the switch2 VM
+	nc -U $(DEV_DIR)/switch2/monitor.sock
+
+.PHONY: access-switch2-qnp
+access-switch2-qnp:
+	nc -U $(DEV_DIR)/switch2/qnp.sock
+
+.PHONY: init-switch3
+init-switch3: ## Prepares a QEMU VM to run switch3
+	SSH_PORT="2213" NETDEVS="devid=eth0 mac=0c:20:12:fe:03:00 devid=eth1 mac=0c:20:12:fe:03:01 local_port=127.0.0.1:21031 dest_port=127.0.0.1:21012 devid=eth2 mac=0c:20:12:fe:03:02 local_port=127.0.0.1:21032 dest_port=127.0.0.1:21022" $(MKFILE_DIR)/scripts/init_switch.sh switch3
+
+.PHONY: run-switch3
+run-switch3: ## Runs the VM for switch3
+	$(MKFILE_DIR)/scripts/run_switch.sh switch3
+
+.PHONY: run-switch3-tpm
+run-switch3-tpm: ## Runs the software TPM for th switch3 VM (NOTE: not needed to run separately, will be started automatically)
+	$(MKFILE_DIR)/scripts/run_switch_tpm.sh switch3
+
+.PHONE: clean-switch3
+clean-switch3: ## Deletes the switch3 VM and its supporting files
+	rm -rvf $(DEV_DIR)/switch3 || true
+
+.PHONY: access-switch3-serial
+access-switch3-serial: ## Access the serial console of the switch3 VM
+	@echo "Use ^] to disconnect from serial console"
+	socat -,rawer,escape=0x1d unix-connect:$(DEV_DIR)/switch3/serial.sock
+
+.PHONY: access-switch3-ssh
+access-switch3-ssh: ## SSH into switch3 VM (NOTE: requires a successful SONiC installation)
+	@echo "Use password 'githedgehog' for our own SONiC VS builds (default)."
+	@echo "Change the username in the Makefile to 'admin' for upstream SONiC VS builds. Password for this is 'YourPaSsWoRd'."
+	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p 2212 githedgehog@127.0.0.1
+
+.PHONY: access-switch3-monitor
+access-switch3-monitor: ## Access the QEMU monitor (control interface) of the switch3 VM
+	nc -U $(DEV_DIR)/switch3/monitor.sock
+
+.PHONY: access-switch3-qnp
+access-switch3-qnp:
+	nc -U $(DEV_DIR)/switch3/qnp.sock

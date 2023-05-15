@@ -25,7 +25,7 @@ systemd:
         TimeoutStartSec=180
         RemainAfterExit=yes
         KillMode=process
-        ExecStart=/usr/bin/sh -c '/opt/k3s-install.sh server --cluster-init --disable=traefik —cluster-cidr "10.42.0.0/16" --service-cidr "10.43.0.0/16" --cluster-dns "10.43.0.10" --write-kubeconfig-mode 644 --tls-san "kube-master.local" --tls-san "control-node-1.local" --tls-san "192.168.42.11"'
+        ExecStart=/usr/bin/sh -c '/opt/k3s-install.sh server --cluster-init --disable=traefik —cluster-cidr "10.42.0.0/16" --service-cidr "10.43.0.0/16" --cluster-dns "10.43.0.10" --write-kubeconfig-mode 644 --tls-san "kube-master.local" --tls-san "control-node-1.local" --tls-san "192.168.42.1"'
         
         [Install]
         WantedBy=multi-user.target
@@ -191,7 +191,7 @@ storage:
           RequiredForOnline=no
           
           [Network]
-          Address=192.168.42.11/24
+          Address=192.168.42.1/24
           LinkLocalAddressing=no
           LLDP=no
           EmitLLDP=no
