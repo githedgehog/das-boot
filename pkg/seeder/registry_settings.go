@@ -6,11 +6,12 @@ import (
 	"crypto/x509"
 
 	"go.githedgehog.com/dasboot/pkg/seeder/config"
+	"go.githedgehog.com/dasboot/pkg/seeder/controlplane"
 	"go.githedgehog.com/dasboot/pkg/seeder/errors"
 	"go.githedgehog.com/dasboot/pkg/seeder/registration"
 )
 
-func (s *seeder) initializeRegistrySettings(ctx context.Context, cfg *config.RegistrySettings) error {
+func (s *seeder) initializeRegistrySettings(ctx context.Context, cfg *config.RegistrySettings, cpc controlplane.Client) error {
 	var key *ecdsa.PrivateKey
 	var cert *x509.Certificate
 	if cfg != nil {
@@ -33,7 +34,7 @@ func (s *seeder) initializeRegistrySettings(ctx context.Context, cfg *config.Reg
 		}
 	}
 
-	s.registry = registration.NewProcessor(ctx, nil, key, cert)
+	s.registry = registration.NewProcessor(ctx, cpc, key, cert)
 
 	return nil
 }

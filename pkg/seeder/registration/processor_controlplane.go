@@ -11,6 +11,7 @@ import (
 )
 
 func (p *Processor) getRequestWithControlPlane(ctx context.Context, req *Request) (*cert, bool) {
+	l := log.L()
 	reg, err := p.cpc.GetDeviceRegistration(ctx, req.DeviceID)
 	if err != nil {
 		// in case of not found error, we return as such which will trigger a call to addRequestWithControlPlane
@@ -20,10 +21,12 @@ func (p *Processor) getRequestWithControlPlane(ctx context.Context, req *Request
 
 		// TODO: not entirely sure what is best here
 		// turning this into an error is probably wrong as the client aborts completely
+		l.Error("Retrieving DeviceRegistration failed", zap.String("deviceID", req.DeviceID), zap.Error(err))
 		return &cert{}, true
 	}
 
 	// TODO: evaluate status of object properly
+	l.Info("DeviceRegistration retrieved")
 	reason := "issued by registration-controller"
 	rejected := false
 	return &cert{
@@ -37,7 +40,8 @@ func (p *Processor) addRequestWithControlPlane(ctx context.Context, req *Request
 	l := log.L()
 	regReq := &dasbootv1alpha1.DeviceRegistration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: req.DeviceID,
+			Name:      req.DeviceID,
+			Namespace: p.cpc.DeviceNamespace(),
 		},
 		Spec: dasbootv1alpha1.DeviceRegistrationSpec{
 			LocationUUID: req.LocationInfo.UUID,

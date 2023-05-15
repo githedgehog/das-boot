@@ -15,6 +15,8 @@ import (
 )
 
 type Client interface {
+	DeviceHostname() string
+	DeviceNamespace() string
 	GetSwitchPorts(ctx context.Context, switchName string) (*fabricv1alpha1.SwitchPortList, error)
 	GetInterfacesForNeighbours(ctx context.Context) (map[string]string, map[string]string, error)
 	GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*fabricv1alpha1.Switch, *fabricv1alpha1.SwitchPort, error)
@@ -82,6 +84,14 @@ func NewKubernetesControlPlaneClient(ctx context.Context, client client.WithWatc
 	}
 
 	return cpc, nil
+}
+
+func (c *KubernetesControlPlaneClient) DeviceHostname() string {
+	return c.deviceHostname
+}
+
+func (c *KubernetesControlPlaneClient) DeviceNamespace() string {
+	return c.deviceNamespace
 }
 
 func (c *KubernetesControlPlaneClient) GetInterfacesForNeighbours(ctx context.Context) (map[string]string, map[string]string, error) {
