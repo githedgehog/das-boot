@@ -6,6 +6,7 @@ metadata:
     {{- include "das-boot.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
+  clusterIP: {{ .Values.service.clusterIP }}
   ports:
     - port: {{ .Values.service.ports.secure.port }}
       targetPort: {{ .Values.service.ports.secure.targetPort }}

@@ -38,6 +38,7 @@ securityContext: {}
 # and map them
 service:
   type: ClusterIP
+ # clusterIP: 10.43.0.42
   ports:
     # insecure:
     #   port: 80
