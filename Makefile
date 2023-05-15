@@ -407,7 +407,7 @@ run-switch1: ## Runs the VM for switch1
 
 .PHONY: run-switch1-tpm
 run-switch1-tpm: ## Runs the software TPM for th switch1 VM (NOTE: not needed to run separately, will be started automatically)
-	$(MKFILE_DIR)/scripts/run_switch_tpm.sh switch1
+	SSH_PORT="2211" $(MKFILE_DIR)/scripts/run_switch_tpm.sh switch1
 
 .PHONE: clean-switch1
 clean-switch1: ## Deletes the switch1 VM and its supporting files
@@ -438,7 +438,7 @@ init-switch2: ## Prepares a QEMU VM to run switch2
 
 .PHONY: run-switch2
 run-switch2: ## Runs the VM for switch2
-	$(MKFILE_DIR)/scripts/run_switch.sh switch2
+	SSH_PORT="2212" $(MKFILE_DIR)/scripts/run_switch.sh switch2
 
 .PHONY: run-switch2-tpm
 run-switch2-tpm: ## Runs the software TPM for th switch2 VM (NOTE: not needed to run separately, will be started automatically)
@@ -473,7 +473,7 @@ init-switch3: ## Prepares a QEMU VM to run switch3
 
 .PHONY: run-switch3
 run-switch3: ## Runs the VM for switch3
-	$(MKFILE_DIR)/scripts/run_switch.sh switch3
+	SSH_PORT="2213" $(MKFILE_DIR)/scripts/run_switch.sh switch3
 
 .PHONY: run-switch3-tpm
 run-switch3-tpm: ## Runs the software TPM for th switch3 VM (NOTE: not needed to run separately, will be started automatically)
