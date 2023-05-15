@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"os"
 
+	agentv1alpha1 "go.githedgehog.com/agent/api/v1alpha1"
 	dasbootv1alpha1 "go.githedgehog.com/dasboot/pkg/k8s/api/v1alpha1"
 	seedernet "go.githedgehog.com/dasboot/pkg/net"
 	"go.githedgehog.com/dasboot/pkg/seeder/config"
 	fabricv1alpha1 "go.githedgehog.com/wiring/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -23,13 +26,17 @@ type Client interface {
 	GetSwitchByLocationUUID(ctx context.Context, uuid string) (*fabricv1alpha1.Switch, error)
 	GetDeviceRegistration(ctx context.Context, deviceID string) (*dasbootv1alpha1.DeviceRegistration, error)
 	CreateDeviceRegistration(ctx context.Context, reg *dasbootv1alpha1.DeviceRegistration) (*dasbootv1alpha1.DeviceRegistration, error)
+	GetSwitchByDeviceID(ctx context.Context, deviceID string) (*fabricv1alpha1.Switch, error)
+	GetAgentConfig(ctx context.Context, deviceID string) (*agentv1alpha1.Agent, error)
+	GetAgentKubeconfig(ctx context.Context, deviceID string) ([]byte, error)
 }
 
 const (
-	RackLabelKey     = "fabric.githedgehog.com/rack"
-	ServerLabelKey   = "fabric.githedgehog.com/server"
-	SwitchLabelKey   = "fabric.githedgehog.com/switch"
-	LocationLabelKey = "fabric.githedgehog.com/location"
+	RackLabelKey             = "fabric.githedgehog.com/rack"
+	ServerLabelKey           = "fabric.githedgehog.com/server"
+	SwitchLabelKey           = "fabric.githedgehog.com/switch"
+	LocationLabelKey         = "fabric.githedgehog.com/location"
+	KubeconfigAgentSecretKey = "kubeconfig"
 )
 
 var (
@@ -294,6 +301,9 @@ func (c *KubernetesControlPlaneClient) GetSwitchByLocationUUID(ctx context.Conte
 func (c *KubernetesControlPlaneClient) GetDeviceRegistration(ctx context.Context, deviceID string) (*dasbootv1alpha1.DeviceRegistration, error) {
 	obj := &dasbootv1alpha1.DeviceRegistration{}
 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: deviceID}, obj); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	return obj, nil
@@ -305,4 +315,61 @@ func (c *KubernetesControlPlaneClient) CreateDeviceRegistration(ctx context.Cont
 		return nil, err
 	}
 	return obj, nil
+}
+
+func (c *KubernetesControlPlaneClient) GetSwitchByDeviceID(ctx context.Context, deviceID string) (*fabricv1alpha1.Switch, error) {
+	// the device registration will have the location information for this device
+	devReg, err := c.GetDeviceRegistration(ctx, deviceID)
+	if err != nil {
+		return nil, fmt.Errorf("device registration: %w", err)
+	}
+
+	// we will get the switch next by UUID
+	switchObj, err := c.GetSwitchByLocationUUID(ctx, devReg.Spec.LocationUUID)
+	if err != nil {
+		return nil, fmt.Errorf("switch by location UUID: %w", err)
+	}
+
+	return switchObj, nil
+}
+
+func (c *KubernetesControlPlaneClient) GetAgentConfig(ctx context.Context, deviceID string) (*agentv1alpha1.Agent, error) {
+	// we will get the switch by device ID
+	switchObj, err := c.GetSwitchByDeviceID(ctx, deviceID)
+	if err != nil {
+		return nil, fmt.Errorf("switch by deviceID: %w", err)
+	}
+
+	obj := &agentv1alpha1.Agent{}
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: switchObj.Namespace, Name: switchObj.Name}, obj); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("agent: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("agent: %w", err)
+	}
+	return obj, nil
+}
+
+func (c *KubernetesControlPlaneClient) GetAgentKubeconfig(ctx context.Context, deviceID string) ([]byte, error) {
+	// we will get the switch by device ID
+	switchObj, err := c.GetSwitchByDeviceID(ctx, deviceID)
+	if err != nil {
+		return nil, fmt.Errorf("switch by deviceID: %w", err)
+	}
+
+	// retrieve the secret
+	obj := &corev1.Secret{}
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: switchObj.Namespace, Name: switchObj.Name}, obj); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("secret: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("secret: %w", err)
+	}
+
+	kubeCfg, ok := obj.Data[KubeconfigAgentSecretKey]
+	if !ok {
+		return nil, fmt.Errorf("secret kubeconfig entry: %w", ErrNotFound)
+	}
+
+	return kubeCfg, nil
 }

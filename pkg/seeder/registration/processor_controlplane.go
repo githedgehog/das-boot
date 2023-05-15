@@ -2,11 +2,12 @@ package registration
 
 import (
 	"context"
+	"errors"
 
 	dasbootv1alpha1 "go.githedgehog.com/dasboot/pkg/k8s/api/v1alpha1"
 	"go.githedgehog.com/dasboot/pkg/log"
+	"go.githedgehog.com/dasboot/pkg/seeder/controlplane"
 	"go.uber.org/zap"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -15,7 +16,7 @@ func (p *Processor) getRequestWithControlPlane(ctx context.Context, req *Request
 	reg, err := p.cpc.GetDeviceRegistration(ctx, req.DeviceID)
 	if err != nil {
 		// in case of not found error, we return as such which will trigger a call to addRequestWithControlPlane
-		if apierrors.IsNotFound(err) {
+		if errors.Is(err, controlplane.ErrNotFound) {
 			return nil, false
 		}
 

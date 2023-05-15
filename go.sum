@@ -323,8 +323,8 @@ github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9de
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
-go.githedgehog.com/wiring v0.0.0-20230505013616-cce3d20e7be4 h1:HSGaWHLjcoGv6xXlUuh5j5X08GHzBFahwHrS19VYDG4=
-go.githedgehog.com/wiring v0.0.0-20230505013616-cce3d20e7be4/go.mod h1:uMTn7gKH1APzDd5J9o1aaJvHGc3hlfexoAs8jwj9gs0=
+go.githedgehog.com/agent v0.0.0-20230427194402-d0be2904a099 h1:Q6OKBafVEraCp9ue3xWJVSO6rVRPckjX8dYT5l6zdP0=
+go.githedgehog.com/agent v0.0.0-20230427194402-d0be2904a099/go.mod h1:UnZRehkuUp6eg9eEIvoxRadOmQ0ZIK0TC95KHiDXhDI=
 go.githedgehog.com/wiring v0.0.0-20230509145801-ea48c1feba53 h1:RKgirSQpRJHmzTFAVWt1DzdgEfTRKXCaO6WKzIjXgIY=
 go.githedgehog.com/wiring v0.0.0-20230509145801-ea48c1feba53/go.mod h1:3iyruxEFgZChLxRZlPTA6oyQUtL/GM7mcNsmhYDq51I=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=

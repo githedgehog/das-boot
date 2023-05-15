@@ -27,6 +27,7 @@ rules:
 - apiGroups:
   - fabric.githedgehog.com
   resources:
+  - agents
   - servers
   - serverports
   - switches
@@ -38,9 +39,16 @@ rules:
 - apiGroups:
   - fabric.githedgehog.com
   resources:
+  - agents/status
   - servers/status
   - serverports/status
   - switches/status
   - switchports/status
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - secrets
   verbs:
   - get

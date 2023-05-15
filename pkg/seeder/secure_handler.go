@@ -4,14 +4,15 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path"
 
 	confighhagentprov "go.githedgehog.com/dasboot/pkg/hhagentprov/config"
 	"go.githedgehog.com/dasboot/pkg/log"
+	"go.githedgehog.com/dasboot/pkg/seeder/controlplane"
 	"go.githedgehog.com/dasboot/pkg/seeder/registration"
 	config1 "go.githedgehog.com/dasboot/pkg/stage1/config"
 	config2 "go.githedgehog.com/dasboot/pkg/stage2/config"
@@ -19,6 +20,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
+
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -351,6 +354,29 @@ func (s *seeder) getArtifact(artifact string) func(w http.ResponseWriter, r *htt
 	}
 }
 
+func (s *seeder) authzMatchDevice(r *http.Request, deviceID string) error {
+	// TODO: this is redundant, needs better treatment somehow
+	// must be a TLS request
+	if r.TLS == nil {
+		return fmt.Errorf("stage 2 artifact requires a TLS connection")
+	}
+
+	// If there were no client certificates provided (and verified),
+	// then you don't have access to this route
+	if len(r.TLS.PeerCertificates) < 1 {
+		return fmt.Errorf("device certificate not presented")
+	}
+
+	// get the UUID of the device from the cert
+	deviceCert := r.TLS.PeerCertificates[0]
+	uuid := deviceCert.Subject.CommonName
+
+	if uuid != deviceID {
+		return fmt.Errorf("device ID mismatch")
+	}
+	return nil
+}
+
 func (s *seeder) getAgentConfig(authz func(*http.Request) error) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := authz(r); err != nil {
@@ -365,24 +391,32 @@ func (s *seeder) getAgentConfig(authz func(*http.Request) error) func(w http.Res
 			return
 		}
 
-		// TODO: obviously
-		cfg := `apiVersion: fabric.githedgehog.com/v1alpha1
-kind: Agent
-metadata:
-  labels:
-    fabric.githedgehog.com/rack: rack-1
-    fabric.githedgehog.com/switch: switch-1
-  name: switch-1
-spec:
-  ports:
-    - name: Ethernet0
-      interfaces:
-        - ipAddress: 192.168.42.188/24
-          vlan: 42
-`
+		// the device ID parameter and the CN of the peer cert need to match
+		if err := s.authzMatchDevice(r, devidParam); err != nil {
+			errorWithJSON(w, r, http.StatusForbidden, "unauthorized access to artifact: %s", err)
+			return
+		}
+
+		// get agent config from control plane
+		agentCfg, err := s.cpc.GetAgentConfig(r.Context(), devidParam)
+		if err != nil {
+			if errors.Is(err, controlplane.ErrNotFound) {
+				errorWithJSON(w, r, http.StatusNotFound, "agent config not found: %s", err)
+				return
+			}
+			errorWithJSON(w, r, http.StatusInternalServerError, "fetching agent config: %s", err)
+			return
+		}
+
+		agentCfgBytes, err := yaml.Marshal(agentCfg)
+		if err != nil {
+			errorWithJSON(w, r, http.StatusInternalServerError, "yaml encoding: %s", err)
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/yaml")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(cfg)); err != nil {
+		if _, err := w.Write([]byte(agentCfgBytes)); err != nil {
 			l.Error("failed to write agent config to HTTP response", zap.Error(err))
 		}
 	}
@@ -402,45 +436,27 @@ func (s *seeder) getAgentKubeconfig(authz func(*http.Request) error) func(w http
 			return
 		}
 
-		// TODO: wow ... I can't believe I'm putthing this hack in - even temporarily this is a big sin
-		// mea culpa
-		f, err := templateKubeconfigHack()
-		if err != nil {
-			errorWithJSON(w, r, http.StatusInternalServerError, "getting kubeconfig: %s", err)
+		// the device ID parameter and the CN of the peer cert need to match
+		if err := s.authzMatchDevice(r, devidParam); err != nil {
+			errorWithJSON(w, r, http.StatusForbidden, "unauthorized access to artifact: %s", err)
 			return
 		}
+
+		// get agent kubeconfig from control plane
+		agentKubeconfigBytes, err := s.cpc.GetAgentKubeconfig(r.Context(), devidParam)
+		if err != nil {
+			if errors.Is(err, controlplane.ErrNotFound) {
+				errorWithJSON(w, r, http.StatusNotFound, "agent kubeconfig not found: %s", err)
+				return
+			}
+			errorWithJSON(w, r, http.StatusInternalServerError, "fetching agent config: %s", err)
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/yaml")
 		w.WriteHeader(http.StatusOK)
-		if _, err := io.Copy(w, f); err != nil {
-			l.Error("failed to write kubeconfig to HTTP response",
-				zap.String("request", middleware.GetReqID(r.Context())),
-				zap.Error(err),
-			)
+		if _, err := w.Write([]byte(agentKubeconfigBytes)); err != nil {
+			l.Error("failed to write agent config to HTTP response", zap.Error(err))
 		}
 	}
 }
-
-func templateKubeconfigHack() (_ io.Reader, funcErr error) {
-	defer func() {
-		if r := recover(); r != nil {
-			funcErr = fmt.Errorf("panic: %v", r)
-		}
-	}()
-	kubeconfigPath := "/etc/rancher/k3s/k3s.yaml"
-	f, err := os.Open(kubeconfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("opening kubeconfig file '%s': %w", kubeconfigPath, err)
-	}
-	defer f.Close()
-
-	buf := &bytes.Buffer{}
-	if _, err := io.Copy(buf, f); err != nil {
-		return nil, fmt.Errorf("copying kubeconfig: %w", err)
-	}
-	return buf, nil
-}
-
-/*
-cluster:
-    insecure-skip-tls-verify: true
-*/
