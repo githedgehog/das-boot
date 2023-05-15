@@ -18,7 +18,7 @@ func main() {
 	app := &cli.App{
 		Name:                 "integ-ntp",
 		Usage:                "integration test for NTP queries and updating the system clock",
-		UsageText:            "integ-ntp --server 192.168.42.11 --server 0.arch.pool.ntp.org",
+		UsageText:            "integ-ntp --server 192.168.42.1 --server 0.arch.pool.ntp.org",
 		Description:          "Should be running in ONIE, needs networking configured, and should run with an unsynchronized system clock for good comparisons after a run",
 		Version:              version.Version,
 		EnableBashCompletion: true,
@@ -26,7 +26,7 @@ func main() {
 			&cli.StringSliceFlag{
 				Name:  "server",
 				Usage: "NTP server IP addresses or hostnames or FQDNs",
-				Value: cli.NewStringSlice("192.168.42.11"),
+				Value: cli.NewStringSlice("192.168.42.1"),
 			},
 		},
 		Action: func(ctx *cli.Context) error {

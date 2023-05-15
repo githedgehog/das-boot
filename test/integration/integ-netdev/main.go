@@ -55,7 +55,7 @@ func main() {
 					&cli.StringFlag{
 						Name:  "gateway",
 						Usage: "Nexthop to use for the subnet routes",
-						Value: "192.168.42.11",
+						Value: "192.168.42.1",
 					},
 					&cli.StringFlag{
 						Name:    "device",

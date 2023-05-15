@@ -44,7 +44,7 @@ echo
 
 # create a server cert
 echo "Creating certs..."
-SANS="DNS:localhost, DNS:das-boot.hedgehog.svc.cluster.local, DNS:hedgehog-seeder-das-boot-seeder.default.svc.cluster.local, DNS:hh-seeder-das-boot-seeder.default.svc.cluster.local, IP:127.0.0.1, IP:10.43.42.42, IP:192.168.42.11"
+SANS="DNS:localhost, DNS:das-boot.hedgehog.svc.cluster.local, DNS:hedgehog-seeder-das-boot-seeder.default.svc.cluster.local, DNS:hh-seeder-das-boot-seeder.default.svc.cluster.local, IP:127.0.0.1, IP:10.43.42.42, IP:192.168.42.1"
 ${OPENSSL} ecparam -name prime256v1 -genkey -noout -out ${DEV_DIR}/server-key.pem
 ${OPENSSL} req -new -nodes -x509 -days 360 \
   -CAkey ${DEV_DIR}/server-ca-key.pem -CA ${DEV_DIR}/server-ca-cert.pem \

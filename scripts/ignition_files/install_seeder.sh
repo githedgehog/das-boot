@@ -34,7 +34,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # hack: our special one for DAS BOOT seeder
-yq -M '.clusters[0].cluster.server="https://192.168.42.11:6443"' /etc/rancher/k3s/k3s.yaml > /opt/seeder/k3s.yaml
+yq -M '.clusters[0].cluster.server="https://192.168.42.1:6443"' /etc/rancher/k3s/k3s.yaml > /opt/seeder/k3s.yaml
 kubectl create secret generic das-boot-kubeconfig --from-file=k3s.yaml=/opt/seeder/k3s.yaml
 
 # install syslog
