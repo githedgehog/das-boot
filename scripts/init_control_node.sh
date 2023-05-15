@@ -135,7 +135,8 @@ echo
 
 # now export all docker images that we want to import
 echo "Exporting all docker images for import at ignition time..."
-$DOCKER image save -o $DEV_DIR/docker-images/docker-seeder.tar ${DOCKER_REPO:=registry.local:5000/githedgehog/das-boot:latest}
+$DOCKER image save -o $DEV_DIR/docker-images/docker-seeder.tar ${DOCKER_REPO_SEEDER:=registry.local:5000/githedgehog/das-boot}:latest
+$DOCKER image save -o $DEV_DIR/docker-images/docker-registration-controller.tar ${DOCKER_REPO_REGISTRATION_CONTROLLER:=registry.local:5000/githedgehog/das-boot-registration-controller}:latest
 echo
 
 # now exporting all seeder secrets

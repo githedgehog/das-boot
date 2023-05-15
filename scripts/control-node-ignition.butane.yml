@@ -203,6 +203,10 @@ storage:
       mode: 0644
       contents:
         source: http://10.0.2.2:8889/docker-seeder.tar
+    - path: /opt/docker-images/docker-registration-controller.tar
+      mode: 0644
+      contents:
+        source: http://10.0.2.2:8889/docker-registration-controller.tar
     - path: /opt/docker-images/docker-syslog.tar
       mode: 0644
       contents:
