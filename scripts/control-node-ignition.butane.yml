@@ -146,6 +146,9 @@ storage:
 
           [Network]
           Bridge=bridge0
+
+          [Bridge]
+          Isolated=yes
     - path: /etc/systemd/network/01-control2.netdev 
       mode: 0644
       contents:
@@ -166,6 +169,9 @@ storage:
 
           [Network]
           Bridge=bridge0
+
+          [Bridge]
+          Isolated=yes
     - path: /etc/systemd/network/03-bridge.netdev 
       mode: 0644
       contents:

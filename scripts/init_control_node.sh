@@ -2,7 +2,7 @@
 set -e
 
 ### START SETTINGS #########
-FLATCAR_VERSION=3374.2.4
+FLATCAR_VERSION=3510.2.1
 ### END SETTINGS ###########
 
 # path where this script resides
@@ -43,14 +43,14 @@ if [ -f ${IMAGE_DIR}/flatcar_efi_code.fd ]; then
     echo "Delete this file if you want to download it again. Skipping..."
 else
     echo "Downloading Flatcar EFI code flash drive version ${FLATCAR_VERSION}..."
-    $WGET -O ${IMAGE_DIR}/flatcar_efi_code.fd https://stable.release.flatcar-linux.net/amd64-usr/3374.2.4/flatcar_production_qemu_uefi_efi_code.fd
+    $WGET -O ${IMAGE_DIR}/flatcar_efi_code.fd https://stable.release.flatcar-linux.net/amd64-usr/${FLATCAR_VERSION}/flatcar_production_qemu_uefi_efi_code.fd
 fi
 if [ -f ${IMAGE_DIR}/flatcar_efi_vars.fd ]; then
     echo "Flatcar EFI variables flash drive already downloaded: ${IMAGE_DIR}/flatcar_efi_vars.fd"
     echo "Delete this file if you want to download it again. Skipping..."
 else
     echo "Downloading Flatcar EFI variables flash drive version ${FLATCAR_VERSION}..."
-    $WGET -O ${IMAGE_DIR}/flatcar_efi_vars.fd https://stable.release.flatcar-linux.net/amd64-usr/3374.2.4/flatcar_production_qemu_uefi_efi_vars.fd
+    $WGET -O ${IMAGE_DIR}/flatcar_efi_vars.fd https://stable.release.flatcar-linux.net/amd64-usr/${FLATCAR_VERSION}/flatcar_production_qemu_uefi_efi_vars.fd
 fi
 echo
 
