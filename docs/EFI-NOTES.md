@@ -23,9 +23,15 @@ The attribute can be changed with `chattr -i`.
 Run the following commands to create a new variable:
 
 ```shell
+# ONIEDisableDHCPv4 variable
 touch /sys/firmware/efi/efivars/ONIEDisableDHCPv4-d7bf196e-80c4-44ca-9cd2-26fb6a18101e
 chattr -i /sys/firmware/efi/efivars/ONIEDisableDHCPv4-d7bf196e-80c4-44ca-9cd2-26fb6a18101e
 printf "\x07\x00\x00\x00\x01" > /sys/firmware/efi/efivars/ONIEDisableDHCPv4-d7bf196e-80c4-44ca-9cd2-26fb6a18101e
+
+# ONIEDisableIPv4LL variable
+touch /sys/firmware/efi/efivars/ONIEDisableIPv4LL-d7bf196e-80c4-44ca-9cd2-26fb6a18101e
+chattr -i /sys/firmware/efi/efivars/ONIEDisableIPv4LL-d7bf196e-80c4-44ca-9cd2-26fb6a18101e
+printf "\x07\x00\x00\x00\x01" > /sys/firmware/efi/efivars/ONIEDisableIPv4LL-d7bf196e-80c4-44ca-9cd2-26fb6a18101e
 ```
 
 The `0x07` byte will set the following attributes for the variable:
