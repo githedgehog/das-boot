@@ -56,6 +56,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 UUIDGEN=$(which uuidgen)
 WGET=$(which wget)
 UNXZ=$(which unxz)
+ORAS=$(which oras)
 SWTPM_SETUP=$(which swtpm_setup)
 # It's our tool. Get it here: https://github.com/githedgehog/onie-qcow2-eeprom-edit
 ONIE_EEPROM_EDIT=$(which onie-qcow2-eeprom-edit)
@@ -71,42 +72,18 @@ echo
 # TODO: the links below are from my personal ONIE builds which I Uploaded to Google drive.
 # Once we build HONIE, we should replace these with dedicated public release links.
 echo "Downloading OS and UEFI images..."
-if [ -f ${IMAGE_DIR}/onie-kvm_x86_64.qcow2 ]; then
-    echo "ONIE kvm_x86_64 image already downloaded: ${IMAGE_DIR}/onie-kvm_x86_64.qcow2.xz"
-    echo "Delete this file if you want to download it again. Skipping..."
+if [ -f ${IMAGE_DIR}/onie-kvm_x86_64.qcow2 -a -f ${IMAGE_DIR}/onie_efi_vars.fd -a -f ${IMAGE_DIR}/onie_efi_code.fd ] ; then
+    echo "ONIE kvm_x86_64 image, EFI code and variable flash drives already downloaded:"
+    echo "- ${IMAGE_DIR}/onie-kvm_x86_64.qcow2"
+    echo "- ${IMAGE_DIR}/onie_efi_vars.fd"
+    echo "- ${IMAGE_DIR}/onie_efi_code.fd"
+    echo "Delete these files if you want to download it again. Skipping..."
 else
-    echo "Downloading ONIE kvm_x86_64 image..."
-    # NOTE: google drive links like this cannot be downloaded directly, but need some work. There are answers for this on stackoverflow
-    # If the file gets too large, then one needs to use a different URL.
-    # Source: https://medium.com/@acpanjan/download-google-drive-files-using-wget-3c2c025a8b99
-    # https://drive.google.com/file/d/1s5OdLdAackVQP8t2qOQ6X6roCvU0PMdA/view?usp=share_link
-    $WGET -O ${IMAGE_DIR}/onie-kvm_x86_64.qcow2.xz "https://docs.google.com/uc?export=download&id=1s5OdLdAackVQP8t2qOQ6X6roCvU0PMdA"
-    echo
+    echo "Downloading ONIE kvm_x86_64 image, EFI code and variable flash drives..."
+    ( cd ${IMAGE_DIR} && $ORAS pull ghcr.io/githedgehog/honie:dhcp-removed )
     echo "Extracting ONIE kvm_x86_64 image now, this may take some time... (unxz ${IMAGE_DIR}/onie-kvm_x86_64.qcow2.xz)"
     $UNXZ ${IMAGE_DIR}/onie-kvm_x86_64.qcow2.xz
 fi
-if [ -f ${IMAGE_DIR}/onie_efi_code.fd ]; then
-    echo "ONIE EFI code flash drive already downloaded: ${IMAGE_DIR}/onie_efi_code.fd"
-    echo "Delete this file if you want to download it again. Skipping..."
-else
-    echo "Downloading ONIE EFI code flash drive..."
-    # Secure Boot version
-    #$WGET -O ${IMAGE_DIR}/onie_efi_code.fd "https://docs.google.com/uc?export=download&id=1eWs37uWarVhvclv3XmjHfo9Eux8HMa8E"
-    # Secure Boot disabled in this one
-    $WGET -O ${IMAGE_DIR}/onie_efi_code.fd "https://docs.google.com/uc?export=download&id=1OM8NtqH2MHqjaOkPlbfK6QLly71ld3Xu"
-fi
-if [ -f ${IMAGE_DIR}/onie_efi_vars.fd ]; then
-    echo "Flatcar ONIE EFI variables flash drive already downloaded: ${IMAGE_DIR}/onie_efi_vars.fd"
-    echo "Delete this file if you want to download it again. Skipping..."
-else
-    echo "Downloading ONIE EFI variables flash drive..."
-    # Secure Boot version
-    #$WGET -O ${IMAGE_DIR}/onie_efi_vars.fd "https://docs.google.com/uc?export=download&id=1Jc7Twu5JY7RIkOCl5hbxrj9AakotAC5c"
-    # Secure Boot disabled in this one
-    # https://drive.google.com/file/d/1BuJeeaaXg4maNi5kFLQb-0uwR58_ljnx/view?usp=sharing
-    $WGET -O ${IMAGE_DIR}/onie_efi_vars.fd "https://docs.google.com/uc?export=download&id=1BuJeeaaXg4maNi5kFLQb-0uwR58_ljnx"
-fi
-echo
 
 # let's make a dev folder where we generate everything for the switch
 echo -n "Making development folder for switch $SWITCH_NAME: "
