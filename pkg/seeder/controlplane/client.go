@@ -347,6 +347,10 @@ func (c *KubernetesControlPlaneClient) GetAgentConfig(ctx context.Context, devic
 		}
 		return nil, fmt.Errorf("agent: %w", err)
 	}
+
+	obj.APIVersion = agentv1alpha1.GroupVersion.Identifier()
+	obj.Kind = "Agent"
+
 	return obj, nil
 }
 
