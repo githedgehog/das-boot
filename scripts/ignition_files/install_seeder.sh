@@ -55,7 +55,7 @@ if [ $? -ne 0 ]; then
     exit 4
 fi
 
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.3.0 hh-wiring-crds oci://registry.local:5000/githedgehog/helm-charts/wiring-crd
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.4.0 hh-wiring-crds oci://registry.local:5000/githedgehog/helm-charts/wiring-crd
 if [ $? -ne 0 ]; then
     exit 5
 fi
