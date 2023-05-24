@@ -136,7 +136,7 @@ done)
   vendor_extension: null
 EOF
 echo "ONIE EEPROM: Initializing ONIE EEPROM now from values at ${DEV_DIR}/onie-eeprom.yaml"
-$ONIE_EEPROM_EDIT --log-level=debug write --force --input ${DEV_DIR}/onie-eeprom.yaml ${DEV_DIR}/os.img
+sudo $ONIE_EEPROM_EDIT --log-level=debug write --force --input ${DEV_DIR}/onie-eeprom.yaml ${DEV_DIR}/os.img
 echo
 
 # initialize software TPM
