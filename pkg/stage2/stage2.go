@@ -199,6 +199,7 @@ func runNosInstall(ctx context.Context, hc *http.Client, cfg *configstage.Stage2
 	l.Info("Executing NOS installer now...")
 	subctx, cancel := context.WithCancel(ctx)
 	nosCmd := exec.CommandContext(ctx, nosPath)
+	nosCmd.Env = append(nosCmd.Environ(), "ZTP=n")
 	nosCmd.Stdin = os.Stdin
 	nosCmd.Stderr = log.NewSinkWithLogger(subctx, l, zapcore.InfoLevel, zap.String("app", "nos-install"), zap.String("stream", "stderr"))
 	nosCmd.Stdout = log.NewSinkWithLogger(subctx, l, zapcore.InfoLevel, zap.String("app", "nos-install"), zap.String("stream", "stdout"))
