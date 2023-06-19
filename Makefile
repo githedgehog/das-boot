@@ -351,6 +351,10 @@ dev-run-seeder: dev-init-seeder seeder ## Runs the seeder locally
 	$(BUILD_ARTIFACTS_DIR)/seeder --config $(DEV_DIR)/seeder/seeder.yaml
 
 .PHONY: init-control-node
+init-control-files: ## Provision and install control node config
+	$(MKFILE_DIR)/scripts/init_control_files.sh
+
+.PHONY: init-control-vm
 init-control-node: ## Prepares a QEMU VM to run the control node
 	$(MKFILE_DIR)/scripts/init_control_node.sh
 
@@ -378,7 +382,7 @@ access-control-node-kubeconfig: ## Displays the kubeconfig to use to be able to 
 
 .PHONY: access-control-node-ssh
 access-control-node-ssh: ## SSH into control node VM
-	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1
+	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $(DEV_DIR)/control-node-1/core-ssh-key -p 22000 core@127.0.0.1
 
 .PHONY: access-control-node-serial
 access-control-node-serial: ## Access the serial console of the control node VM
