@@ -302,9 +302,6 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 		stage1Path, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
 		if err != nil {
 			l.Error("System network configuration failed for netdev", zap.String("netdev", netdev), zap.Reflect("ipa", ipa), zap.Error(err))
-			if err := net.DeleteVLANDevice(vlanName); err != nil {
-				l.Warn("Deleting VLAN device failed", zap.String("vlanDevice", vlanName), zap.Error(err))
-			}
 			continue
 		}
 		l.Info("System network configured", zap.String("netdev", netdev), zap.Reflect("ipa", ipa))
@@ -320,9 +317,6 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 			stage1Path, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
 			if err != nil {
 				l.Error("System network configuration failed for netdev", zap.String("netdev", netdev), zap.Reflect("ipa", ipa), zap.Error(err))
-				if err := net.DeleteVLANDevice(vlanName); err != nil {
-					l.Warn("Deleting VLAN device failed", zap.String("vlanDevice", vlanName), zap.Error(err))
-				}
 				continue
 			}
 			l.Info("System network configured", zap.String("netdev", netdev), zap.Reflect("ipa", ipa))
@@ -360,7 +354,8 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 }
 
 func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *stage.LogSettings, httpClient *http.Client, ipamResp *ipam.Response, netdev string, ipa ipam.IPAddress) (funcRet string, funcErr error) {
-	// first things first: configure network interface
+	// first things first: configure network interface, and we need to do some conversions first
+	// if these fail, then there is no need to proceed with anything else
 	ipaddrnets, err := net.StringsToIPNets(ipa.IPAddresses)
 	if err != nil {
 		l.Error("Conversion of IP addresses to IPNets failed", zap.String("netdev", netdev), zap.Reflect("ipAddresses", ipa.IPAddresses))
@@ -385,20 +380,65 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 			})
 		}
 	}
-	if err := net.AddVLANDeviceWithIP(netdev, ipa.VLAN, vlanName, ipaddrnets, routes); err != nil {
-		l.Error("VLAN interface creation and configuration failed",
+
+	// if anything goes wrong below, we are going to try to delete the VLAN interface and revert any network configuration
+	// we are doing this already before we create the devices because we don't really know what failed, so it's essentially safe
+	// to just try and delete / revert everything we are going to try to delete
+	defer func() {
+		if funcErr != nil {
+			if ipa.VLAN > 0 {
+				if err := net.DeleteVLANDevice(vlanName, ipaddrnets, routes); err != nil {
+					l.Warn("Deleting VLAN device or reverting its configuration failed", zap.String("vlanDevice", vlanName), zap.Error(err))
+				} else {
+					l.Info("Successfully deleted VLAN device and reverted its configuration", zap.String("vlanDevice", vlanName))
+				}
+			} else {
+				if err := net.UnconfigureDeviceWithIP(netdev, ipaddrnets, routes); err != nil {
+					l.Warn("Reverting network device configuration failed", zap.String("netdev", netdev), zap.Error(err))
+				} else {
+					l.Info("Successfully reverted network device configuration", zap.String("netdev", netdev))
+				}
+			}
+		}
+	}()
+
+	// VLAN configuration is being considered optional when its value is `0`
+	// otherwise we configure the IP and routes directly on netdev
+	if ipa.VLAN > 0 {
+		if err := net.AddVLANDeviceWithIP(netdev, ipa.VLAN, vlanName, ipaddrnets, routes); err != nil {
+			l.Error("VLAN interface creation and configuration failed",
+				zap.String("netdev", netdev),
+				zap.String("vlanInterface", vlanName),
+				zap.Reflect("ipa", ipa),
+				zap.Reflect("ipaddrnets", ipaddrnets),
+				zap.Reflect("routes", routes),
+				zap.Error(err),
+			)
+			return "", fmt.Errorf("add vlan device with IP: %w", err)
+		}
+		l.Info("VLAN interface successfully created and configured",
 			zap.String("netdev", netdev),
 			zap.String("vlanInterface", vlanName),
 			zap.Reflect("ipa", ipa),
-			zap.Error(err),
+			zap.Reflect("ipaddrnets", ipaddrnets),
+			zap.Reflect("routes", routes),
 		)
-		return "", fmt.Errorf("add vlan device with IP: %w", err)
+	} else {
+		if err := net.ConfigureDeviceWithIP(netdev, ipaddrnets, routes); err != nil {
+			l.Error("Configuring network interface failed",
+				zap.String("netdev", netdev),
+				zap.Reflect("ipaddrnets", ipaddrnets),
+				zap.Reflect("routes", routes),
+				zap.Error(err),
+			)
+			return "", fmt.Errorf("configure device with IP: %w", err)
+		}
+		l.Info("Network interface successfully configured",
+			zap.String("netdev", netdev),
+			zap.Reflect("ipaddrnets", ipaddrnets),
+			zap.Reflect("routes", routes),
+		)
 	}
-	l.Info("VLAN interface successfully created and configured",
-		zap.String("netdev", netdev),
-		zap.String("vlanInterface", vlanName),
-		zap.Reflect("ipa", ipa),
-	)
 
 	// configure the syslog logger so that we're not blind anymore
 	// this gets a special context so that if this function failed
