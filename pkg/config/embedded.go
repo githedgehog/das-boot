@@ -77,7 +77,7 @@ func (e *ValidationError) Unwrap() error {
 }
 
 func (e *ValidationError) Is(target error) bool {
-	_, ok := target.(*ValidationError) //nolint: errorlint
+	_, ok := target.(*ValidationError)
 	return ok
 }
 
@@ -93,7 +93,7 @@ func (e *UnsupportedConfigVersionError) Error() string {
 }
 
 func (e *UnsupportedConfigVersionError) Is(target error) bool {
-	_, ok := target.(*UnsupportedConfigVersionError) //nolint: errorlint
+	_, ok := target.(*UnsupportedConfigVersionError)
 	return ok
 }
 
