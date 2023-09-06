@@ -60,7 +60,7 @@ func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 var stage0Fallback = []byte(`#!/bin/sh
 
 source /etc/machine.conf
-echo "FATAL: Hedgehog SONiC is not supported on this platform ($onie_platform)" 1>&2
+echo "FATAL: If you have not seen any previous installers failing, then this means that Hedgehog SONiC is not supported on this platform ($onie_platform)" 1>&2
 
 exit 1
 `)
