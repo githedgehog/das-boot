@@ -109,3 +109,51 @@ jobs:
           # unfortunately the package cache is creating lots of errors/warnings right now
           # for details: https://github.com/golangci/golangci-lint-action/issues/677
           skip-pkg-cache: true
+
+  publish:
+    name: Publish to GitHub Packages
+    if: startsWith(github.event.ref, 'refs/tags/') && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs:
+      - build
+      - test
+      - lint
+    env:
+      GOPRIVATE: go.githedgehog.com
+      GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: stable
+          cache: true
+
+      - run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+
+      - name: install dependencies
+        run: make install-deps
+
+      - name: Run code generators
+        run: make generate
+
+      - name: run builds
+        run: make build
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to GitHub Packages
+        # temp
+        run:
+          make docker-push DOCKER_REPO=ghcr.io/githedgehog/das-boot DOCKER_VERSION=$(git describe --tags --dirty --always)
+          make helm-push HELM_CHART_REPO=ghcr.io/githedgehog/das-boot/charts HELM_CHART_VERSION=$(git describe --tags --dirty --always)

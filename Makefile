@@ -1,9 +1,15 @@
-VERSION ?= $(shell git describe --tags --long --always)
-# increment this in a commit or PR when you make changes to the helm chart
+VERSION ?= $(shell git describe --tags --dirty --always)
+
+# using latest for now to keep compatible with other scripts
+DOCKER_VERSION ?= latest
+
+# using 0.1.0 for now to keep compatible with other scripts
 HELM_CHART_VERSION ?= 0.1.0
 
-DOCKER_REPO_SEEDER ?= registry.local:5000/githedgehog/das-boot-seeder
-DOCKER_REPO_REGISTRATION_CONTROLLER ?= registry.local:5000/githedgehog/das-boot-registration-controller
+DOCKER_REPO ?= registry.local:5000/githedgehog
+DOCKER_REPO_SEEDER ?= $(DOCKER_REPO)/das-boot-seeder
+DOCKER_REPO_REGISTRATION_CONTROLLER ?= $(DOCKER_REPO)/das-boot-registration-controller
+
 HELM_CHART_REPO ?= registry.local:5000/githedgehog/helm-charts
 
 MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 's#/$$##')
@@ -68,7 +74,7 @@ $(BUILD_ARTIFACTS_DIR)/hhdevid-arm64: $(SRC_COMMON) $(SRC_HHDEVID)
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BUILD_ARTIFACTS_DIR)/hhdevid-arm64 -ldflags="-w -s -X 'go.githedgehog.com/dasboot/pkg/version.Version=$(VERSION)'" ./cmd/hhdevid
 
 $(BUILD_ARTIFACTS_DIR)/hhdevid-arm: $(SRC_COMMON) $(SRC_HHDEVID)
-# breaks here? Why? 
+# breaks here? Why?
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o $(BUILD_ARTIFACTS_DIR)/hhdevid-arm -ldflags="-w -s -X 'go.githedgehog.com/dasboot/pkg/version.Version=$(VERSION)'" ./cmd/hhdevid
 
 .PHONY: hhdevid-clean
@@ -240,33 +246,33 @@ docker-push: docker-seeder-push docker-registration-controller-push ## Builds AN
 
 .PHONY: docker-seeder
 docker-seeder: seeder ## Builds a docker images for the seeder
-	cd $(BUILD_DOCKER_SEEDER_DIR) && docker build -t $(DOCKER_REPO_SEEDER):latest .
+	cd $(BUILD_DOCKER_SEEDER_DIR) && docker build -t $(DOCKER_REPO_SEEDER):$(DOCKER_VERSION) .
 
 .PHONY: docker-seeder-clean
 docker-seeder-clean: ## Removes the docker image from the local docker images
-	docker rmi $(DOCKER_REPO_SEEDER):latest || true
+	docker rmi $(DOCKER_REPO_SEEDER):$(DOCKER_VERSION) || true
 
 .PHONY: docker-seeder-push
 docker-seeder-push: docker ## Builds AND pushes a docker image for the seeder
 	@echo
 	@[ "$(DOCKER_REPO_SEEDER)" = "registry.local:5000/githedgehog/das-boot-seeder" ] && $(MKFILE_DIR)/scripts/run_registry.sh || echo "Not trying to run local registry, different docker repository..."
 	@echo
-	docker push $(DOCKER_REPO_SEEDER):latest
+	docker push $(DOCKER_REPO_SEEDER):$(DOCKER_VERSION)
 
 .PHONY: docker-registration-controller
 docker-registration-controller: registration-controller ## Builds a docker images for the registration-controller
-	cd $(BUILD_DOCKER_REGISTRATION_CONTROLLER_DIR) && docker build -t $(DOCKER_REPO_REGISTRATION_CONTROLLER):latest .
+	cd $(BUILD_DOCKER_REGISTRATION_CONTROLLER_DIR) && docker build -t $(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION) .
 
 .PHONY: docker-registration-controller-clean
 docker-registration-controller-clean: ## Removes the docker image from the local docker images
-	docker rmi $(DOCKER_REPO_REGISTRATION_CONTROLLER):latest || true
+	docker rmi $(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION) || true
 
 .PHONY: docker-registration-controller-push
 docker-registration-controller-push: docker ## Builds AND pushes a docker image for the registration-controller
 	@echo
 	@[ "$(DOCKER_REPO_REGISTRATION_CONTROLLER)" = "registry.local:5000/githedgehog/das-boot-registration-controller" ] && $(MKFILE_DIR)/scripts/run_registry.sh || echo "Not trying to run local registry, different docker repository..."
 	@echo
-	docker push $(DOCKER_REPO_REGISTRATION_CONTROLLER):latest
+	docker push $(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION)
 
 .PHONY: helm
 helm: ## Builds a helm chart for the seeder
