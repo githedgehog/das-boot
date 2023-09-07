@@ -65,6 +65,11 @@ settings:
     - ntp.default.svc.cluster.local
   syslog_servers:
     - syslog.default.svc.cluster.local
+  routes:
+    - gateway: 192.168.42.1
+      destinations:
+        - 10.42.0.0/16
+        - 10.43.0.0/16
   # NOTE: this should *NEVER* be used in a production deployment
   # This essentially disables device registration and approval
   # and will simply always hand out a device certificate

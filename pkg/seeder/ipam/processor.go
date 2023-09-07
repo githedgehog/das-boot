@@ -18,6 +18,7 @@ type Settings struct {
 	SyslogServers []string
 	NTPServers    []string
 	Stage1URL     string
+	Routes        []*Route
 }
 
 var (
@@ -39,7 +40,7 @@ func emptyValueError(str string) error {
 }
 
 // ProcessRequest processes an IPAM request and delivers back a response object.
-func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Client, req *Request, adjacentSwitch *wiring1alpha2.Switch, adjacentPort *wiring1alpha2.SwitchPort) (*Response, error) {
+func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Client, req *Request, adjacentSwitch *wiring1alpha2.Switch, adjacentConnection *wiring1alpha2.Connection) (*Response, error) {
 	// ensure arch is supported
 	var arch string
 	switch req.Arch {
@@ -63,16 +64,16 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 	// if the adjacent switch is filled, then we don't need to lookup the switch
 	// otherwise we'll look it up by location first
 	var err error
-	var ports *wiring1alpha2.SwitchPortList
+	var conns []wiring1alpha2.Connection
 	if adjacentSwitch != nil {
-		ports, err = cpc.GetSwitchPorts(ctx, adjacentSwitch.Name)
+		conns, err = cpc.GetSwitchConnections(ctx, adjacentSwitch.Name)
 	} else {
 		var sw *wiring1alpha2.Switch
 		sw, err = cpc.GetSwitchByLocationUUID(ctx, req.LocationUUID)
 		if err != nil {
 			return nil, fmt.Errorf("finding switch: %w", err)
 		}
-		ports, err = cpc.GetSwitchPorts(ctx, sw.Name)
+		conns, err = cpc.GetSwitchConnections(ctx, sw.Name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("finding switch ports: %w", err)
@@ -84,48 +85,38 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 	}
 
 	ips := make(IPAddresses, len(req.Interfaces))
-	for _, port := range ports.Items {
-		// only return configuration if the port was in the requests
-		if _, ok := reqIfs[port.Spec.ONIE.PortName]; !ok {
-			log.L().Info("ipam: skipping port for response as it was not in request", zap.String("port", port.Name), zap.String("oniePortName", port.Spec.ONIE.PortName))
-			continue
-		}
-
-		// skip this port if it does not have ONIE configurations
-		if port.Spec.ONIE.PortName == "" || port.Spec.ONIE.BootstrapIP == "" {
-			log.L().Info("ipam: skipping port for response as it is missing ONIE configuration", zap.String("port", port.Name), zap.Reflect("onie", port.Spec.ONIE))
-			continue
-		}
-
-		// build the response for this port
-		var routes []*Route
-		if len(port.Spec.ONIE.Routes) > 0 {
-			routes = make([]*Route, 0, len(port.Spec.ONIE.Routes))
-			for _, onieRoute := range port.Spec.ONIE.Routes {
-				route := &Route{
-					Gateway: onieRoute.Gateway,
-				}
-				route.Destinations = make([]string, len(onieRoute.Destinations))
-				copy(route.Destinations, onieRoute.Destinations)
-				routes = append(routes, route)
+	for _, conn := range conns {
+		if conn.Spec.Management != nil {
+			// only return configuration if the port was in the requests
+			if _, ok := reqIfs[conn.Spec.Management.Link.Switch.ONIEPortName]; !ok {
+				log.L().Info("ipam: skipping connection for response as it was not in request", zap.String("conn", conn.Name), zap.String("oniePortName", conn.Spec.Management.Link.Switch.ONIEPortName))
+				continue
 			}
-		}
-		netif := port.Spec.ONIE.PortName
-		ipa := IPAddress{
-			IPAddresses: []string{port.Spec.ONIE.BootstrapIP},
-			VLAN:        port.Spec.ONIE.VLAN,
-			Routes:      routes,
-		}
 
-		// if the adjacent port was passed in, then we'll let the
-		// client know that this is the preferred connection to
-		// try first before any other
-		if adjacentPort != nil && port.Name == adjacentPort.Name {
-			ipa.Preferred = true
-		}
+			// skip this port if it does not have ONIE configurations
+			if conn.Spec.Management.Link.Switch.ONIEPortName == "" || conn.Spec.Management.Link.Switch.IP == "" {
+				log.L().Info("ipam: skipping port for response as it is missing ONIE configuration", zap.String("conn", conn.Name))
+				continue
+			}
 
-		// last but not least, add it to the returned addresses
-		ips[netif] = ipa
+			// build the response for this port
+			netif := conn.Spec.Management.Link.Switch.ONIEPortName
+			ipa := IPAddress{
+				IPAddresses: []string{conn.Spec.Management.Link.Switch.IP},
+				VLAN:        conn.Spec.Management.Link.Switch.VLAN,
+				Routes:      settings.Routes,
+			}
+
+			// if the adjacent port was passed in, then we'll let the
+			// client know that this is the preferred connection to
+			// try first before any other
+			if adjacentConnection != nil && conn.Name == adjacentConnection.Name {
+				ipa.Preferred = true
+			}
+
+			// last but not least, add it to the returned addresses
+			ips[netif] = ipa
+		}
 	}
 
 	// see if we built responses for all requested ports

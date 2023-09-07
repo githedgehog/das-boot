@@ -20,17 +20,15 @@ import (
 type Client interface {
 	DeviceHostname() string
 	DeviceNamespace() string
-
-	GetSwitchPorts(ctx context.Context, switchName string) (*wiring1alpha2.SwitchPortList, error)
-	GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*wiring1alpha2.Switch, *wiring1alpha2.SwitchPort, error)
-
+	GetInterfacesForNeighbours(ctx context.Context) (map[string]string, map[string]string, error)
+	GetSwitchConnections(ctx context.Context, switchName string) ([]wiring1alpha2.Connection, error)
+	GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*wiring1alpha2.Switch, *wiring1alpha2.Connection, error)
 	GetSwitchByLocationUUID(ctx context.Context, uuid string) (*wiring1alpha2.Switch, error)
 	GetDeviceRegistration(ctx context.Context, deviceID string) (*dasbootv1alpha1.DeviceRegistration, error)
 	CreateDeviceRegistration(ctx context.Context, reg *dasbootv1alpha1.DeviceRegistration) (*dasbootv1alpha1.DeviceRegistration, error)
 	GetSwitchByDeviceID(ctx context.Context, deviceID string) (*wiring1alpha2.Switch, error)
 	GetAgentConfig(ctx context.Context, deviceID string) (*agentv1alpha2.Agent, error)
 	GetAgentKubeconfig(ctx context.Context, deviceID string) ([]byte, error)
-	// GetInterfacesForNeighbours(ctx context.Context) (map[string]string, map[string]string, error)
 }
 
 const (
@@ -103,99 +101,92 @@ func (c *KubernetesControlPlaneClient) DeviceNamespace() string {
 	return c.deviceNamespace
 }
 
-// func (c *KubernetesControlPlaneClient) GetInterfacesForNeighbours(ctx context.Context) (map[string]string, map[string]string, error) {
-// 	switch c.deviceType { //nolint: exhaustive
-// 	case config.DeviceTypeServer:
-// 		return c.getInterfacesForServerNeighbours(ctx)
-// 	case config.DeviceTypeSwitch:
-// 		return c.getInterfacesForSwitchNeighbours(ctx)
-// 	default:
-// 		return nil, nil, ErrUnsupportedDeviceType
-// 	}
-// }
+func (c *KubernetesControlPlaneClient) GetInterfacesForNeighbours(ctx context.Context) (map[string]string, map[string]string, error) {
+	switch c.deviceType { //nolint: exhaustive
+	case config.DeviceTypeServer:
+		return c.getInterfacesForServerNeighbours(ctx)
+	case config.DeviceTypeSwitch:
+		return c.getInterfacesForSwitchNeighbours(ctx)
+	default:
+		return nil, nil, ErrUnsupportedDeviceType
+	}
+}
 
-// func (c *KubernetesControlPlaneClient) getInterfacesForServerNeighbours(ctx context.Context) (map[string]string, map[string]string, error) {
-// 	obj := &wiring1alpha2.Server{}
-// 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: c.deviceHostname}, obj); err != nil {
-// 		return nil, nil, err
-// 	}
-// 	labels := client.MatchingLabels{ServerLabelKey: c.deviceHostname}
-// 	if rack, ok := obj.GetLabels()[RackLabelKey]; ok {
-// 		labels[RackLabelKey] = rack
-// 		c.deviceRack = rack
-// 	}
+func (c *KubernetesControlPlaneClient) getInterfacesForServerNeighbours(ctx context.Context) (map[string]string, map[string]string, error) {
+	obj := &wiring1alpha2.Server{}
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: c.deviceHostname}, obj); err != nil {
+		return nil, nil, err
+	}
+	labels := client.MatchingLabels{"server.connection.fabric.githedgehog.com/" + c.deviceHostname: "true"}
 
-// 	// retrieve all of our ports that belong to us
-// 	portList := &wiring1alpha2.ServerPortList{}
-// 	if err := c.client.List(ctx, portList, labels); err != nil {
-// 		return nil, nil, err
-// 	}
-// 	if len(portList.Items) == 0 {
-// 		return nil, nil, fmt.Errorf("no ports configured for server")
-// 	}
-// 	ret1 := make(map[string]string, len(portList.Items))
-// 	ret2 := make(map[string]string, len(portList.Items))
-// 	for _, port := range portList.Items {
-// 		if port.Spec.Unbundled != nil && port.Spec.Unbundled.Neighbor.Switch != nil {
-// 			// we expect a switch on this port as a neighbour, so we want to listen on this port
-// 			nic := port.Spec.Unbundled.NicName
-// 			addrs, err := seedernet.GetInterfaceAddresses(nic)
-// 			if err != nil {
-// 				return nil, nil, err
-// 			}
-// 			for _, addr := range addrs {
-// 				if addr.Is6() && addr.IsLinkLocalUnicast() {
-// 					ret1[nic] = addr.String()
-// 					ret2[addr.String()] = addr.String()
-// 				}
-// 			}
-// 		}
-// 	}
-// 	return ret1, ret2, nil
-// }
+	// retrieve all of our connections that belong to us
+	connList := &wiring1alpha2.ConnectionList{}
+	if err := c.client.List(ctx, connList, labels); err != nil {
+		return nil, nil, err
+	}
+	if len(connList.Items) == 0 {
+		return nil, nil, fmt.Errorf("no connections configured for server '%s'", c.deviceHostname)
+	}
+	ret1 := make(map[string]string, len(connList.Items))
+	ret2 := make(map[string]string, len(connList.Items))
+	for _, conn := range connList.Items {
+		if conn.Spec.Management != nil {
+			// we expect a switch on this port as a neighbour, so we want to listen on this port
+			nic := conn.Spec.Management.Link.Server.LocalPortName()
+			addrs, err := seedernet.GetInterfaceAddresses(nic)
+			if err != nil {
+				return nil, nil, err
+			}
+			for _, addr := range addrs {
+				if addr.Is6() && addr.IsLinkLocalUnicast() {
+					ret1[nic] = addr.String()
+					ret2[addr.String()] = nic
+				}
+			}
+		}
+	}
+	return ret1, ret2, nil
+}
 
-// func (c *KubernetesControlPlaneClient) getInterfacesForSwitchNeighbours(ctx context.Context) (map[string]string, map[string]string, error) {
-// 	obj := &wiring1alpha2.Switch{}
-// 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: c.deviceHostname}, obj); err != nil {
-// 		return nil, nil, err
-// 	}
-// 	labels := client.MatchingLabels{SwitchLabelKey: c.deviceHostname}
-// 	if rack, ok := obj.GetLabels()[RackLabelKey]; ok {
-// 		labels[RackLabelKey] = rack
-// 		c.deviceRack = rack
-// 	}
+// TODO: this actually needs rework as this is meant for a switch-switch neighbour case, but the connection type does not exist yet
+func (c *KubernetesControlPlaneClient) getInterfacesForSwitchNeighbours(ctx context.Context) (map[string]string, map[string]string, error) {
+	obj := &wiring1alpha2.Switch{}
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: c.deviceHostname}, obj); err != nil {
+		return nil, nil, err
+	}
+	labels := client.MatchingLabels{"switch.connection.fabric.githedgehog.com/" + c.deviceHostname: "true"}
 
-// 	// retrieve all of our ports that belong to us
-// 	portList := &wiring1alpha2.SwitchPortList{}
-// 	if err := c.client.List(ctx, portList, labels); err != nil {
-// 		return nil, nil, err
-// 	}
-// 	if len(portList.Items) == 0 {
-// 		return nil, nil, fmt.Errorf("no ports configured for server")
-// 	}
-// 	ret1 := make(map[string]string, len(portList.Items))
-// 	ret2 := make(map[string]string, len(portList.Items))
-// 	for _, port := range portList.Items {
-// 		if port.Spec.Neighbor.Switch != nil {
-// 			// we expect a switch on this port as a neighbour, so we want to listen on this port
-// 			nic := port.Spec.NOSPortName
-// 			addrs, err := seedernet.GetInterfaceAddresses(nic)
-// 			if err != nil {
-// 				return nil, nil, err
-// 			}
-// 			for _, addr := range addrs {
-// 				if addr.Is6() && addr.IsLinkLocalUnicast() {
-// 					ret1[nic] = addr.String()
-// 					ret2[addr.String()] = addr.String()
-// 				}
-// 			}
-// 		}
-// 	}
-// 	return ret1, ret2, nil
-// }
+	// retrieve all of our ports that belong to us
+	connList := &wiring1alpha2.ConnectionList{}
+	if err := c.client.List(ctx, connList, labels); err != nil {
+		return nil, nil, err
+	}
+	if len(connList.Items) == 0 {
+		return nil, nil, fmt.Errorf("no connections configured for switch '%s'", c.deviceHostname)
+	}
+	ret1 := make(map[string]string, len(connList.Items))
+	ret2 := make(map[string]string, len(connList.Items))
+	for _, conn := range connList.Items {
+		if conn.Spec.Management != nil {
+			// we expect a switch on this port as a neighbour, so we want to listen on this port
+			nic := conn.Spec.Management.Link.Switch.BasePortName.LocalPortName()
+			addrs, err := seedernet.GetInterfaceAddresses(nic)
+			if err != nil {
+				return nil, nil, err
+			}
+			for _, addr := range addrs {
+				if addr.Is6() && addr.IsLinkLocalUnicast() {
+					ret1[nic] = addr.String()
+					ret2[addr.String()] = nic
+				}
+			}
+		}
+	}
+	return ret1, ret2, nil
+}
 
 // GetNeighbourSwitchByAddr finds the switch that is connected to this device by its link local IP address `addr`.
-func (c *KubernetesControlPlaneClient) GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*wiring1alpha2.Switch, *wiring1alpha2.SwitchPort, error) {
+func (c *KubernetesControlPlaneClient) GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*wiring1alpha2.Switch, *wiring1alpha2.Connection, error) {
 	switch c.deviceType { //nolint: exhaustive
 	case config.DeviceTypeServer:
 		return c.getNeighbourSwitchByAddrForServer(ctx, addr)
@@ -206,31 +197,28 @@ func (c *KubernetesControlPlaneClient) GetNeighbourSwitchByAddr(ctx context.Cont
 	}
 }
 
-func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx context.Context, addr string) (*wiring1alpha2.Switch, *wiring1alpha2.SwitchPort, error) {
+func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx context.Context, addr string) (*wiring1alpha2.Switch, *wiring1alpha2.Connection, error) {
 	// find ourselves first
 	obj := &wiring1alpha2.Server{}
 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: c.deviceHostname}, obj); err != nil {
 		return nil, nil, err
 	}
-	labels := client.MatchingLabels{ServerLabelKey: c.deviceHostname}
-	if rack, ok := obj.GetLabels()[RackLabelKey]; ok {
-		labels[RackLabelKey] = rack
-		c.deviceRack = rack
-	}
+	labels := client.MatchingLabels{"server.connection.fabric.githedgehog.com/" + c.deviceHostname: "true"}
 
-	// then retrieve all of our ports that belong to us
-	portList := &wiring1alpha2.ServerPortList{}
-	if err := c.client.List(ctx, portList, labels); err != nil {
+	// retrieve all of our connections that belong to us
+	connList := &wiring1alpha2.ConnectionList{}
+	if err := c.client.List(ctx, connList, labels); err != nil {
 		return nil, nil, err
 	}
-	if len(portList.Items) == 0 {
-		return nil, nil, fmt.Errorf("no ports configured for server")
+	if len(connList.Items) == 0 {
+		return nil, nil, fmt.Errorf("no connections configured for server '%s'", c.deviceHostname)
 	}
-	for _, port := range portList.Items {
-		// we are only interested in "unbundled" ports and where the neighbor is a switch
-		if port.Spec.Unbundled != nil && port.Spec.Unbundled.Neighbor.Switch != nil {
+	for _, conn := range connList.Items {
+		// we are only interested in management connections at the moment
+		if conn.Spec.Management != nil {
 			// get all addresses that belong to this port
-			addrs, err := seedernet.GetInterfaceAddresses(port.Spec.Unbundled.NicName)
+			nic := conn.Spec.Management.Link.Server.LocalPortName()
+			addrs, err := seedernet.GetInterfaceAddresses(nic)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -240,13 +228,11 @@ func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx con
 					// we found our match
 					// now retrieve the switch item
 					ret1 := &wiring1alpha2.Switch{}
-					if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: port.Spec.Unbundled.Neighbor.Switch.Name}, ret1); err != nil {
+					if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: conn.Spec.Management.Link.Switch.DeviceName()}, ret1); err != nil {
 						return nil, nil, err
 					}
-					ret2 := &wiring1alpha2.SwitchPort{}
-					if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: port.Spec.Unbundled.Neighbor.Switch.Port}, ret2); err != nil {
-						return ret1, nil, err
-					}
+					// this is simply the connection we are on
+					ret2 := &conn
 					return ret1, ret2, nil
 				}
 			}
@@ -255,26 +241,30 @@ func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx con
 	return nil, nil, ErrNotFound
 }
 
-func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForSwitch(ctx context.Context, addr string) (*wiring1alpha2.Switch, *wiring1alpha2.SwitchPort, error) {
+func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForSwitch(ctx context.Context, addr string) (*wiring1alpha2.Switch, *wiring1alpha2.Connection, error) {
 	// TODO
 	return nil, nil, fmt.Errorf("TODO")
 }
 
-// GetSwitchPorts retrieves all switch ports for a given switch
-func (c *KubernetesControlPlaneClient) GetSwitchPorts(ctx context.Context, switchName string) (*wiring1alpha2.SwitchPortList, error) {
+func (c *KubernetesControlPlaneClient) GetSwitchConnections(ctx context.Context, switchName string) ([]wiring1alpha2.Connection, error) {
 	// build filter with labels, this is how we expect the data in Kubernetes
-	labels := client.MatchingLabels{SwitchLabelKey: switchName}
-	if c.deviceRack != "" {
-		labels[RackLabelKey] = c.deviceRack
-	}
+	labels := client.MatchingLabels{"switch.connection.fabric.githedgehog.com/" + switchName: "true"}
 
-	// now simply retrieve them
-	portList := &wiring1alpha2.SwitchPortList{}
-	if err := c.client.List(ctx, portList, labels); err != nil {
+	// now retrieve them
+	connList := &wiring1alpha2.ConnectionList{}
+	if err := c.client.List(ctx, connList, labels); err != nil {
 		return nil, err
 	}
 
-	return portList, nil
+	// and filter the list further down by connection types
+	ret := make([]wiring1alpha2.Connection, 0, len(connList.Items))
+	for _, conn := range connList.Items {
+		if conn.Spec.Management != nil {
+			ret = append(ret, *conn.DeepCopy())
+		}
+	}
+
+	return ret, nil
 }
 
 func (c *KubernetesControlPlaneClient) GetSwitchByLocationUUID(ctx context.Context, uuid string) (*wiring1alpha2.Switch, error) {

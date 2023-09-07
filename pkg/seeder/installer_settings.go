@@ -15,6 +15,12 @@ type loadedInstallerSettings struct {
 	dnsServers           []string
 	ntpServers           []string
 	syslogServers        []string
+	routes               []*route
+}
+
+type route struct {
+	gateway      string
+	destinations []string
 }
 
 func (s *seeder) initializeInstallerSettings(cfg *config.InstallerSettings) error {
@@ -45,6 +51,14 @@ func (s *seeder) initializeInstallerSettings(cfg *config.InstallerSettings) erro
 		dnsServers:           cfg.DNSServers,
 		ntpServers:           cfg.NTPServers,
 		syslogServers:        cfg.SyslogServers,
+	}
+	for _, cfgRoute := range cfg.Routes {
+		r := &route{
+			gateway:      cfgRoute.Gateway,
+			destinations: make([]string, len(cfgRoute.Destinations)),
+		}
+		copy(r.destinations, cfgRoute.Destinations)
+		s.installerSettings.routes = append(s.installerSettings.routes, r)
 	}
 
 	return nil

@@ -82,6 +82,14 @@ type InstallerSettings struct {
 
 	// SyslogServers are the syslog servers which will be configured on clients at installation time
 	SyslogServers []string
+
+	// Routes are the routes that will be configured to access the management/control plane network
+	Routes []*Route
+}
+
+type Route struct {
+	Gateway      string   `json:"gateway,omitempty" yaml:"gateway,omitempty"`
+	Destinations []string `json:"destinations,omitempty" yaml:"destinations,omitempty"`
 }
 
 // RegistrySettings are all the settings that instruct the seeder on what to do for registration requests

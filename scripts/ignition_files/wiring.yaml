@@ -144,6 +144,7 @@ metadata:
     server.connection.fabric.githedgehog.com/compute-1: "true"
     switch.connection.fabric.githedgehog.com/switch-1: "true"
     switch.connection.fabric.githedgehog.com/switch-2: "true"
+    rack.connection.fabric.githedgehog.com/rack-1: "true"
   name: compute-1--mclag--switch-1--switch-2
 spec:
   mclag:
@@ -164,6 +165,7 @@ metadata:
     server.connection.fabric.githedgehog.com/compute-2: "true"
     switch.connection.fabric.githedgehog.com/switch-1: "true"
     switch.connection.fabric.githedgehog.com/switch-2: "true"
+    rack.connection.fabric.githedgehog.com/rack-1: "true"
   name: compute-2--mclag--switch-1--switch-2
 spec:
   mclag:
@@ -183,6 +185,7 @@ metadata:
   labels:
     server.connection.fabric.githedgehog.com/compute-3: "true"
     switch.connection.fabric.githedgehog.com/switch-1: "true"
+    rack.connection.fabric.githedgehog.com/rack-1: "true"
   name: compute-3--unbundled--switch-1
 spec:
   unbundled:
@@ -198,6 +201,7 @@ metadata:
   labels:
     server.connection.fabric.githedgehog.com/compute-4: "true"
     switch.connection.fabric.githedgehog.com/switch-2: "true"
+    rack.connection.fabric.githedgehog.com/rack-1: "true"
   name: compute-4--unbundled--switch-2
 spec:
   unbundled:
@@ -213,6 +217,7 @@ metadata:
   labels:
     server.connection.fabric.githedgehog.com/control-node-1: "true"
     switch.connection.fabric.githedgehog.com/switch-1: "true"
+    rack.connection.fabric.githedgehog.com/rack-1: "true"
   name: control-node-1--mgmt--switch-1
 spec:
   management:
@@ -220,8 +225,9 @@ spec:
       server:
         port: control-node-1/switch1
       switch:
-        ip: 192.168.88.121/24
+        ip: 192.168.42.11/24
         oniePortName: eth0
+        vlan: 42
         port: switch-1/Management0
 ---
 apiVersion: wiring.githedgehog.com/v1alpha2
@@ -237,8 +243,9 @@ spec:
       server:
         port: control-node-1/switch2
       switch:
-        ip: 192.168.88.122/24
+        ip: 192.168.42.12/24
         oniePortName: eth0
+        vlan: 42
         port: switch-2/Management0
 ---
 apiVersion: wiring.githedgehog.com/v1alpha2
@@ -247,6 +254,7 @@ metadata:
   labels:
     server.connection.fabric.githedgehog.com/switch-1: "true"
     switch.connection.fabric.githedgehog.com/switch-2: "true"
+    rack.connection.fabric.githedgehog.com/rack-1: "true"
   name: switch-1--mclag-domain--switch-2
 spec:
   mclagDomain:
