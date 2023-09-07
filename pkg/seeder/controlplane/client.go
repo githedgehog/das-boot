@@ -232,7 +232,7 @@ func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx con
 						return nil, nil, err
 					}
 					// this is simply the connection we are on
-					ret2 := &conn
+					ret2 := conn.DeepCopy()
 					return ret1, ret2, nil
 				}
 			}

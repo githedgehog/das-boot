@@ -83,9 +83,13 @@ func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert 
 		panic(fmt.Errorf("failed to parse CSR: %w", err))
 	}
 	csrPub := csr.PublicKey.(*ecdsa.PublicKey)
+	ecdhCsrPub, err := csrPub.ECDH()
+	if err != nil {
+		panic(fmt.Errorf("failed to convert ECDSA public key to ECDH public key: %w", err))
+	}
 
 	// not used for security purposes
-	subjectKeyId := sha1.Sum(elliptic.Marshal(csrPub.Curve, csrPub.X, csrPub.Y)) //nolint: gosec
+	subjectKeyId := sha1.Sum(ecdhCsrPub.Bytes()) //nolint: gosec
 	certTemplate := &x509.Certificate{
 		// not used for security purposes
 		SerialNumber: big.NewInt(mathrand.Int63()), //nolint: gosec
