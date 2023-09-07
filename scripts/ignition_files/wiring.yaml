@@ -2,7 +2,7 @@
 ### rack-1
 ###
 ---
-apiVersion: fabric.githedgehog.com/v1alpha2
+apiVersion: wiring.githedgehog.com/v1alpha2
 kind: Rack
 metadata:
   labels:
