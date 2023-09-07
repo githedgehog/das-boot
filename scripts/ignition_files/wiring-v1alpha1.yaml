@@ -1,0 +1,588 @@
+### NOTE: NOT USED ANYMORE - THIS IS FOR THE OLD WIRING MODEL WHICH HAS BEEN REPLACED
+###       WE ARE KEEPING THIS AROUND FOR REFERENCE in DAS BOOT ON HOW IT USED TO WORK BEFORE
+###       DELETE ONCE YOU DO NOT NEED THE DIRECT REFERENCE ANYMORE
+###
+### rack-1
+###
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: Rack
+metadata:
+  labels:
+  name: rack-1
+spec:
+###
+### leaf-1
+###
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: Switch
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/location: "4fedca88-bd00-42fd-87a0-b0fc36c9ab3b"
+  name: leaf-1
+spec:
+  bgpConfig:
+  - bgpRouterConfig:
+    - addressFamily:
+        family: ipv4
+      asn: 65101
+      neighborInfo:
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.1
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.3
+      routerID: 10.0.101.0
+      vrf: default
+    borderConfig: {}
+    loopbackAddress: 10.0.101.0/32
+    loopbackInterfaceNum: 0
+  - bgpRouterConfig:
+    - addressFamily:
+        family: ipv4
+      asn: 65101
+      neighborInfo:
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.1
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.3
+      routerID: 10.0.101.1
+      vrf: VrfHHMgmt
+    borderConfig: {}
+    loopbackAddress: 10.0.101.1/32
+    loopbackInterfaceNum: 1
+  - bgpRouterConfig:
+    - addressFamily:
+        family: ipv4
+      asn: 65101
+      neighborInfo:
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.1
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.3
+      routerID: 10.0.101.2
+      vrf: VrfHHCtrl
+    borderConfig: {}
+    loopbackAddress: 10.0.101.2/32
+    loopbackInterfaceNum: 2
+  lldpConfig:
+    helloTimer: 5
+    managementIP: 10.0.101.0
+    systemDescription: This is leaf-1
+    systemName: leaf-1
+  location:
+    location: DC1-Fl
+    aisle: "10"
+    row: "2"
+    slot: "24"
+    rack: "1"
+  locationUUID: "4fedca88-bd00-42fd-87a0-b0fc36c9ab3b"
+  locationSig:
+    sig: "long-signature"
+    uuidSig: "also-long-signature"
+  role: leaf
+  vrfs:
+  - VrfHHMgmt
+  - VrfHHCtrl
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: SwitchPort
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/switch: leaf-1
+  name: leaf-1--mgmt
+spec:
+  nosPortName: eth0
+  nosPortNum: 0
+  # onie:
+  #   portNum: 0
+  #   portName: eth0
+  #   bootstrapIP: 192.168.42.200/24
+  #   vlan: 42
+  role: leaf-server-l2-tagged
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: SwitchPort
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/switch: leaf-1
+  name: leaf-1--0
+spec:
+  neighbor:
+    server:
+      name: control-node-1
+      port: control-node-1--leaf-1
+  nosPortName: Ethernet0
+  nosPortNum: 0
+  onie:
+    portNum: 1
+    portName: eth1
+    bootstrapIP: 192.168.42.11/24
+    vlan: 42
+    routes:
+    - destinations:
+      - 10.42.0.0/16 
+      - 10.43.0.0/16
+      gateway: 192.168.42.1 
+  role: leaf-server-l2-tagged
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: SwitchPort
+metadata:
+  creationTimestamp: null
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/switch: leaf-1
+  name: leaf-1--1
+spec:
+  interfaces:
+  - bfdEnabled: true
+    bgpEnabled: true
+    ipAddress: 169.254.1.0/31
+    name: Ethernet4.0
+    vlans:
+    - 100
+    vrf: default
+  - bfdEnabled: true
+    bgpEnabled: true
+    ipAddress: 169.254.1.0/31
+    name: Ethernet4.1
+    vlans:
+    - 200
+    vrf: VrfHHMgmt
+  - bfdEnabled: true
+    bgpEnabled: true
+    ipAddress: 192.168.42.12/24
+    name: Ethernet4.2
+    vlans:
+    - 42
+    vrf: VrfHHCtrl
+  neighbor:
+    switch:
+      name: spine-1
+      port: spine-1--0
+  nosPortName: Ethernet4
+  nosPortNum: 1
+  onie:
+    portNum: 2
+    portName: eth2
+    bootstrapIP: 192.168.42.12/24
+    vlan: 42
+    routes:
+    - destinations:
+      - 10.42.0.0/16 
+      - 10.43.0.0/16
+      gateway: 192.168.42.1 
+  role: leaf-fabric
+status: {}
+###
+### leaf-2
+###
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: Switch
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/location: "12c7e625-b66f-4d92-bc50-cf80d4986a15"
+  name: leaf-2
+spec:
+  bgpConfig:
+  - bgpRouterConfig:
+    - addressFamily:
+        family: ipv4
+      asn: 65101
+      neighborInfo:
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.1
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.3
+      routerID: 10.0.101.0
+      vrf: default
+    borderConfig: {}
+    loopbackAddress: 10.0.101.0/32
+    loopbackInterfaceNum: 0
+  - bgpRouterConfig:
+    - addressFamily:
+        family: ipv4
+      asn: 65101
+      neighborInfo:
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.1
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.3
+      routerID: 10.0.101.1
+      vrf: VrfHHMgmt
+    borderConfig: {}
+    loopbackAddress: 10.0.101.1/32
+    loopbackInterfaceNum: 1
+  - bgpRouterConfig:
+    - addressFamily:
+        family: ipv4
+      asn: 65101
+      neighborInfo:
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.1
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.3
+      routerID: 10.0.101.2
+      vrf: VrfHHCtrl
+    borderConfig: {}
+    loopbackAddress: 10.0.101.2/32
+    loopbackInterfaceNum: 2
+  lldpConfig:
+    helloTimer: 5
+    managementIP: 10.0.101.0
+    systemDescription: This is leaf-2
+    systemName: leaf-2
+  location:
+    location: DC1-Fl
+    aisle: "10"
+    row: "2"
+    slot: "24"
+    rack: "2"
+  locationUUID: "12c7e625-b66f-4d92-bc50-cf80d4986a15"
+  locationSig:
+    sig: "long-signature"
+    uuidSig: "also-long-signature"
+  role: leaf
+  vrfs:
+  - VrfHHMgmt
+  - VrfHHCtrl
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: SwitchPort
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/switch: leaf-2
+  name: leaf-2--mgmt
+spec:
+  nosPortName: eth0
+  nosPortNum: 0
+  # onie:
+  #   portNum: 0
+  #   portName: eth0
+  #   bootstrapIP: 192.168.42.200/24
+  #   vlan: 42
+  role: leaf-server-l2-tagged
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: SwitchPort
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/switch: leaf-2
+  name: leaf-2--0
+spec:
+  neighbor:
+    server:
+      name: control-node-1
+      port: control-node-1--leaf-2
+  nosPortName: Ethernet0
+  nosPortNum: 0
+  onie:
+    portNum: 1
+    portName: eth1
+    bootstrapIP: 192.168.42.21/24
+    vlan: 42
+    routes:
+    - destinations:
+      - 10.42.0.0/16 
+      - 10.43.0.0/16
+      gateway: 192.168.42.1 
+  role: leaf-server-l2-tagged
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: SwitchPort
+metadata:
+  creationTimestamp: null
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/switch: leaf-2
+  name: leaf-2--1
+spec:
+  interfaces:
+  - bfdEnabled: true
+    bgpEnabled: true
+    ipAddress: 169.254.1.0/31
+    name: Ethernet4.0
+    vlans:
+    - 100
+    vrf: default
+  - bfdEnabled: true
+    bgpEnabled: true
+    ipAddress: 169.254.1.0/31
+    name: Ethernet4.1
+    vlans:
+    - 200
+    vrf: VrfHHMgmt
+  - bfdEnabled: true
+    bgpEnabled: true
+    ipAddress: 192.168.42.22/24
+    name: Ethernet4.2
+    vlans:
+    - 42
+    vrf: VrfHHCtrl
+  neighbor:
+    switch:
+      name: spine-1
+      port: spine-1--1
+  nosPortName: Ethernet4
+  nosPortNum: 1
+  onie:
+    portNum: 2
+    portName: eth2
+    bootstrapIP: 192.168.42.22/24
+    vlan: 42
+    routes:
+    - destinations:
+      - 10.42.0.0/16 
+      - 10.43.0.0/16
+      gateway: 192.168.42.1 
+  role: leaf-fabric
+status: {}
+###
+### spine-1
+###
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: Switch
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/location: "d503a5dc-a1e8-44e6-8066-e604c5c63dfe"
+  name: spine-1
+spec:
+  bgpConfig:
+  - bgpRouterConfig:
+    - addressFamily:
+        family: ipv4
+      asn: 65101
+      neighborInfo:
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.1
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.3
+      routerID: 10.0.101.0
+      vrf: default
+    borderConfig: {}
+    loopbackAddress: 10.0.101.0/32
+    loopbackInterfaceNum: 0
+  - bgpRouterConfig:
+    - addressFamily:
+        family: ipv4
+      asn: 65101
+      neighborInfo:
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.1
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.3
+      routerID: 10.0.101.1
+      vrf: VrfHHMgmt
+    borderConfig: {}
+    loopbackAddress: 10.0.101.1/32
+    loopbackInterfaceNum: 1
+  - bgpRouterConfig:
+    - addressFamily:
+        family: ipv4
+      asn: 65101
+      neighborInfo:
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.1
+      - asn: 65200
+        filterInfo: undefined
+        id: 169.254.1.3
+      routerID: 10.0.101.2
+      vrf: VrfHHCtrl
+    borderConfig: {}
+    loopbackAddress: 10.0.101.2/32
+    loopbackInterfaceNum: 2
+  lldpConfig:
+    helloTimer: 5
+    managementIP: 10.0.101.0
+    systemDescription: This is spine-1
+    systemName: spine-1
+  location:
+    location: DC1-Fl
+    aisle: "10"
+    row: "1"
+    slot: "1"
+    rack: "1"
+  locationUUID: "d503a5dc-a1e8-44e6-8066-e604c5c63dfe"
+  locationSig:
+    sig: "long-signature"
+    uuidSig: "also-long-signature"
+  role: leaf
+  vrfs:
+  - VrfHHMgmt
+  - VrfHHCtrl
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: SwitchPort
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/switch: spine-1
+  name: spine-1--mgmt
+spec:
+  nosPortName: eth0
+  nosPortNum: 0
+  # onie:
+  #   portNum: 0
+  #   portName: eth0
+  #   bootstrapIP: 192.168.42.200/24
+  #   vlan: 42
+  role: leaf-server-l2-tagged
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: SwitchPort
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/switch: spine-1
+  name: spine-1--0
+spec:
+  neighbor:
+    switch:
+      name: leaf-1
+      port: leaf-1--1
+  nosPortName: Ethernet0
+  nosPortNum: 0
+  onie:
+    portNum: 1
+    portName: eth1
+    bootstrapIP: 192.168.42.31/24
+    vlan: 42
+    routes:
+    - destinations:
+      - 10.42.0.0/16 
+      - 10.43.0.0/16
+      gateway: 192.168.42.1 
+  role: leaf-server-l2-tagged
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: SwitchPort
+metadata:
+  creationTimestamp: null
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/switch: spine-1
+  name: spine-1--1
+spec:
+  interfaces:
+  - bfdEnabled: true
+    bgpEnabled: true
+    ipAddress: 169.254.1.0/31
+    name: Ethernet4.0
+    vlans:
+    - 100
+    vrf: default
+  - bfdEnabled: true
+    bgpEnabled: true
+    ipAddress: 169.254.1.0/31
+    name: Ethernet4.1
+    vlans:
+    - 200
+    vrf: VrfHHMgmt
+  - bfdEnabled: true
+    bgpEnabled: true
+    ipAddress: 192.168.42.32/24
+    name: Ethernet4.2
+    vlans:
+    - 42
+    vrf: VrfHHCtrl
+  neighbor:
+    switch:
+      name: leaf-2
+      port: leaf-2--1
+  nosPortName: Ethernet4
+  nosPortNum: 1
+  onie:
+    portNum: 2
+    portName: eth2
+    bootstrapIP: 192.168.42.22/24
+    vlan: 42
+    routes:
+    - destinations:
+      - 10.42.0.0/16 
+      - 10.43.0.0/16
+      gateway: 192.168.42.1 
+  role: leaf-fabric
+status: {}
+###
+### control-node-1
+###
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: Server
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+  name: control-node-1
+spec:
+  role: control
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: ServerPort
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/server: control-node-1
+  name: control-node-1--nat
+spec:
+  unbundled:
+    nicIndex: 2
+    nicName: eth0
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: ServerPort
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/server: control-node-1
+  name: control-node-1--leaf-1
+spec:
+  unbundled:
+    nicIndex: 3
+    nicName: switch1
+    neighbor:
+      switch:
+        name: leaf-1
+        port: leaf-1--0
+---
+apiVersion: fabric.githedgehog.com/v1alpha1
+kind: ServerPort
+metadata:
+  labels:
+    fabric.githedgehog.com/rack: rack-1
+    fabric.githedgehog.com/server: control-node-1
+  name: control-node-1--leaf-2
+spec:
+  unbundled:
+    nicIndex: 4
+    nicName: switch2
+    neighbor:
+      switch:
+        name: leaf-2
+        port: leaf-2--0
