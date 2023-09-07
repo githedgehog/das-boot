@@ -33,10 +33,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# hack: our special one for DAS BOOT seeder
-yq -M '.clusters[0].cluster.server="https://192.168.42.1:6443"' /etc/rancher/k3s/k3s.yaml > /opt/seeder/k3s.yaml
-kubectl create secret generic das-boot-kubeconfig --from-file=k3s.yaml=/opt/seeder/k3s.yaml
-
 # install syslog
 helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f rsyslog-server-values.yaml hh-syslog oci://registry.local:5000/githedgehog/helm-charts/rsyslog
 if [ $? -ne 0 ]; then

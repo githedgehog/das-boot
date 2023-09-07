@@ -92,7 +92,7 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 		}
 
 		// skip this port if it does not have ONIE configurations
-		if port.Spec.ONIE.PortName == "" || port.Spec.ONIE.BootstrapIP == "" || port.Spec.ONIE.VLAN == 0 {
+		if port.Spec.ONIE.PortName == "" || port.Spec.ONIE.BootstrapIP == "" {
 			log.L().Info("ipam: skipping port for response as it is missing ONIE configuration", zap.String("port", port.Name), zap.Reflect("onie", port.Spec.ONIE))
 			continue
 		}

@@ -74,6 +74,24 @@ func main() {
 				Aliases: []string{"del", "remove", "rem"},
 				Usage:   "deletes a vlan interface",
 				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:  "ip-address",
+						Usage: "IP addresses with their netmask CIDR",
+						Value: cli.NewStringSlice("192.168.42.101/24"),
+					},
+					&cli.StringSliceFlag{
+						Name:  "subnet",
+						Usage: "Additional subnets to be added as routes on the same VLAN interface",
+						Value: cli.NewStringSlice(
+							"10.42.0.0/16",
+							"10.43.0.0/16",
+						),
+					},
+					&cli.StringFlag{
+						Name:  "gateway",
+						Usage: "Nexthop to use for the subnet routes",
+						Value: "192.168.42.1",
+					},
 					&cli.StringFlag{
 						Name:    "device",
 						Aliases: []string{"dev"},
@@ -165,7 +183,54 @@ func integNetdevAdd(ctx *cli.Context) error {
 func integNetdevDelete(ctx *cli.Context) error {
 	dev := ctx.String("device")
 
-	if err := dbnet.DeleteVLANDevice(dev); err != nil {
+	l.Info("Parsing IP and netmasks from input...")
+	ipaddrs := ctx.StringSlice("ip-address")
+	var ipnets []*net.IPNet
+	if len(ipaddrs) > 0 {
+		var err error
+		ipnets, err = dbnet.StringsToIPNets(ipaddrs)
+		if err != nil {
+			return fmt.Errorf("failed to parse IP addresses and netmask: %w", err)
+		}
+	}
+
+	subnets := ctx.StringSlice("subnet")
+	var routedests []*net.IPNet
+	if len(subnets) > 0 {
+		l.Info("Parsing subnets from input...")
+		var err error
+		routedests, err = dbnet.StringsToIPNets(subnets)
+		if err != nil {
+			return fmt.Errorf("failed to parse subnets: %w", err)
+		}
+	}
+
+	gw := ctx.String("gateway")
+	var routegw net.IP
+	if gw != "" {
+		l.Info("Parsing gateway from input...")
+		routegw = net.ParseIP(gw)
+		if routegw == nil {
+			return fmt.Errorf("failed to parse gateway IP from: '%s'", gw)
+		}
+	}
+	if (len(routedests) > 0 && routegw == nil) || (len(routedests) == 0 && routegw != nil) {
+		l.Error("you must specify subnets and gateway together")
+		return fmt.Errorf("subnets and gateway must be specified together")
+	}
+
+	// now build the routes
+	var routes []*dbnet.Route
+	if len(routedests) > 0 && routegw != nil {
+		routes = []*dbnet.Route{
+			{
+				Dests: routedests,
+				Gw:    routegw,
+			},
+		}
+	}
+
+	if err := dbnet.DeleteVLANDevice(dev, ipnets, routes); err != nil {
 		return fmt.Errorf("deleting VLAN interface failed: %w", err)
 	}
 	l.Info("Success")
