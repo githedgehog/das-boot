@@ -33,7 +33,11 @@ func generateTestKeyMaterial(curve elliptic.Curve) (key *ecdsa.PrivateKey, cert 
 		panic(err)
 	}
 	// not used for security purposes
-	caKeyID := sha1.Sum(elliptic.Marshal(caKey.Curve, caKey.PublicKey.X, caKey.PublicKey.Y)) //nolint: gosec
+	caPubKey, err := caKey.PublicKey.ECDH()
+	if err != nil {
+		panic(err)
+	}
+	caKeyID := sha1.Sum(caPubKey.Bytes()) //nolint: gosec
 	caTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(2019),
 		Subject: pkix.Name{

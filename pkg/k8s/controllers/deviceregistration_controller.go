@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha1" //nolint: gosec
 	"crypto/x509"
@@ -81,7 +80,13 @@ func (r *DeviceRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		l.Error(err, "Processing CSR", "req", req.NamespacedName)
 		return ctrl.Result{}, err
 	}
-	csrPubBytes := elliptic.Marshal(csrPub.Curve, csrPub.X, csrPub.Y)
+	ecdhCsrPub, err := csrPub.ECDH()
+	if err != nil {
+		err = fmt.Errorf("cannot convert ECDSA public key to ECDH public key: %w", err)
+		l.Error(err, "Processing CSR", "req", req.NamespacedName)
+		return ctrl.Result{}, err
+	}
+	csrPubBytes := ecdhCsrPub.Bytes()
 	subjectKeyId := sha1.Sum(csrPubBytes) //nolint: gosec
 	template := &x509.Certificate{
 		// we copy the subject from the CSR

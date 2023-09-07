@@ -3,7 +3,6 @@ package registration
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha1" //nolint: gosec
 	"crypto/x509"
@@ -65,7 +64,12 @@ func (p *Processor) processRequestLocally(req *Request) {
 		l.Error("registration: CSR must contain ECDSA key", zap.String("devID", req.DeviceID))
 		return
 	}
-	csrPubBytes := elliptic.Marshal(csrPub.Curve, csrPub.X, csrPub.Y)
+	ecdhCsrPub, err := csrPub.ECDH()
+	if err != nil {
+		l.Error("registration: cannot convert ECDSA public key to ECDH public key", zap.String("devID", req.DeviceID), zap.Error(err))
+		return
+	}
+	csrPubBytes := ecdhCsrPub.Bytes()
 	subjectKeyId := sha1.Sum(csrPubBytes) //nolint: gosec
 	template := &x509.Certificate{
 		// we copy the subject from the CSR
