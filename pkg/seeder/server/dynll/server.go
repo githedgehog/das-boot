@@ -18,7 +18,7 @@ import (
 	"go.githedgehog.com/dasboot/pkg/seeder/server"
 	"go.githedgehog.com/dasboot/pkg/seeder/server/generic"
 
-	fabricv1alpha1 "go.githedgehog.com/wiring/api/v1alpha1"
+	wiring1alpha2 "go.githedgehog.com/fabric/api/wiring/v1alpha2"
 )
 
 type DynLLServer struct {
@@ -107,7 +107,7 @@ func NewDynLLServer(ctx context.Context, k8sClient client.WithWatch, cfg *config
 }
 
 func getInterfacesForServerNeighbours(ctx context.Context, k8sClient client.Client, selfHostname string) ([]string, error) {
-	obj := &fabricv1alpha1.Server{}
+	obj := &wiring1alpha2.Server{}
 	if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: selfHostname}, obj); err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func getInterfacesForServerNeighbours(ctx context.Context, k8sClient client.Clie
 	}
 
 	// retrieve all of our ports that belong to us
-	portList := &fabricv1alpha1.ServerPortList{}
+	portList := &wiring1alpha2.ServerPortList{}
 	if err := k8sClient.List(ctx, portList, labels); err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func getInterfacesForServerNeighbours(ctx context.Context, k8sClient client.Clie
 }
 
 func getInterfacesForSwitchNeighbours(ctx context.Context, k8sClient client.Client, selfHostname string) ([]string, error) {
-	obj := &fabricv1alpha1.Switch{}
+	obj := &wiring1alpha2.Switch{}
 	if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: selfHostname}, obj); err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func getInterfacesForSwitchNeighbours(ctx context.Context, k8sClient client.Clie
 	}
 
 	// retrieve all of our ports that belong to us
-	portList := &fabricv1alpha1.SwitchPortList{}
+	portList := &wiring1alpha2.SwitchPortList{}
 	if err := k8sClient.List(ctx, portList, labels); err != nil {
 		return nil, err
 	}

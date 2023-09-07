@@ -8,7 +8,7 @@ import (
 
 	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/seeder/controlplane"
-	fabricv1alpha1 "go.githedgehog.com/wiring/api/v1alpha1"
+	wiring1alpha2 "go.githedgehog.com/fabric/api/wiring/v1alpha2"
 	"go.uber.org/zap"
 )
 
@@ -39,7 +39,7 @@ func emptyValueError(str string) error {
 }
 
 // ProcessRequest processes an IPAM request and delivers back a response object.
-func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Client, req *Request, adjacentSwitch *fabricv1alpha1.Switch, adjacentPort *fabricv1alpha1.SwitchPort) (*Response, error) {
+func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Client, req *Request, adjacentSwitch *wiring1alpha2.Switch, adjacentPort *wiring1alpha2.SwitchPort) (*Response, error) {
 	// ensure arch is supported
 	var arch string
 	switch req.Arch {
@@ -63,11 +63,11 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 	// if the adjacent switch is filled, then we don't need to lookup the switch
 	// otherwise we'll look it up by location first
 	var err error
-	var ports *fabricv1alpha1.SwitchPortList
+	var ports *wiring1alpha2.SwitchPortList
 	if adjacentSwitch != nil {
 		ports, err = cpc.GetSwitchPorts(ctx, adjacentSwitch.Name)
 	} else {
-		var sw *fabricv1alpha1.Switch
+		var sw *wiring1alpha2.Switch
 		sw, err = cpc.GetSwitchByLocationUUID(ctx, req.LocationUUID)
 		if err != nil {
 			return nil, fmt.Errorf("finding switch: %w", err)

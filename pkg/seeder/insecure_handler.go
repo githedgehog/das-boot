@@ -108,8 +108,9 @@ func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []by
 			if err != nil {
 				log.L().Error("failed to marshal location information of neighbouring switch", zap.Error(err))
 			} else {
+				locationUUID, _ := sw.Spec.Location.GenerateUUID()
 				loc = &location.Info{
-					UUID:        sw.Spec.LocationUUID,
+					UUID:        locationUUID,
 					UUIDSig:     []byte(sw.Spec.LocationSig.UUIDSig),
 					Metadata:    string(md),
 					MetadataSig: []byte(sw.Spec.LocationSig.Sig),
