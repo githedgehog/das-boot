@@ -27,7 +27,9 @@ spec:
     rack: "1"
     row: "1"
     slot: "1"
-  locationSig: {}
+  locationSig:
+    sig: "long-signature"
+    uuidSig: "also-long-signature"
 ###
 ### switch-2
 ###
@@ -47,7 +49,9 @@ spec:
     rack: "1"
     row: "1"
     slot: "2"
-  locationSig: {}
+  locationSig:
+    sig: "long-signature"
+    uuidSig: "also-long-signature"
 ###
 ### control-node-1
 ###
@@ -65,7 +69,9 @@ spec:
     rack: "1"
     row: "1"
     slot: "3"
-  locationSig: {}
+  locationSig:
+    sig: "long-signature"
+    uuidSig: "also-long-signature"
   type: control
 ###
 ### compute-1
@@ -84,7 +90,9 @@ spec:
     rack: "1"
     row: "1"
     slot: "4"
-  locationSig: {}
+  locationSig:
+    sig: "long-signature"
+    uuidSig: "also-long-signature"
 ###
 ### compute-2
 ###
@@ -102,7 +110,9 @@ spec:
     rack: "1"
     row: "1"
     slot: "5"
-  locationSig: {}
+  locationSig:
+    sig: "long-signature"
+    uuidSig: "also-long-signature"
 ###
 ### compute-3
 ###
@@ -120,7 +130,9 @@ spec:
     rack: "1"
     row: "1"
     slot: "6"
-  locationSig: {}
+  locationSig:
+    sig: "long-signature"
+    uuidSig: "also-long-signature"
 ---
 apiVersion: wiring.githedgehog.com/v1alpha2
 kind: Server
@@ -135,7 +147,9 @@ spec:
     rack: "1"
     row: "1"
     slot: "7"
-  locationSig: {}
+  locationSig:
+    sig: "long-signature"
+    uuidSig: "also-long-signature"
 ---
 apiVersion: wiring.githedgehog.com/v1alpha2
 kind: Connection
@@ -226,7 +240,7 @@ spec:
         port: control-node-1/switch1
       switch:
         ip: 192.168.42.11/24
-        oniePortName: eth0
+        oniePortName: eth1
         vlan: 42
         port: switch-1/Management0
 ---
@@ -244,7 +258,7 @@ spec:
         port: control-node-1/switch2
       switch:
         ip: 192.168.42.12/24
-        oniePortName: eth0
+        oniePortName: eth1
         vlan: 42
         port: switch-2/Management0
 ---
