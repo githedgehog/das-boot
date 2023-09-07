@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "*"
+  schedule:
+    - cron: "0 10 * * *" # ~2am PST
   workflow_dispatch:
 concurrency:
   group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
@@ -153,7 +157,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to GitHub Packages
-        # temp
+        # temporary set explicit VERSIONs until we have scripts working with non-fixed versions
         run:
           make docker-push DOCKER_REPO=ghcr.io/githedgehog/das-boot DOCKER_VERSION=$(git describe --tags --dirty --always)
           make helm-push HELM_CHART_REPO=ghcr.io/githedgehog/das-boot/charts HELM_CHART_VERSION=$(git describe --tags --dirty --always)
