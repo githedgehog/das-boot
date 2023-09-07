@@ -25,25 +25,35 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - fabric.githedgehog.com
+  - wiring.githedgehog.com
   resources:
-  - agents
   - servers
-  - serverports
   - switches
-  - switchports
+  - connections
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - fabric.githedgehog.com
+  - wiring.githedgehog.com
+  resources:
+  - servers/status
+  - switches/status
+  - connections/status
+  verbs:
+  - get
+- apiGroups:
+  - agent.githedgehog.com
+  resources:
+  - agents
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - agent.githedgehog.com
   resources:
   - agents/status
-  - servers/status
-  - serverports/status
-  - switches/status
-  - switchports/status
   verbs:
   - get
 - apiGroups:

@@ -46,14 +46,9 @@ if [ $? -ne 0 ]; then
 fi
 
 # install our CRDs
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.3 hh-agent-crds oci://registry.local:5000/githedgehog/helm-charts/agent-crd
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install hh-fabric-api oci://registry.local:5000/githedgehog/helm-charts/fabric-api
 if [ $? -ne 0 ]; then
     exit 4
-fi
-
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.4.0 hh-wiring-crds oci://registry.local:5000/githedgehog/helm-charts/wiring-crd
-if [ $? -ne 0 ]; then
-    exit 5
 fi
 
 helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install hh-das-boot-crds oci://registry.local:5000/githedgehog/helm-charts/das-boot-crds
@@ -68,10 +63,11 @@ if [ $? -ne 0 ]; then
 fi
 
 # install the fabric controller
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.2.0 hh-fabric oci://registry.local:5000/githedgehog/helm-charts/fabric-helm
-if [ $? -ne 0 ]; then
-    exit 8
-fi
+# TODO: currently broken with the new wiring
+#helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install --force --version=0.2.0 hh-fabric oci://registry.local:5000/githedgehog/helm-charts/fabric-helm
+#if [ $? -ne 0 ]; then
+#    exit 8
+#fi
 
 # install DAS BOOT - registration controller
 helm --kubeconfig /etc/rancher/k3s/k3s.yaml install -f das-boot-registration-controller-values.yaml hh-rc oci://registry.local:5000/githedgehog/helm-charts/das-boot-registration-controller

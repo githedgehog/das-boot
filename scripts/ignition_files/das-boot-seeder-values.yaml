@@ -23,6 +23,11 @@ settings:
     - hh-ntp-udp.default.svc.cluster.local
   syslog_servers:
     - hh-syslog-rsyslog.default.svc.cluster.local
+  routes:
+    - gateway: 192.168.42.1
+      destinations:
+        - 10.42.0.0/16
+        - 10.43.0.0/16
   artifacts:
     oci_registries:
     - url: oci://registry.local:5000/githedgehog

@@ -108,8 +108,9 @@ func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []by
 			if err != nil {
 				log.L().Error("failed to marshal location information of neighbouring switch", zap.Error(err))
 			} else {
+				locationUUID, _ := sw.Spec.Location.GenerateUUID()
 				loc = &location.Info{
-					UUID:        sw.Spec.LocationUUID,
+					UUID:        locationUUID,
 					UUIDSig:     []byte(sw.Spec.LocationSig.UUIDSig),
 					Metadata:    string(md),
 					MetadataSig: []byte(sw.Spec.LocationSig.Sig),
@@ -172,6 +173,14 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 		SyslogServers: s.installerSettings.syslogServers,
 		// as the architecture has been validated by this point, we can rely on this value
 		Stage1URL: s.installerSettings.stage1URL(req.Arch),
+	}
+	for _, setRoute := range s.installerSettings.routes {
+		r := &ipam.Route{
+			Gateway:      setRoute.gateway,
+			Destinations: make([]string, len(setRoute.destinations)),
+		}
+		copy(r.Destinations, setRoute.destinations)
+		set.Routes = append(set.Routes, r)
 	}
 	resp, err := ipam.ProcessRequest(r.Context(), set, s.cpc, &req, adjacentSwitch, adjacentPort)
 	if err != nil {

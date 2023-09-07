@@ -18,7 +18,7 @@ import (
 	"go.githedgehog.com/dasboot/pkg/seeder/server"
 	"go.githedgehog.com/dasboot/pkg/seeder/server/generic"
 
-	fabricv1alpha1 "go.githedgehog.com/wiring/api/v1alpha1"
+	wiring1alpha2 "go.githedgehog.com/fabric/api/wiring/v1alpha2"
 )
 
 type DynLLServer struct {
@@ -107,59 +107,81 @@ func NewDynLLServer(ctx context.Context, k8sClient client.WithWatch, cfg *config
 }
 
 func getInterfacesForServerNeighbours(ctx context.Context, k8sClient client.Client, selfHostname string) ([]string, error) {
-	obj := &fabricv1alpha1.Server{}
+	// get our own object first based on the hostname
+	// if this isn't there, then all bets are off
+	obj := &wiring1alpha2.Server{}
 	if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: selfHostname}, obj); err != nil {
 		return nil, err
 	}
-	labels := client.MatchingLabels{"fabric.githedgehog.com/server": selfHostname}
-	if rack, ok := obj.GetLabels()["fabric.githedgehog.com/rack"]; ok {
-		labels["fabric.githedgehog.com/rack"] = rack
-	}
 
-	// retrieve all of our ports that belong to us
-	portList := &fabricv1alpha1.ServerPortList{}
-	if err := k8sClient.List(ctx, portList, labels); err != nil {
+	// build a matching label for all connections that belong to us
+	// they have the form of:
+	// server.connection.fabric.githedgehog.com/control-node-1: "true"
+	labels := client.MatchingLabels{"server.connection.fabric.githedgehog.com/" + selfHostname: "true"}
+
+	// retrieve all connections that belong to us
+	connList := &wiring1alpha2.ConnectionList{}
+	if err := k8sClient.List(ctx, connList, labels); err != nil {
 		return nil, err
 	}
-	if len(portList.Items) == 0 {
-		return nil, fmt.Errorf("no ports configured for server")
+	if len(connList.Items) == 0 {
+		return nil, fmt.Errorf("no connections configured for server '%s'", selfHostname)
 	}
-	ret := make([]string, 0, len(portList.Items))
-	for _, port := range portList.Items {
-		if port.Spec.Unbundled != nil && port.Spec.Unbundled.Neighbor.Switch != nil {
-			// we expect a switch on this port as a neighbour, so we want to listen on this port
-			nic := port.Spec.Unbundled.NicName
-			ret = append(ret, nic)
+
+	// now build a list of all interfaces that belong to the server and ensure to deduplicate it
+	retMap := make(map[string]struct{}, len(connList.Items))
+	for _, conn := range connList.Items {
+		// we are only interested in management connections
+		if conn.Spec.Management == nil {
+			continue
 		}
+		intf := conn.Spec.Management.Link.Server.LocalPortName()
+		retMap[intf] = struct{}{}
+	}
+	ret := make([]string, 0, len(retMap))
+	for intf := range retMap {
+		ret = append(ret, intf)
 	}
 	return ret, nil
 }
 
+// TODO: this actually needs rework as this is meant for a switch-switch neighbour case, but the connection type does not exist yet
 func getInterfacesForSwitchNeighbours(ctx context.Context, k8sClient client.Client, selfHostname string) ([]string, error) {
-	obj := &fabricv1alpha1.Switch{}
+	// get our own object first based on the hostname
+	// if this isn't there, then all bets are off
+	obj := &wiring1alpha2.Switch{}
 	if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: selfHostname}, obj); err != nil {
 		return nil, err
 	}
-	labels := client.MatchingLabels{"fabric.githedgehog.com/switch": selfHostname}
-	if rack, ok := obj.GetLabels()["fabric.githedgehog.com/rack"]; ok {
-		labels["fabric.githedgehog.com/rack"] = rack
-	}
 
-	// retrieve all of our ports that belong to us
-	portList := &fabricv1alpha1.SwitchPortList{}
-	if err := k8sClient.List(ctx, portList, labels); err != nil {
+	// build a matching label for all connections that belong to us
+	// they have the form of:
+	// switch.connection.fabric.githedgehog.com/switch-2: "true"
+	labels := client.MatchingLabels{"switch.connection.fabric.githedgehog.com/" + selfHostname: "true"}
+
+	// retrieve all connections that belong to us
+	connList := &wiring1alpha2.ConnectionList{}
+	if err := k8sClient.List(ctx, connList, labels); err != nil {
 		return nil, err
 	}
-	if len(portList.Items) == 0 {
-		return nil, fmt.Errorf("no ports configured for server")
+	if len(connList.Items) == 0 {
+		return nil, fmt.Errorf("no connections configured for server '%s'", selfHostname)
 	}
-	ret := make([]string, 0, len(portList.Items))
-	for _, port := range portList.Items {
-		if port.Spec.Neighbor.Switch != nil {
-			// we expect a switch on this port as a neighbour, so we want to listen on this port
-			nic := port.Spec.NOSPortName
-			ret = append(ret, nic)
+
+	// now build a list of all interfaces that belong to the server and ensure to deduplicate it
+	// for switches that list contains a lot more connections than whwat we are interested in at first
+	retMap := make(map[string]struct{}, len(connList.Items))
+	for _, conn := range connList.Items {
+		// we are only interested in management connections
+		if conn.Spec.Management == nil {
+			continue
 		}
+		intf := conn.Spec.Management.Link.Switch.BasePortName.LocalPortName()
+		retMap[intf] = struct{}{}
+	}
+	ret := make([]string, 0, len(retMap))
+	for intf := range retMap {
+		ret = append(ret, intf)
 	}
 	return ret, nil
 }
