@@ -241,7 +241,7 @@ spec:
       switch:
         ip: 192.168.42.11/24
         oniePortName: eth1
-        vlan: 42
+        vlan: 0
         port: switch-1/Management0
 ---
 apiVersion: wiring.githedgehog.com/v1alpha2
@@ -259,7 +259,7 @@ spec:
       switch:
         ip: 192.168.42.12/24
         oniePortName: eth1
-        vlan: 42
+        vlan: 0
         port: switch-2/Management0
 ---
 apiVersion: wiring.githedgehog.com/v1alpha2
