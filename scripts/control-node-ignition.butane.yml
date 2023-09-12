@@ -133,9 +133,13 @@ storage:
           [NetDev]
           Name=control1
           Kind=macvlan
+          #Kind=vlan
 
           [MACVLAN]
           Mode=private
+
+          #[VLAN]
+          #Id=42
     - path: /etc/systemd/network/01-control1.network 
       mode: 0644
       contents:
@@ -143,6 +147,7 @@ storage:
           [Match]
           Name=control1
           Kind=macvlan
+          #Kind=vlan
 
           [Network]
           Bridge=bridge0
@@ -156,9 +161,13 @@ storage:
           [NetDev]
           Name=control2
           Kind=macvlan
+          #Kind=vlan
 
           [MACVLAN]
           Mode=private
+
+          #[VLAN]
+          #Id=42
     - path: /etc/systemd/network/01-control2.network 
       mode: 0644
       contents:
@@ -166,6 +175,7 @@ storage:
           [Match]
           Name=control2
           Kind=macvlan
+          #Kind=vlan
 
           [Network]
           Bridge=bridge0
@@ -228,6 +238,7 @@ storage:
 
           [Network]
           MACVLAN=control1
+          #VLAN=control1
           LinkLocalAddressing=ipv6
           LLDP=yes
           EmitLLDP=yes
@@ -258,6 +269,7 @@ storage:
 
           [Network]
           MACVLAN=control2
+          #VLAN=control2
           LinkLocalAddressing=ipv6
           LLDP=yes
           EmitLLDP=yes
