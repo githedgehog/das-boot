@@ -38,7 +38,7 @@ securityContext: {}
 # and map them
 service:
   type: ClusterIP
- # clusterIP: 10.43.0.42
+ # clusterIP: 10.143.0.42
   ports:
     # insecure:
     #   port: 80
@@ -59,17 +59,16 @@ settings:
       #  - "[::]:8080"
     secure:
       - ":8443"
+  control_vip: "192.168.42.1"
   dns_servers:
-    - "10.43.0.10"
+    - "10.143.0.10"
   ntp_servers:
     - ntp.default.svc.cluster.local
   syslog_servers:
     - syslog.default.svc.cluster.local
-  routes:
-    - gateway: 192.168.42.1
-      destinations:
-        - 10.42.0.0/16
-        - 10.43.0.0/16
+  kube_subnets:
+    - 10.142.0.0/16
+    - 10.143.0.0/16
   # NOTE: this should *NEVER* be used in a production deployment
   # This essentially disables device registration and approval
   # and will simply always hand out a device certificate

@@ -118,6 +118,9 @@ type InstallerSettings struct {
 	// different port it needs to be included here (e.g. dasboot.example.com:8080).
 	SecureServerName string `json:"secure_server_name,omitempty" yaml:"secure_server_name,omitempty"`
 
+	// ControlVIP is the virtual IP of where to reach the control network services
+	ControlVIP string `json:"control_vip,omitempty" yaml:"control_vip,omitempty"`
+
 	// DNSServers are the DNS servers which will be configured on clients at installation time
 	DNSServers []string `json:"dns_servers,omitempty" yaml:"dns_servers,omitempty"`
 
@@ -127,13 +130,9 @@ type InstallerSettings struct {
 	// SyslogServers are the syslog servers which will be configured on clients at installation time
 	SyslogServers []string `json:"syslog_servers,omitempty" yaml:"syslog_servers,omitempty"`
 
-	// Routes are the routes that will be configured to access the management/control plane network
-	Routes []*Route `json:"routes,omitempty" yaml:"routes,omitempty"`
-}
-
-type Route struct {
-	Gateway      string   `json:"gateway,omitempty" yaml:"gateway,omitempty"`
-	Destinations []string `json:"destinations,omitempty" yaml:"destinations,omitempty"`
+	// KubeSubnets are the subnets for which the seeder will generate routes that will be configured to access the management/control plane network
+	// NOTE: subject to change in the future
+	KubeSubnets []string `json:"kube_subnets,omitempty" yaml:"kube_subnets,omitempty"`
 }
 
 // RegistrySettings are all the settings that instruct the seeder on what to do for registration requests
@@ -195,15 +194,11 @@ var ReferenceConfig = Config{
 		ServerCAPath:          "/etc/hedgehog/seeder/server-ca-cert.pem",
 		ConfigSignatureCAPath: "/etc/hedgehog/seeder/embedded-config-generator-ca-cert.pem",
 		SecureServerName:      "das-boot.hedgehog.svc.cluster.local",
+		ControlVIP:            "192.168.42.1",
 		DNSServers:            []string{"192.168.42.1", "192.168.42.2"},
 		NTPServers:            []string{"192.168.42.1", "192.168.42.2"},
 		SyslogServers:         []string{"192.168.42.1"},
-		Routes: []*Route{
-			{
-				Gateway:      "192.168.42.1",
-				Destinations: []string{"10.42.0.0/16", "10.43.0.0/16"},
-			},
-		},
+		KubeSubnets:           []string{"10.142.0.0/16", "10.143.0.0/16"},
 	},
 }
 

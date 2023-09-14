@@ -168,19 +168,13 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 	// TODO: the location UUID should match
 
 	set := &ipam.Settings{
+		ControlVIP:    s.installerSettings.controlVIP,
 		DNSServers:    s.installerSettings.dnsServers,
 		NTPServers:    s.installerSettings.ntpServers,
 		SyslogServers: s.installerSettings.syslogServers,
+		KubeSubnets:   s.installerSettings.kubeSubnets,
 		// as the architecture has been validated by this point, we can rely on this value
 		Stage1URL: s.installerSettings.stage1URL(req.Arch),
-	}
-	for _, setRoute := range s.installerSettings.routes {
-		r := &ipam.Route{
-			Gateway:      setRoute.gateway,
-			Destinations: make([]string, len(setRoute.destinations)),
-		}
-		copy(r.Destinations, setRoute.destinations)
-		set.Routes = append(set.Routes, r)
 	}
 	resp, err := ipam.ProcessRequest(r.Context(), set, s.cpc, &req, adjacentSwitch, adjacentPort)
 	if err != nil {

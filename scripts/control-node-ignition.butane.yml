@@ -25,7 +25,7 @@ systemd:
         TimeoutStartSec=180
         RemainAfterExit=yes
         KillMode=process
-        ExecStart=/usr/bin/sh -c '/opt/k3s-install.sh server --cluster-init --disable=traefik —cluster-cidr "10.42.0.0/16" --service-cidr "10.43.0.0/16" --cluster-dns "10.43.0.10" --write-kubeconfig-mode 644 --tls-san "kube-master.local" --tls-san "control-node-1.local" --tls-san "192.168.42.1"'
+        ExecStart=/usr/bin/sh -c '/opt/k3s-install.sh server --cluster-init --disable=traefik —cluster-cidr "10.142.0.0/16" --service-cidr "10.143.0.0/16" --cluster-dns "10.143.0.10" --write-kubeconfig-mode 644 --tls-san "kube-master.local" --tls-san "control-node-1.local" --tls-san "192.168.42.1"'
         
         [Install]
         WantedBy=multi-user.target
@@ -126,93 +126,23 @@ storage:
       contents:
         source: http://10.0.2.2:8888/hosts
     # network configuration
-    - path: /etc/systemd/network/01-control1.netdev 
-      mode: 0644
-      contents:
-        inline: |
-          [NetDev]
-          Name=control1
-          Kind=macvlan
-          #Kind=vlan
-
-          [MACVLAN]
-          Mode=private
-
-          #[VLAN]
-          #Id=42
-    - path: /etc/systemd/network/01-control1.network 
+    - path: /etc/systemd/network/01-loopback.network
       mode: 0644
       contents:
         inline: |
           [Match]
-          Name=control1
-          Kind=macvlan
-          #Kind=vlan
+          Name=lo
+          Type=loopback
 
           [Network]
-          Bridge=bridge0
-
-          [Bridge]
-          Isolated=yes
-    - path: /etc/systemd/network/01-control2.netdev 
-      mode: 0644
-      contents:
-        inline: |
-          [NetDev]
-          Name=control2
-          Kind=macvlan
-          #Kind=vlan
-
-          [MACVLAN]
-          Mode=private
-
-          #[VLAN]
-          #Id=42
-    - path: /etc/systemd/network/01-control2.network 
-      mode: 0644
-      contents:
-        inline: |
-          [Match]
-          Name=control2
-          Kind=macvlan
-          #Kind=vlan
-
-          [Network]
-          Bridge=bridge0
-
-          [Bridge]
-          Isolated=yes
-    - path: /etc/systemd/network/03-bridge.netdev 
-      mode: 0644
-      contents:
-        inline: |
-          [NetDev]
-          Name=bridge0
-          Kind=bridge
-
-          [Bridge]
-          DefaultPVID=none
-          VLANFiltering=no
-    - path: /etc/systemd/network/03-bridge.network 
-      mode: 0644
-      contents:
-        inline: |
-          # We essentially want all ethernet links
-          # but NOT eth0 which is the QEMU user NIC
-          [Match]
-          Name=bridge0
-          Kind=bridge
-
-          [Link]
-          RequiredForOnline=no
-          
-          [Network]
-          Address=192.168.42.1/24
-          LinkLocalAddressing=no
+          LinkLocalAddressing=ipv6
           LLDP=no
           EmitLLDP=no
           IPv6AcceptRA=no
           IPv6SendRA=no
+          Address=127.0.0.1/8
+          Address=::1/128
+          Address=192.168.42.1/32
     - path: /etc/systemd/network/11-switch1.link
       mode: 0644
       contents:
@@ -237,13 +167,12 @@ storage:
           Type=ether
 
           [Network]
-          MACVLAN=control1
-          #VLAN=control1
           LinkLocalAddressing=ipv6
           LLDP=yes
           EmitLLDP=yes
           IPv6AcceptRA=yes
           IPv6SendRA=yes
+          Address=192.168.101.1/31
     - path: /etc/systemd/network/12-switch2.link
       mode: 0644
       contents:
@@ -268,13 +197,12 @@ storage:
           Type=ether
 
           [Network]
-          MACVLAN=control2
-          #VLAN=control2
           LinkLocalAddressing=ipv6
           LLDP=yes
           EmitLLDP=yes
           IPv6AcceptRA=yes
           IPv6SendRA=yes
+          Address=192.168.102.1/31
     # now all installation files, etc.pp.
     - path: /opt/k3s-install.sh
       mode: 0755
