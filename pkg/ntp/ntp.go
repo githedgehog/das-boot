@@ -13,8 +13,6 @@ import (
 	"github.com/beevik/ntp"
 )
 
-var l = log.L()
-
 var (
 	ErrNoServers              = errors.New("ntp: empty server list")
 	ErrNTPQueriesUnsuccessful = errors.New("ntp: all query attempts unsuccessful")
@@ -52,7 +50,7 @@ func SyncClock(ctx context.Context, servers []string) error {
 
 	// now set the system clock
 	tv := TimevalFromTime(t)
-	l.Info("Updating system time with time from NTP server", zap.Timep("ntp", t), zap.Time("systemTime", time.Now()))
+	log.L().Info("Updating system time with time from NTP server", zap.Timep("ntp", t), zap.Time("systemTime", time.Now()))
 	if err := syscallSettimeofday(tv); err != nil {
 		return updateSystemClockError(err)
 	}
@@ -62,20 +60,20 @@ func SyncClock(ctx context.Context, servers []string) error {
 	// going to try to set the hardware clock
 	rtc, err := OpenRTC()
 	if err != nil {
-		l.Warn("failed to open RTC", zap.Error(err))
+		log.L().Warn("failed to open RTC", zap.Error(err))
 	}
 	defer rtc.Close()
 	if rtc != nil {
 		hardwareTime, err := rtc.Read()
 		if err != nil {
-			l.Warn("failed to read time from RTC", zap.Error(err))
+			log.L().Warn("failed to read time from RTC", zap.Error(err))
 		}
 		if hardwareTime != nil {
 			deviation := abs(hardwareTime.Sub(*t))
 			if deviation > (30 * time.Second) {
-				l.Info("Trying to sync hardware clock with new system time because the clock deviation is too large", zap.Duration("deviation", deviation))
+				log.L().Info("Trying to sync hardware clock with new system time because the clock deviation is too large", zap.Duration("deviation", deviation))
 				if err := rtc.Set(t); err != nil {
-					l.Error("failed to set hardware clock to new time", zap.Error(err))
+					log.L().Error("failed to set hardware clock to new time", zap.Error(err))
 				}
 			}
 		}
@@ -114,7 +112,7 @@ func queryTimeFromServer(ctx context.Context, server string, ch chan<- *time.Tim
 		// this recovers from the problem that the channel might be closed
 		// which is expected if this is not the first responding server
 		if e := recover(); e != nil {
-			l.Debug("panic in queryTimeFromServer", zap.Any("recover", e))
+			log.L().Debug("panic in queryTimeFromServer", zap.Any("recover", e))
 		}
 	}()
 
@@ -131,7 +129,7 @@ func queryTimeFromServer(ctx context.Context, server string, ch chan<- *time.Tim
 		Version: 4,
 	})
 	if err != nil {
-		l.Warn("querying NTP server", zap.String("server", server), zap.Error(err))
+		log.L().Warn("querying NTP server", zap.String("server", server), zap.Error(err))
 		return
 	}
 

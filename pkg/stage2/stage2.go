@@ -186,7 +186,6 @@ func runNosInstall(ctx context.Context, hc *http.Client, cfg *configstage.Stage2
 	// - the NOS installation half-assed, and we don't know what that means
 	defer func() {
 		if funcErr != nil {
-			// TODO: DOESN'T WORK YET !!!
 			l.Info("Trying to ensure that ONIE stays the default boot option...")
 			if err := partitions.MakeONIEDefaultBootEntryAndCleanup(); err != nil {
 				l.Error("Making ONIE the default boot option failed", zap.Error(err))

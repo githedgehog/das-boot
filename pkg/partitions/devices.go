@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"go.githedgehog.com/dasboot/pkg/exec"
+	"go.githedgehog.com/dasboot/pkg/log"
 
 	"go.uber.org/zap"
 )
@@ -163,7 +164,7 @@ func (d Devices) deletePartitionsByONIELocation() error {
 		}
 
 		if err := disk.ReReadPartitionTable(); err != nil {
-			Logger.Warn("rereading partition table failed", zap.Error(err))
+			log.L().Warn("rereading partition table failed", zap.Error(err))
 		}
 
 		// If we deleted partions, then this means that we deleted
@@ -244,7 +245,7 @@ func (d Devices) createHedgehogIdentityPartitionByONIELocation() error {
 
 	// reread partition table
 	if err := disk.ReReadPartitionTable(); err != nil {
-		Logger.Warn("rereading partition table failed", zap.Error(err))
+		log.L().Warn("rereading partition table failed", zap.Error(err))
 	}
 	return nil
 }

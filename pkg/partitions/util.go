@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"os"
 
-	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 )
 
@@ -21,5 +20,3 @@ var (
 	unixUnmount     func(target string, flags int) error                                                = unix.Unmount
 	unixMknod       func(path string, mode uint32, dev int) (err error)                                 = unix.Mknod
 )
-
-var Logger = zap.L().With(zap.String("logger", "pkg/partitions"))

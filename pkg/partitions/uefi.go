@@ -8,6 +8,8 @@ import (
 	"github.com/0x5a17ed/uefi/efi/efireader"
 	"github.com/0x5a17ed/uefi/efi/efivario"
 	"github.com/0x5a17ed/uefi/efi/efivars"
+	"go.githedgehog.com/dasboot/pkg/log"
+	"go.uber.org/zap"
 )
 
 // One of the prerequisites is a test EFI Context.
@@ -63,7 +65,7 @@ func MakeONIEDefaultBootEntryAndCleanup() error {
 	// compare and see if this is ONIE
 	// we're assuming that we're running ONIE, so the current boot entry must be ONIE
 	if !strings.Contains(bootCurrentDescription, "ONIE") {
-		return ErrNotBootedIntoONIE
+		return fmt.Errorf("%w: BootCurrent is '%s'", ErrNotBootedIntoONIE, bootCurrentDescription)
 	}
 
 	// get the boot order variable now
@@ -102,17 +104,26 @@ func MakeONIEDefaultBootEntryAndCleanup() error {
 		newBootOrder = append(newBootOrder, bootOrder...)
 	}
 
+	// prepare a string that we use for logging and errors
+	newBootOrderStrings := make([]string, 0, len(newBootOrder))
+	for _, num := range newBootOrder {
+		newBootOrderStrings = append(newBootOrderStrings, fmt.Sprintf("%04X", num))
+	}
+	newBootOrderStr := strings.Join(newBootOrderStrings, ",")
+
 	// write the boot order to the EFI variable
 	if err := efivars.BootOrder.Set(efiCtx, newBootOrder); err != nil {
-		return err
+		return fmt.Errorf("uefi: setting BootOrder to '%s': %w", newBootOrderStr, err)
 	}
+	log.L().Info("uefi: successfully set EFI BootOrder variable", zap.String("BootOrder", newBootOrderStr))
 
 	// and now delete all entries which we need to delete
 	for _, num := range bootEntriesToDelete {
 		name := fmt.Sprintf("Boot%04X", num)
 		if err := efiCtx.Delete(name, efivars.GlobalVariable); err != nil {
-			Logger.Sugar().Warnf("uefi: deleting EFI var %s: %s", name, err)
+			log.L().Warn("uefi: deleting stale EFI variable failed", zap.String("efivar", name), zap.Error(err))
 		}
+		log.L().Info("uefi: successfully deleted stale EFI variable", zap.String("efivar", name))
 	}
 
 	return nil
