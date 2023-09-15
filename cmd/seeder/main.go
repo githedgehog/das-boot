@@ -106,6 +106,9 @@ func main() {
 			}()
 			log.ReplaceGlobals(l)
 
+			// print version information
+			l.Info("Seeder starting", zap.String("version", version.Version))
+
 			// load config
 			cfg, err := loadConfig(ctx.Path("config"))
 			if err != nil {
