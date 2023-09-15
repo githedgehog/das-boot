@@ -22,3 +22,4 @@
 /test/integration/integ-log/integ-log
 /test/integration/integ-netdev/integ-netdev
 /test/integration/integ-ntp/integ-ntp
+/test/integration/integ-uefi/integ-uefi
