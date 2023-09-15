@@ -7,10 +7,7 @@ import (
 	"io"
 
 	"go.githedgehog.com/dasboot/pkg/devid"
-	"go.uber.org/zap"
 )
-
-var Logger = zap.L().With(zap.String("logger", "pkg/partitions/identity"))
 
 var (
 	ecdsaGenerateKey             func(c elliptic.Curve, rand io.Reader) (*ecdsa.PrivateKey, error)                         = ecdsa.GenerateKey

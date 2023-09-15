@@ -31,7 +31,7 @@ var l = log.NewZapWrappedLogger(zap.Must(log.NewSerialConsole(zapcore.DebugLevel
 
 var description = `
 This is the Hedgehog SONiC devic provisioning server. It needs to be running on
-a dedicated VLAN with access to all management capabilities, and it needs to
+a dedicated network with access to all management capabilities, and it needs to
 run on untagged ports on link-local IP addresses to serve the initial staged
 installer.
 

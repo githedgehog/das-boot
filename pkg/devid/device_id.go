@@ -21,8 +21,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var l = log.L()
-
 // for unit testing
 var (
 	arch      = runtime.GOARCH
@@ -52,7 +50,7 @@ func ID() string {
 	if err == nil {
 		return ret
 	}
-	l.Warn("unable to determine device ID through vendor ID and device serial number using ONIE commands", zap.Error(err))
+	log.L().Warn("unable to determine device ID through vendor ID and device serial number using ONIE commands", zap.Error(err))
 
 	// 2.1 on x86_64: System UUID - cat /sys/class/dmi/id/product_uuid if not a list of known bad system UUIDs
 	if arch == "amd64" || arch == "386" {
@@ -60,7 +58,7 @@ func ID() string {
 		if err == nil {
 			return ret
 		}
-		l.Warn("unable to determine device ID through System UUID", zap.Error(err))
+		log.L().Warn("unable to determine device ID through System UUID", zap.Error(err))
 	}
 
 	// 2.2 on ARM: Serial of CPU - grep Serial /proc/cpuinfo if set, and not a bogus serial (like all zeros)
@@ -69,7 +67,7 @@ func ID() string {
 		if err == nil {
 			return ret
 		}
-		l.Warn("unable to determine device ID through CPU serial number", zap.Error(err))
+		log.L().Warn("unable to determine device ID through CPU serial number", zap.Error(err))
 	}
 
 	// 3. all NIC MAC addresses
@@ -77,7 +75,7 @@ func ID() string {
 	if err == nil {
 		return ret
 	}
-	l.Error("unable to determine device ID through MAC addresses", zap.Error(err))
+	log.L().Error("unable to determine device ID through MAC addresses", zap.Error(err))
 
 	// you really have a problem if you get down here
 	// nothing more we can do

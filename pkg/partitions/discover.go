@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	dbfilepath "go.githedgehog.com/dasboot/pkg/filepath"
+	"go.githedgehog.com/dasboot/pkg/log"
 
 	"go.uber.org/zap"
 )
@@ -18,7 +19,7 @@ func Discover() Devices {
 			entry, err := ReadUevent(path)
 			if err != nil {
 				// we will just log an error but move on
-				Logger.Warn("ReadUevent failed", zap.Error(err))
+				log.L().Warn("ReadUevent failed", zap.Error(err))
 				return nil
 			}
 			dev := &Device{
@@ -52,20 +53,20 @@ func Discover() Devices {
 	// is available
 	for _, dev := range ret {
 		if err := dev.ensureDevicePath(); err != nil {
-			Logger.Warn("ensuring device path failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
+			log.L().Warn("ensuring device path failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
 			// technically that might be faster, but let's just try everything anyways
 			// they will most likely abort because of the missing device node anyways
 			// continue
 		}
 		if err := dev.discoverFilesystem(); err != nil {
-			Logger.Debug("discover filesystem failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
+			log.L().Debug("discover filesystem failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
 		}
 		if err := dev.discoverFilesystemLabel(); err != nil {
-			Logger.Debug("discover filesystem label failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
+			log.L().Debug("discover filesystem label failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
 		}
 		if dev.IsPartition() {
 			if err := dev.discoverPartitionType(); err != nil {
-				Logger.Debug("discover partition type failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
+				log.L().Debug("discover partition type failed", zap.String("devname", dev.GetDeviceName()), zap.Error(err))
 			}
 		}
 	}
