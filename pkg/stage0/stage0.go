@@ -377,6 +377,7 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 			routes = append(routes, &net.Route{
 				Dests: dests,
 				Gw:    gw,
+				Flags: route.Flags,
 			})
 		}
 	}

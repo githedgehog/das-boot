@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"net"
+
 	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/seeder/controlplane"
 	wiring1alpha2 "go.githedgehog.com/fabric/api/wiring/v1alpha2"
@@ -14,11 +16,12 @@ import (
 
 // Settings needs to be passed in by the seeder to a ProcessRequest call
 type Settings struct {
+	ControlVIP    string
 	DNSServers    []string
 	SyslogServers []string
 	NTPServers    []string
+	KubeSubnets   []string
 	Stage1URL     string
-	Routes        []*Route
 }
 
 var (
@@ -99,12 +102,34 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 				continue
 			}
 
+			// build the routes that we need to set in ONIE
+			serverIP, err := ensureIPHasNoCIDR(conn.Spec.Management.Link.Server.IP)
+			if err != nil {
+				return nil, fmt.Errorf("extracting IP from CIDR notation failed for server IP: %w", err)
+			}
+			controlVIP, err := ensureIPHasCIDR(settings.ControlVIP)
+			if err != nil {
+				return nil, fmt.Errorf("ensuring control VIP has CIDR notation: %w", err)
+			}
+			routes := []*Route{
+				{
+					// the route to the controller over the server IP
+					Destinations: []string{controlVIP},
+					Gateway:      serverIP,
+				},
+				{
+					// the route to access Kubernetes pods and services
+					// NOTE: subject to change
+					Destinations: settings.KubeSubnets,
+					Gateway:      serverIP,
+				},
+			}
+
 			// build the response for this port
 			netif := conn.Spec.Management.Link.Switch.ONIEPortName
 			ipa := IPAddress{
 				IPAddresses: []string{conn.Spec.Management.Link.Switch.IP},
-				VLAN:        conn.Spec.Management.Link.Switch.VLAN,
-				Routes:      settings.Routes,
+				Routes:      routes,
 			}
 
 			// if the adjacent port was passed in, then we'll let the
@@ -135,46 +160,40 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 	}, nil
 }
 
-// func mockedIPAddresses(interfaces []string) IPAddresses {
-// 	ret := make(IPAddresses, len(interfaces))
+func ensureIPHasCIDR(ip string) (string, error) {
+	// we assume IPv4 by default
+	cidr := "32"
 
-// 	for _, netif := range interfaces {
-// 		ret[netif] = IPAddress{
-// 			IPAddresses: nextIP(),
-// 			VLAN:        mockedVLAN(),
-// 			Routes:      mockedRoutes(),
-// 		}
-// 	}
+	// check if this is CIDR notation
+	parsedIP, _, err := net.ParseCIDR(ip)
+	if err == nil {
+		if parsedIP.To4() == nil {
+			cidr = "128"
+		}
+		// we ensure to return it with the given CIDR and throw out whatever other CIDR was there
+		return fmt.Sprintf("%s/%s", parsedIP, cidr), nil
+	}
 
-// 	return ret
-// }
+	// if not, check if this is an IP at least
+	parsedIP = net.ParseIP(ip)
+	if parsedIP == nil {
+		return "", fmt.Errorf("not a valid IP address: '%s'", ip)
+	}
+	if parsedIP.To4() == nil {
+		cidr = "128"
+	}
 
-// func mockedVLAN() uint16 {
-// 	return 42
-// }
+	// and we return this together with the provided CIDR
+	return fmt.Sprintf("%s/%s", ip, cidr), nil
+}
 
-// func mockedRoutes() []*Route {
-// 	return []*Route{
-// 		{
-// 			Destinations: []string{
-// 				"10.42.0.0/16",
-// 				"10.43.0.0/16",
-// 			},
-// 			Gateway: "192.168.42.1",
-// 		},
-// 	}
-// }
-
-// var curIP byte = 0
-
-// func nextIP() []string {
-// 	if curIP < 100 || curIP > 254 {
-// 		curIP = 100
-// 	} else {
-// 		curIP += 1
-// 	}
-
-// 	ip := net.IPv4(192, 168, 42, curIP)
-
-// 	return []string{ip.String() + "/24"}
-// }
+func ensureIPHasNoCIDR(ip string) (string, error) {
+	parsedIP, _, err := net.ParseCIDR(ip)
+	if err != nil {
+		parsedIP = net.ParseIP(ip)
+		if parsedIP == nil {
+			return "", fmt.Errorf("not a valid IP/CIDR or IP address: '%s'", ip)
+		}
+	}
+	return parsedIP.String(), nil
+}

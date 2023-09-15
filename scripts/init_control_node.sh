@@ -186,8 +186,8 @@ echo
 
 # push the CRDs into the local registry
 echo "Pushing Agent and Wiring CRDs into registry..."
-( cd $IMAGE_DIR && $HELM pull --version=0.9.0 oci://ghcr.io/githedgehog/fabric-api )
-( cd $IMAGE_DIR && $HELM push fabric-api-0.9.0.tgz oci://registry.local:5000/githedgehog/helm-charts )
+( cd $IMAGE_DIR && $HELM pull --version=v0.10.0 oci://ghcr.io/githedgehog/fabric-api )
+( cd $IMAGE_DIR && $HELM push fabric-api-v0.10.0.tgz oci://registry.local:5000/githedgehog/helm-charts )
 # TODO: currently broken with the new wiring
 #( cd $IMAGE_DIR && $HELM pull --version=0.2.0 oci://ghcr.io/githedgehog/fabric-helm )
 #( cd $IMAGE_DIR && $HELM push fabric-helm-0.2.0.tgz oci://registry.local:5000/githedgehog/helm-charts )

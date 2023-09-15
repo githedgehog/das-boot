@@ -27,4 +27,5 @@ type IPAddress struct {
 type Route struct {
 	Destinations []string `json:"destinations,omitempty"`
 	Gateway      string   `json:"gateway,omitempty"`
+	Flags        int      `json:"flags,omitempty"`
 }

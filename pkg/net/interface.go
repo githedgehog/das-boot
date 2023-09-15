@@ -32,6 +32,7 @@ func StringsToIPNets(ipaddrs []string) ([]*net.IPNet, error) {
 type Route struct {
 	Dests []*net.IPNet
 	Gw    net.IP
+	Flags int
 }
 
 // AddVLANDeviceWithIP will create a new VLAN network interface called `vlanName` with VLAN ID `vid` and add it to
@@ -83,6 +84,7 @@ func AddVLANDeviceWithIP(device string, vid uint16, vlanName string, ipaddrnets 
 					Dst:       dest,
 					Gw:        route.Gw,
 					LinkIndex: vlan.Index,
+					Flags:     route.Flags,
 				}
 				if err := netlink.RouteAdd(r); err != nil {
 					return fmt.Errorf("netlink: route add '%s': %w", r, err)
@@ -128,6 +130,7 @@ func ConfigureDeviceWithIP(device string, ipaddrnets []*net.IPNet, routes []*Rou
 					Dst:       dest,
 					Gw:        route.Gw,
 					LinkIndex: link.Attrs().Index,
+					Flags:     route.Flags,
 				}
 				if err := netlink.RouteAdd(r); err != nil {
 					return fmt.Errorf("netlink: route add '%s': %w", r, err)
@@ -159,6 +162,7 @@ func UnconfigureDeviceWithIP(device string, ipaddrnets []*net.IPNet, routes []*R
 					Dst:       dest,
 					Gw:        route.Gw,
 					LinkIndex: link.Attrs().Index,
+					Flags:     route.Flags,
 				}
 				if err := netlink.RouteDel(r); err != nil {
 					errs = append(errs, fmt.Errorf("netlink: route del '%s': %w", r, err))
@@ -215,6 +219,7 @@ func DeleteVLANDevice(device string, ipaddrnets []*net.IPNet, routes []*Route) e
 					Dst:       dest,
 					Gw:        route.Gw,
 					LinkIndex: l.Attrs().Index,
+					Flags:     route.Flags,
 				}
 				if err := netlink.RouteDel(r); err != nil {
 					errs = append(errs, fmt.Errorf("netlink: route del '%s': %w", r, err))

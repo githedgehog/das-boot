@@ -238,11 +238,10 @@ spec:
     link:
       server:
         port: control-node-1/switch1
+        ip: 192.168.101.1/31
       switch:
-        ip: 192.168.42.11/24
+        ip: 192.168.101.0/31
         oniePortName: eth1
-        vlan: 0
-        #vlan: 42
         port: switch-1/Management0
 ---
 apiVersion: wiring.githedgehog.com/v1alpha2
@@ -257,11 +256,10 @@ spec:
     link:
       server:
         port: control-node-1/switch2
+        ip: 192.168.102.1/31
       switch:
-        ip: 192.168.42.12/24
+        ip: 192.168.102.0/31
         oniePortName: eth1
-        vlan: 0
-        #vlan: 42
         port: switch-2/Management0
 ---
 apiVersion: wiring.githedgehog.com/v1alpha2

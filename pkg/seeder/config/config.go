@@ -74,6 +74,9 @@ type InstallerSettings struct {
 	// different port it needs to be included here (e.g. dasboot.example.com:8080).
 	SecureServerName string
 
+	// ControlVIP is the virtual IP of where to reach the control network services
+	ControlVIP string
+
 	// DNSServers are the DNS servers which will be configured on clients at installation time
 	DNSServers []string
 
@@ -83,13 +86,9 @@ type InstallerSettings struct {
 	// SyslogServers are the syslog servers which will be configured on clients at installation time
 	SyslogServers []string
 
-	// Routes are the routes that will be configured to access the management/control plane network
-	Routes []*Route
-}
-
-type Route struct {
-	Gateway      string   `json:"gateway,omitempty" yaml:"gateway,omitempty"`
-	Destinations []string `json:"destinations,omitempty" yaml:"destinations,omitempty"`
+	// KubeSubnets are the subnets for which the seeder will generate routes that will be configured to access the management/control plane network
+	// NOTE: subject to change in the future
+	KubeSubnets []string
 }
 
 // RegistrySettings are all the settings that instruct the seeder on what to do for registration requests

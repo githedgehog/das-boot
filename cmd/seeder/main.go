@@ -157,21 +157,11 @@ func main() {
 					ServerCAPath:          cfg.InstallerSettings.ServerCAPath,
 					ConfigSignatureCAPath: cfg.InstallerSettings.ConfigSignatureCAPath,
 					SecureServerName:      cfg.InstallerSettings.SecureServerName,
+					ControlVIP:            cfg.InstallerSettings.ControlVIP,
 					DNSServers:            cfg.InstallerSettings.DNSServers,
 					NTPServers:            cfg.InstallerSettings.NTPServers,
 					SyslogServers:         cfg.InstallerSettings.SyslogServers,
-				}
-				if len(cfg.InstallerSettings.Routes) > 0 {
-					routes := make([]*seederconfig.Route, 0, len(cfg.InstallerSettings.Routes))
-					for _, route := range cfg.InstallerSettings.Routes {
-						r := &seederconfig.Route{
-							Gateway:      route.Gateway,
-							Destinations: make([]string, len(route.Destinations)),
-						}
-						copy(r.Destinations, route.Destinations)
-						routes = append(routes, r)
-					}
-					c.InstallerSettings.Routes = routes
+					KubeSubnets:           cfg.InstallerSettings.KubeSubnets,
 				}
 			}
 			if cfg.RegistrySettings != nil {

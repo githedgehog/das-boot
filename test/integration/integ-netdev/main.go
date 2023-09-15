@@ -48,14 +48,19 @@ func main() {
 						Name:  "subnet",
 						Usage: "Additional subnets to be added as routes on the same VLAN interface",
 						Value: cli.NewStringSlice(
-							"10.42.0.0/16",
-							"10.43.0.0/16",
+							"10.142.0.0/16",
+							"10.143.0.0/16",
 						),
 					},
 					&cli.StringFlag{
 						Name:  "gateway",
 						Usage: "Nexthop to use for the subnet routes",
 						Value: "192.168.42.1",
+					},
+					&cli.IntFlag{
+						Name:  "flags",
+						Usage: "Set flags like onlink for the route",
+						Value: 0,
 					},
 					&cli.StringFlag{
 						Name:    "device",
@@ -83,14 +88,19 @@ func main() {
 						Name:  "subnet",
 						Usage: "Additional subnets to be added as routes on the same VLAN interface",
 						Value: cli.NewStringSlice(
-							"10.42.0.0/16",
-							"10.43.0.0/16",
+							"10.142.0.0/16",
+							"10.143.0.0/16",
 						),
 					},
 					&cli.StringFlag{
 						Name:  "gateway",
 						Usage: "Nexthop to use for the subnet routes",
 						Value: "192.168.42.1",
+					},
+					&cli.IntFlag{
+						Name:  "flags",
+						Usage: "Set flags like onlink for the route",
+						Value: 0,
 					},
 					&cli.StringFlag{
 						Name:    "device",
@@ -156,6 +166,8 @@ func integNetdevAdd(ctx *cli.Context) error {
 		return fmt.Errorf("subnets and gateway must be specified together")
 	}
 
+	routeflags := ctx.Int("flags")
+
 	// now build the routes
 	var routes []*dbnet.Route
 	if len(routedests) > 0 && routegw != nil {
@@ -163,6 +175,7 @@ func integNetdevAdd(ctx *cli.Context) error {
 			{
 				Dests: routedests,
 				Gw:    routegw,
+				Flags: routeflags,
 			},
 		}
 	}
@@ -219,6 +232,8 @@ func integNetdevDelete(ctx *cli.Context) error {
 		return fmt.Errorf("subnets and gateway must be specified together")
 	}
 
+	routeflags := ctx.Int("flags")
+
 	// now build the routes
 	var routes []*dbnet.Route
 	if len(routedests) > 0 && routegw != nil {
@@ -226,6 +241,7 @@ func integNetdevDelete(ctx *cli.Context) error {
 			{
 				Dests: routedests,
 				Gw:    routegw,
+				Flags: routeflags,
 			},
 		}
 	}
