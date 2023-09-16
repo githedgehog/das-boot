@@ -180,23 +180,42 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 			// check for a DAS BOOT staging directory
 			if strings.HasPrefix(name, "das-boot-") {
 				dir := filepath.Join(tmpDir, name)
-				if err := unix.Unmount(dir, 0); err != nil {
-					l.Warn("Failed to unmount previously used DAS BOOT staging directory", zap.String("stagingDir", dir), zap.Error(err))
-					continue
+				// unmount it first, if it is mounted
+				if ok, _ := stage.IsMountPoint(dir); ok {
+					if err := unix.Unmount(dir, 0); err != nil {
+						l.Warn("Failed to unmount previously used DAS BOOT staging directory", zap.String("stagingDir", dir), zap.Error(err))
+					} else {
+						l.Info("Unmounted previously existing DAS BOOT staging directory", zap.String("stagingDir", dir))
+					}
 				}
-				l.Info("Unmounted previously existing DAS BOOT staging directory", zap.String("stagingDir", dir))
+				// remove it and everything in there
+				if err := os.RemoveAll(dir); err != nil {
+					l.Warn("Failed to remove previously used DAS BOOT staging directory", zap.String("stagingDir", dir), zap.Error(err))
+				} else {
+					l.Info("Removed previously existing DAS BOOT staging directory", zap.String("stagingDir", dir))
+				}
 				continue
 			}
+
 			// check for a previous SONiC installer which definitely does not clean up after itself
 			// NOTE: we don't know about any other installers besides from SONiC. If we ever want to support others, we need to revisit this
 			// because "tmp." is not a very creative prefix
 			if strings.HasPrefix(name, "tmp.") {
 				dir := filepath.Join(tmpDir, name)
-				if err := unix.Unmount(dir, 0); err != nil {
-					l.Warn("Failed to unmount previously used SONiC installer directory", zap.String("stagingDir", dir), zap.Error(err))
-					continue
+				// unmount it first, if it is mounted
+				if ok, _ := stage.IsMountPoint(dir); ok {
+					if err := unix.Unmount(dir, 0); err != nil {
+						l.Warn("Failed to unmount previously used SONiC installer directory", zap.String("stagingDir", dir), zap.Error(err))
+					} else {
+						l.Info("Unmounted previously existing SONiC installer directory", zap.String("stagingDir", dir))
+					}
 				}
-				l.Info("Unmounted previously existing SONiC installer directory", zap.String("stagingDir", dir))
+				// remove it and everything in there
+				if err := os.RemoveAll(dir); err != nil {
+					l.Warn("Failed to remove previously used SONiC installer directory", zap.String("stagingDir", dir), zap.Error(err))
+				} else {
+					l.Info("Removed previously existing SONiC installer directory", zap.String("stagingDir", dir))
+				}
 				continue
 			}
 		}
