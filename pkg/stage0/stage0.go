@@ -101,6 +101,19 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	// we'll set things into this variable and export them before we execute the next stage
 	stagingInfo := &stage.StagingInfo{}
 
+	var resetNetwork func()
+	resetNetworkLogSettings := *logSettings
+	// In any case of installation success or not, when we were successful at setting up the network
+	// we want to revert it again after we are done here.
+	defer func() {
+		if resetNetwork != nil {
+			// reset the logger to one without syslog servers, otherwise this can hang
+			stage.InitializeGlobalLogger(ctx, &resetNetworkLogSettings) //nolint: errcheck
+			l = log.L()
+			resetNetwork()
+		}
+	}()
+
 	// setup logging first
 	// TODO: this essentially should never fail, so should be implemented differently I guess
 	if err := stage.InitializeGlobalLogger(ctx, logSettings); err != nil {
@@ -299,7 +312,7 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 			continue
 		}
 		var err error
-		stage1Path, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
+		stage1Path, resetNetwork, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
 		if err != nil {
 			l.Error("System network configuration failed for netdev", zap.String("netdev", netdev), zap.Reflect("ipa", ipa), zap.Error(err))
 			continue
@@ -314,7 +327,7 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 				continue
 			}
 			var err error
-			stage1Path, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
+			stage1Path, resetNetwork, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
 			if err != nil {
 				l.Error("System network configuration failed for netdev", zap.String("netdev", netdev), zap.Reflect("ipa", ipa), zap.Error(err))
 				continue
@@ -353,13 +366,13 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	return nil
 }
 
-func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *stage.LogSettings, httpClient *http.Client, ipamResp *ipam.Response, netdev string, ipa ipam.IPAddress) (funcRet string, funcErr error) {
+func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *stage.LogSettings, httpClient *http.Client, ipamResp *ipam.Response, netdev string, ipa ipam.IPAddress) (funcRet string, funcResetNetwork func(), funcErr error) {
 	// first things first: configure network interface, and we need to do some conversions first
 	// if these fail, then there is no need to proceed with anything else
 	ipaddrnets, err := net.StringsToIPNets(ipa.IPAddresses)
 	if err != nil {
 		l.Error("Conversion of IP addresses to IPNets failed", zap.String("netdev", netdev), zap.Reflect("ipAddresses", ipa.IPAddresses))
-		return "", fmt.Errorf("converting IP addresses to IPNets: %w", err)
+		return "", nil, fmt.Errorf("converting IP addresses to IPNets: %w", err)
 	}
 	var routes []*net.Route
 	if len(ipa.Routes) > 0 {
@@ -367,12 +380,12 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 			dests, err := net.StringsToIPNets(route.Destinations)
 			if err != nil {
 				l.Error("Conversion of IP routes destinations to IPNets failed", zap.String("netdev", netdev), zap.Reflect("routes", ipa.Routes), zap.Error(err))
-				return "", fmt.Errorf("converting routes destinations to IPNets: %w", err)
+				return "", nil, fmt.Errorf("converting routes destinations to IPNets: %w", err)
 			}
 			gw := gonet.ParseIP(route.Gateway)
 			if gw == nil {
 				l.Error("Conversion of IP gateway string to IP failed", zap.String("netdev", netdev), zap.String("gw", route.Gateway))
-				return "", fmt.Errorf("converting routes gateway '%s' to IP failed", route.Gateway)
+				return "", nil, fmt.Errorf("converting routes gateway '%s' to IP failed", route.Gateway)
 			}
 			routes = append(routes, &net.Route{
 				Dests: dests,
@@ -385,21 +398,26 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 	// if anything goes wrong below, we are going to try to delete the VLAN interface and revert any network configuration
 	// we are doing this already before we create the devices because we don't really know what failed, so it's essentially safe
 	// to just try and delete / revert everything we are going to try to delete
+	// NOTE: We will also pass on this function **on success**, so that if anything else fails down the line, this function can be called to
+	// reset the network.
+	resetNetwork := func() {
+		if ipa.VLAN > 0 {
+			if err := net.DeleteVLANDevice(vlanName, ipaddrnets, routes); err != nil {
+				l.Warn("Deleting VLAN device or reverting its configuration failed", zap.String("vlanDevice", vlanName), zap.Error(err))
+			} else {
+				l.Info("Successfully deleted VLAN device and reverted its configuration", zap.String("vlanDevice", vlanName))
+			}
+		} else {
+			if err := net.UnconfigureDeviceWithIP(netdev, ipaddrnets, routes); err != nil {
+				l.Warn("Reverting network device configuration failed", zap.String("netdev", netdev), zap.Error(err))
+			} else {
+				l.Info("Successfully reverted network device configuration", zap.String("netdev", netdev))
+			}
+		}
+	}
 	defer func() {
 		if funcErr != nil {
-			if ipa.VLAN > 0 {
-				if err := net.DeleteVLANDevice(vlanName, ipaddrnets, routes); err != nil {
-					l.Warn("Deleting VLAN device or reverting its configuration failed", zap.String("vlanDevice", vlanName), zap.Error(err))
-				} else {
-					l.Info("Successfully deleted VLAN device and reverted its configuration", zap.String("vlanDevice", vlanName))
-				}
-			} else {
-				if err := net.UnconfigureDeviceWithIP(netdev, ipaddrnets, routes); err != nil {
-					l.Warn("Reverting network device configuration failed", zap.String("netdev", netdev), zap.Error(err))
-				} else {
-					l.Info("Successfully reverted network device configuration", zap.String("netdev", netdev))
-				}
-			}
+			resetNetwork()
 		}
 	}()
 
@@ -415,7 +433,7 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 				zap.Reflect("routes", routes),
 				zap.Error(err),
 			)
-			return "", fmt.Errorf("add vlan device with IP: %w", err)
+			return "", nil, fmt.Errorf("add vlan device with IP: %w", err)
 		}
 		l.Info("VLAN interface successfully created and configured",
 			zap.String("netdev", netdev),
@@ -432,7 +450,7 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 				zap.Reflect("routes", routes),
 				zap.Error(err),
 			)
-			return "", fmt.Errorf("configure device with IP: %w", err)
+			return "", nil, fmt.Errorf("configure device with IP: %w", err)
 		}
 		l.Info("Network interface successfully configured",
 			zap.String("netdev", netdev),
@@ -466,7 +484,7 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 	l.Info("Trying to query NTP servers now to synchronize system clock...", zap.String("netdev", netdev), zap.Strings("ntpServers", ipamResp.NTPServers))
 	if err := ntp.SyncClock(ctx, ipamResp.NTPServers); err != nil && !errors.Is(err, ntp.ErrHWClockSync) {
 		l.Error("Syncing system clock with NTP failed", zap.String("netdev", netdev), zap.Error(err))
-		return "", fmt.Errorf("syncing clock with NTP: %w", err)
+		return "", nil, fmt.Errorf("syncing clock with NTP: %w", err)
 	}
 	l.Info("System clock successfully synchronized with NTP", zap.String("netdev", netdev), zap.Strings("ntpServers", ipamResp.NTPServers))
 
@@ -474,13 +492,13 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 	stage1Path := filepath.Join(stagingInfo.StagingDir, "stage1")
 	if err := stage.DownloadExecutable(ctx, httpClient, ipamResp.Stage1URL, stage1Path, 60*time.Second); err != nil {
 		l.Error("Downloading stage 1 installer failed", zap.String("netdev", netdev), zap.String("url", ipamResp.Stage1URL), zap.String("dest", stage1Path), zap.Error(err))
-		return "", fmt.Errorf("downloading stage 1: %w", err)
+		return "", nil, fmt.Errorf("downloading stage 1: %w", err)
 	}
 	l.Info("Downloading stage 1 installer completed", zap.String("netdev", netdev), zap.String("url", ipamResp.Stage1URL), zap.String("dest", stage1Path))
 
 	// these are all the pieces which are dependent on the "right" network to work
 	// we'll continue execution in the main function
-	return stage1Path, nil
+	return stage1Path, resetNetwork, nil
 }
 
 func ipamClient(ctx context.Context, hc *http.Client, ipamURL string, req *ipam.Request, onieEnv *stage.OnieEnv) (*ipam.Response, error) {

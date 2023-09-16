@@ -39,6 +39,10 @@ type Route struct {
 // the parent network interface `device`. It will also add all IP addresses as given with `ipaddrnets`, add the additional
 // routes in `routes`, and, last but not least, it will set the interface UP.
 func AddVLANDeviceWithIP(device string, vid uint16, vlanName string, ipaddrnets []*net.IPNet, routes []*Route) error {
+	// This is kind of desperate, but the easiest way to ensure that it's really not configured before we configure it
+	// It has the advantage though that it will also work in cases when our installer crashed before it could reset the network
+	DeleteVLANDevice(device, ipaddrnets, routes) //nolint: errcheck
+
 	// get the parent device
 	pl, err := netlink.LinkByName(device)
 	if err != nil {
@@ -100,6 +104,10 @@ func AddVLANDeviceWithIP(device string, vid uint16, vlanName string, ipaddrnets 
 // ConfigureDeviceWithIP will add all IP addresses as given with `ipaddrnets`, add the additional
 // routes in `routes`, and, last but not least, it will ensure the interface is UP.
 func ConfigureDeviceWithIP(device string, ipaddrnets []*net.IPNet, routes []*Route) error {
+	// This is kind of desperate, but the easiest way to ensure that it's really not configured before we configure it
+	// It has the advantage though that it will also work in cases when our installer crashed before it could reset the network
+	UnconfigureDeviceWithIP(device, ipaddrnets, routes) //nolint: errcheck
+
 	// get the device
 	link, err := netlink.LinkByName(device)
 	if err != nil {
