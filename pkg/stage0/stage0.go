@@ -101,6 +101,19 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	// we'll set things into this variable and export them before we execute the next stage
 	stagingInfo := &stage.StagingInfo{}
 
+	var resetNetwork func()
+	resetNetworkLogSettings := *logSettings
+	// In any case of installation success or not, when we were successful at setting up the network
+	// we want to revert it again after we are done here.
+	defer func() {
+		if resetNetwork != nil {
+			// reset the logger to one without syslog servers, otherwise this can hang
+			stage.InitializeGlobalLogger(ctx, &resetNetworkLogSettings) //nolint: errcheck
+			l = log.L()
+			resetNetwork()
+		}
+	}()
+
 	// setup logging first
 	// TODO: this essentially should never fail, so should be implemented differently I guess
 	if err := stage.InitializeGlobalLogger(ctx, logSettings); err != nil {
@@ -294,7 +307,6 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 	// and essentially retry the rest of stage 0 until it works
 	// first we try with "preferred" entries that we got back
 	var stage1Path string
-	var resetNetwork func()
 	for netdev, ipa := range ipamResp.IPAddresses {
 		if !ipa.Preferred {
 			continue
@@ -328,17 +340,6 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 		l.Error("System network configuration failed for all network devices")
 		return ErrExecution
 	}
-
-	// From here on we know that we have good network configuration
-	// we will set up a defer which will reset the network again once we return from here
-	// which can either be the case on an installation error in any of the further stages
-	// or even on a successful installation. Either way, it's the cleanest method to just
-	// revert the network configuration again
-	defer func() {
-		if resetNetwork != nil {
-			resetNetwork()
-		}
-	}()
 
 	// set the log settings which will now also have the right syslog servers
 	stagingInfo.LogSettings = *logSettings
