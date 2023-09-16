@@ -103,10 +103,12 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 
 	var resetNetwork func()
 	resetNetworkLogSettings := *logSettings
-	// In any case of installation success or not, when we were successful at setting up the network
+	// In case of installation success which means that we were successful at setting up the network
 	// we want to revert it again after we are done here.
+	// NOTE: we leave it in the error case because it might help when we need to debug things, and the
+	// installer is able to deal with previously existing network configuration
 	defer func() {
-		if resetNetwork != nil {
+		if runErr == nil && resetNetwork != nil {
 			// reset the logger to one without syslog servers, otherwise this can hang
 			stage.InitializeGlobalLogger(ctx, &resetNetworkLogSettings) //nolint: errcheck
 			l = log.L()
@@ -162,12 +164,50 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 		l.Warn("Failed to export staging area information", zap.Error(err))
 	}
 
+	// cleanup potentially previous staging areas and SONiC installers
+	// we want to do this on start of a new installation, and not on a failing installation
+	// so that the previously failing installer leaves their things around for debugging
+	tmpDir := os.TempDir()
+	tmpDirEntries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		l.Warn("Failed to read directory entries from OS temp dir. We will not be able to cleanup from previous installation attempts", zap.String("tmpDir", tmpDir), zap.Error(err))
+	} else {
+		for _, tmpDirEntry := range tmpDirEntries {
+			name := tmpDirEntry.Name()
+			if !tmpDirEntry.IsDir() {
+				continue
+			}
+			// check for a DAS BOOT staging directory
+			if strings.HasPrefix(name, "das-boot-") {
+				dir := filepath.Join(tmpDir, name)
+				if err := unix.Unmount(dir, 0); err != nil {
+					l.Warn("Failed to unmount previously used DAS BOOT staging directory", zap.String("stagingDir", dir), zap.Error(err))
+					continue
+				}
+				l.Info("Unmounted previously existing DAS BOOT staging directory", zap.String("stagingDir", dir))
+				continue
+			}
+			// check for a previous SONiC installer which definitely does not clean up after itself
+			// NOTE: we don't know about any other installers besides from SONiC. If we ever want to support others, we need to revisit this
+			// because "tmp." is not a very creative prefix
+			if strings.HasPrefix(name, "tmp.") {
+				dir := filepath.Join(tmpDir, name)
+				if err := unix.Unmount(dir, 0); err != nil {
+					l.Warn("Failed to unmount previously used SONiC installer directory", zap.String("stagingDir", dir), zap.Error(err))
+					continue
+				}
+				l.Info("Unmounted previously existing SONiC installer directory", zap.String("stagingDir", dir))
+				continue
+			}
+		}
+	}
+
 	// prepare staging area
 	stagingDir, err := os.MkdirTemp("", "das-boot-")
 	if err != nil {
 		// we can only reuse /tmp at this point
 		stagingDir = os.TempDir()
-		l.Warn("failed to create temporary directory, reusing system temporary directory, and not mounting a tmpfs either", zap.String("stagingDir", stagingDir))
+		l.Warn("Failed to create temporary directory, reusing system temporary directory, and not mounting a tmpfs either", zap.String("stagingDir", stagingDir))
 	} else {
 		// otherwise we mount a dedicated tmpfs
 		// and we will try to unmount it if this function returns successfully
