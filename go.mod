@@ -13,7 +13,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0-rc.3
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/vishvananda/netlink v1.1.0
-	go.githedgehog.com/fabric v0.10.0
+	go.githedgehog.com/fabric v0.12.1
 	go.uber.org/zap v1.25.0
 	golang.org/x/sys v0.11.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -68,11 +68,11 @@ require (
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 // indirect
-	golang.org/x/net v0.13.0 // indirect
+	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect
-	golang.org/x/term v0.10.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
+	golang.org/x/term v0.11.0 // indirect
+	golang.org/x/text v0.12.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect

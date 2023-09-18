@@ -46,7 +46,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # install our CRDs
-helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install hh-fabric-api --force --version=v0.10.0 oci://registry.local:5000/githedgehog/helm-charts/fabric-api
+helm --kubeconfig /etc/rancher/k3s/k3s.yaml upgrade --install hh-fabric-api --force --version=v0.12.1 oci://registry.local:5000/githedgehog/helm-charts/fabric-api
 if [ $? -ne 0 ]; then
     exit 4
 fi

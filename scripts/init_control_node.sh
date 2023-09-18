@@ -67,7 +67,7 @@ if [ -f ${IMAGE_DIR}/agent ]; then
     echo "Delete this file if you want to download it again. Skipping...:"
 else
     echo "Downloading Hedgehog agent..."
-    $ORAS pull -o ${IMAGE_DIR} ghcr.io/githedgehog/agent:0.3
+    $ORAS pull -o ${IMAGE_DIR} ghcr.io/githedgehog/fabric/agent:v0.12.1
 fi
 echo
 
@@ -186,8 +186,8 @@ echo
 
 # push the CRDs into the local registry
 echo "Pushing Agent and Wiring CRDs into registry..."
-( cd $IMAGE_DIR && $HELM pull --version=v0.10.0 oci://ghcr.io/githedgehog/fabric-api )
-( cd $IMAGE_DIR && $HELM push fabric-api-v0.10.0.tgz oci://registry.local:5000/githedgehog/helm-charts )
+( cd $IMAGE_DIR && $HELM pull --version=v0.12.1 oci://ghcr.io/githedgehog/fabric/charts/fabric-api )
+( cd $IMAGE_DIR && $HELM push fabric-api-v0.12.1.tgz oci://registry.local:5000/githedgehog/helm-charts )
 # TODO: currently broken with the new wiring
 #( cd $IMAGE_DIR && $HELM pull --version=0.2.0 oci://ghcr.io/githedgehog/fabric-helm )
 #( cd $IMAGE_DIR && $HELM push fabric-helm-0.2.0.tgz oci://registry.local:5000/githedgehog/helm-charts )
