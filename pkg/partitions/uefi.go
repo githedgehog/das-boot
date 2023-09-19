@@ -165,7 +165,6 @@ func FindONIEBootEntry() (uint16, error) {
 			continue
 		}
 		desc := efireader.UTF16ZBytesToString(bootEntryLoadOptions.Description)
-		fmt.Printf("Boot%04X %s \n", bootEntry.Index, desc)
 		if strings.Contains(desc, "ONIE") {
 			return bootEntry.Index, nil
 		}
