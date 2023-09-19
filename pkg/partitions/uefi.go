@@ -1,8 +1,10 @@
 package partitions
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/0x5a17ed/uefi/efi/efireader"
@@ -45,27 +47,19 @@ var (
 // **NOTE:** This function is called by `Devices.DeletePartitions()`, and usually
 // there should be no reason to call it byself.
 func MakeONIEDefaultBootEntryAndCleanup() error {
-	// get current boot entry number variable
-	_, bootCurrentNumber, err := efivars.BootCurrent.Get(efiCtx)
+	// Check first that we are booted into ONIE. We are making that assumption based on the /etc/os-release file at the moment.
+	isBootedIntoONIE, err := IsBootedIntoONIE()
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: failed to detect if we are booted into ONIE: %w", ErrNotBootedIntoONIE, err)
+	}
+	if !isBootedIntoONIE {
+		return ErrNotBootedIntoONIE
 	}
 
-	// and read that boot variable entry
-	entry := efivars.Boot(bootCurrentNumber)
-	_, bootCurrent, err := entry.Get(efiCtx)
+	// get ONIE boot entry variable
+	onieBootEntryNumber, err := FindONIEBootEntry()
 	if err != nil {
-		return err
-	}
-
-	// we're interested in the description because this will tell us if this is ONIE or not
-	// the description is UTF-16 encoded in these EFI variables
-	bootCurrentDescription := efireader.UTF16ZBytesToString(bootCurrent.Description)
-
-	// compare and see if this is ONIE
-	// we're assuming that we're running ONIE, so the current boot entry must be ONIE
-	if !strings.Contains(bootCurrentDescription, "ONIE") {
-		return fmt.Errorf("%w: BootCurrent is '%s'", ErrNotBootedIntoONIE, bootCurrentDescription)
+		return fmt.Errorf("uefi: finding ONIE boot entry: %w", err)
 	}
 
 	// get the boot order variable now
@@ -78,18 +72,18 @@ func MakeONIEDefaultBootEntryAndCleanup() error {
 	}
 
 	// see if this needs adjustment
-	if bootOrder[0] == bootCurrentNumber {
+	if bootOrder[0] == onieBootEntryNumber {
 		// ONIE is already the first entry, we can stop here
 		return nil
 	}
 
 	// we need to move ONIE up to the front
 	// build a new boot order
-	newBootOrder := []uint16{bootCurrentNumber}
+	newBootOrder := []uint16{onieBootEntryNumber}
 	bootEntriesToDelete := []uint16{}
 	var foundONIE bool
 	for _, num := range bootOrder {
-		if num == bootCurrentNumber {
+		if num == onieBootEntryNumber {
 			foundONIE = true
 			continue
 		}
@@ -127,4 +121,57 @@ func MakeONIEDefaultBootEntryAndCleanup() error {
 	}
 
 	return nil
+}
+
+// osReleasePath points to /etc/os-release. It's a var instead of a const so that we can change it in unit tests.
+var osReleasePath = "/etc/os-release"
+
+// IsBootedIntoONIE checks the running OS to see if this truly is running ONIE
+func IsBootedIntoONIE() (bool, error) {
+	f, err := os.Open(osReleasePath)
+	if err != nil {
+		return false, fmt.Errorf("failed to open '%s': %w", osReleasePath, err)
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		split := strings.SplitN(line, "=", 2)
+		if len(split) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(split[0])
+		if strings.ToUpper(key) != "NAME" {
+			continue
+		}
+		val := strings.ToLower(strings.Trim(strings.TrimSpace(split[1]), "\"'"))
+		return strings.Contains(val, "onie"), nil
+	}
+	return false, nil
+}
+
+// FindONIEBootEntry will find the UEFI ONIE boot entry
+func FindONIEBootEntry() (uint16, error) {
+	bootIterator, err := efivars.BootIterator(efiCtx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get BootIterator: %w", err)
+	}
+	defer bootIterator.Close()
+
+	for bootIterator.Next() {
+		bootEntry := bootIterator.Value()
+		_, bootEntryLoadOptions, err := bootEntry.Variable.Get(efiCtx)
+		if err != nil {
+			continue
+		}
+		desc := efireader.UTF16ZBytesToString(bootEntryLoadOptions.Description)
+		fmt.Printf("Boot%04X %s \n", bootEntry.Index, desc)
+		if strings.Contains(desc, "ONIE") {
+			return bootEntry.Index, nil
+		}
+	}
+	if err := bootIterator.Err(); err != nil {
+		return 0, fmt.Errorf("BootIterator aborted: %w", err)
+	}
+	return 0, fmt.Errorf("not found")
 }
