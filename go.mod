@@ -13,7 +13,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0-rc.3
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/vishvananda/netlink v1.1.0
-	go.githedgehog.com/fabric v0.12.2
+	go.githedgehog.com/fabric v0.13.0
 	go.uber.org/zap v1.25.0
 	golang.org/x/sys v0.11.0
 	gopkg.in/yaml.v3 v3.0.1
