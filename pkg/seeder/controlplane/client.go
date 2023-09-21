@@ -117,11 +117,10 @@ func (c *KubernetesControlPlaneClient) getInterfacesForServerNeighbours(ctx cont
 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: c.deviceHostname}, obj); err != nil {
 		return nil, nil, err
 	}
-	labels := client.MatchingLabels{"server.connection.fabric.githedgehog.com/" + c.deviceHostname: "true"}
 
 	// retrieve all of our connections that belong to us
 	connList := &wiring1alpha2.ConnectionList{}
-	if err := c.client.List(ctx, connList, labels); err != nil {
+	if err := c.client.List(ctx, connList, wiring1alpha2.MatchingLabelsForListLabelServer(c.deviceHostname)); err != nil {
 		return nil, nil, err
 	}
 	if len(connList.Items) == 0 {
@@ -154,11 +153,10 @@ func (c *KubernetesControlPlaneClient) getInterfacesForSwitchNeighbours(ctx cont
 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: c.deviceHostname}, obj); err != nil {
 		return nil, nil, err
 	}
-	labels := client.MatchingLabels{"switch.connection.fabric.githedgehog.com/" + c.deviceHostname: "true"}
 
 	// retrieve all of our ports that belong to us
 	connList := &wiring1alpha2.ConnectionList{}
-	if err := c.client.List(ctx, connList, labels); err != nil {
+	if err := c.client.List(ctx, connList, wiring1alpha2.MatchingLabelsForListLabelSwitch(c.deviceHostname)); err != nil {
 		return nil, nil, err
 	}
 	if len(connList.Items) == 0 {
@@ -203,11 +201,10 @@ func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx con
 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: c.deviceHostname}, obj); err != nil {
 		return nil, nil, err
 	}
-	labels := client.MatchingLabels{"server.connection.fabric.githedgehog.com/" + c.deviceHostname: "true"}
 
 	// retrieve all of our connections that belong to us
 	connList := &wiring1alpha2.ConnectionList{}
-	if err := c.client.List(ctx, connList, labels); err != nil {
+	if err := c.client.List(ctx, connList, wiring1alpha2.MatchingLabelsForListLabelServer(c.deviceHostname)); err != nil {
 		return nil, nil, err
 	}
 	if len(connList.Items) == 0 {
@@ -247,12 +244,8 @@ func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForSwitch(ctx con
 }
 
 func (c *KubernetesControlPlaneClient) GetSwitchConnections(ctx context.Context, switchName string) ([]wiring1alpha2.Connection, error) {
-	// build filter with labels, this is how we expect the data in Kubernetes
-	labels := client.MatchingLabels{"switch.connection.fabric.githedgehog.com/" + switchName: "true"}
-
-	// now retrieve them
 	connList := &wiring1alpha2.ConnectionList{}
-	if err := c.client.List(ctx, connList, labels); err != nil {
+	if err := c.client.List(ctx, connList, wiring1alpha2.MatchingLabelsForListLabelSwitch(switchName)); err != nil {
 		return nil, err
 	}
 

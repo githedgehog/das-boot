@@ -114,14 +114,9 @@ func getInterfacesForServerNeighbours(ctx context.Context, k8sClient client.Clie
 		return nil, err
 	}
 
-	// build a matching label for all connections that belong to us
-	// they have the form of:
-	// server.connection.fabric.githedgehog.com/control-node-1: "true"
-	labels := client.MatchingLabels{"server.connection.fabric.githedgehog.com/" + selfHostname: "true"}
-
 	// retrieve all connections that belong to us
 	connList := &wiring1alpha2.ConnectionList{}
-	if err := k8sClient.List(ctx, connList, labels); err != nil {
+	if err := k8sClient.List(ctx, connList, wiring1alpha2.MatchingLabelsForListLabelServer(selfHostname)); err != nil {
 		return nil, err
 	}
 	if len(connList.Items) == 0 {
@@ -154,14 +149,9 @@ func getInterfacesForSwitchNeighbours(ctx context.Context, k8sClient client.Clie
 		return nil, err
 	}
 
-	// build a matching label for all connections that belong to us
-	// they have the form of:
-	// switch.connection.fabric.githedgehog.com/switch-2: "true"
-	labels := client.MatchingLabels{"switch.connection.fabric.githedgehog.com/" + selfHostname: "true"}
-
 	// retrieve all connections that belong to us
 	connList := &wiring1alpha2.ConnectionList{}
-	if err := k8sClient.List(ctx, connList, labels); err != nil {
+	if err := k8sClient.List(ctx, connList, wiring1alpha2.MatchingLabelsForListLabelSwitch(selfHostname)); err != nil {
 		return nil, err
 	}
 	if len(connList.Items) == 0 {
