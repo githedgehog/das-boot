@@ -332,6 +332,8 @@ go.githedgehog.com/fabric v0.13.0 h1:66rIi3YNM9+okBsTXTc9Ir4Pr4IuCFMysnMBUP3oA9Q
 go.githedgehog.com/fabric v0.13.0/go.mod h1:pzY5jaxWiAY4FmWxyfIaMprYjypG7KMHXlHy5jcJ6KM=
 go.githedgehog.com/fabric v0.14.0 h1:TG7RkJgZeHa+mIPE870PgPqoINYUyh2jN++Pp3QllQM=
 go.githedgehog.com/fabric v0.14.0/go.mod h1:UcmewLRZz7RpnZI069HMcMg9VOCb5mYPN1FxdBJlu9Y=
+go.githedgehog.com/fabric v0.15.2 h1:Gw+67XbgOQ28EzsfGSgK+Ae1JwnJyt6O4+GWLmO0cQI=
+go.githedgehog.com/fabric v0.15.2/go.mod h1:UcmewLRZz7RpnZI069HMcMg9VOCb5mYPN1FxdBJlu9Y=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.opencensus.io v0.22.0/go.mod h1:+kGneAE2xo2IficOXnaByMWTGM9T73dGwxeWcUqIpI8=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=
