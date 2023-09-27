@@ -63,6 +63,8 @@ spec:
               mountPath: "/etc/hedgehog/seeder-certs/config"
               readOnly: true
             {{- if .Values.settings.artifacts.oci_registries }}
+            - name: oci-temp-dir
+              mountPath: {{ .Values.settings.artifacts.oci_temp_dir }}
             {{- range .Values.settings.artifacts.oci_registries }}
             - name: {{ .ca.secretName }}
               readOnly: true
@@ -101,6 +103,8 @@ spec:
           secret:
             secretName: {{ .Values.secrets.config.name }}
         {{- if .Values.settings.artifacts.oci_registries }}
+        - name: oci-temp-dir
+          emptyDir: {}
         {{- range .Values.settings.artifacts.oci_registries }}
         - name: {{ .ca.secretName }}
           secret:

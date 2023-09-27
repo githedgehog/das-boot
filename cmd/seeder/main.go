@@ -200,7 +200,7 @@ func main() {
 						if ociReg.ServerCAPath != "" {
 							opts = append(opts, oras.ProviderOptionServerCA(ociReg.ServerCAPath))
 						}
-						prov, err := oras.Provider(ctx.Context, ociReg.URL, opts...)
+						prov, err := oras.Provider(ctx.Context, ociReg.URL, cfg.ArtifactProviders.OCITempDir, opts...)
 						if err != nil {
 							return fmt.Errorf("oras provider: %w", err)
 						}

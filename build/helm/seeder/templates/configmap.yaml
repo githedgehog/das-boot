@@ -50,6 +50,7 @@ data:
     {{- end }}
     artifact_providers:
     {{- if .Values.settings.artifacts.oci_registries }}
+      oci_temp_dir: "{{ .Values.settings.artifacts.oci_temp_dir }}"
       oci_registries:
         {{- range .Values.settings.artifacts.oci_registries }}
         - url: {{ .url }}

@@ -74,6 +74,7 @@ settings:
   # and will simply always hand out a device certificate
   issue_certificates: false
   artifacts:
+    oci_temp_dir: /tmp/oci-file-stores
     oci_registries:
     - url: oci://ghcr.io/githedgehog
       ca:
