@@ -34,9 +34,17 @@ func Test_orasProvider_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			fileStoreBasePath, err := os.MkdirTemp(os.TempDir(), "oras-provider-*")
+			if err != nil {
+				t.Errorf("failed to create temporary directory: %s", err)
+				return
+			}
+			defer func() {
+				os.RemoveAll(fileStoreBasePath)
+			}()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			op, err := Provider(ctx, "oci://registry.local:5000/githedgehog", ProviderOptionServerCA("/home/mheese/git/das-boot/dev/oci/oci-repo-ca-cert.pem"))
+			op, err := Provider(ctx, "oci://registry.local:5000/githedgehog", fileStoreBasePath, ProviderOptionServerCA("/home/mheese/git/das-boot/dev/oci/oci-repo-ca-cert.pem"))
 			if err != nil {
 				t.Errorf("Provider: %s", err)
 				return

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -19,7 +20,7 @@ import (
 	"go.uber.org/zap"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
-	"oras.land/oras-go/v2/content/memory"
+	"oras.land/oras-go/v2/content/file"
 	"oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"
 )
@@ -27,13 +28,14 @@ import (
 type orasProvider struct {
 	ctx context.Context
 
-	serverCAPath   string
-	clientCertPath string
-	clientKeyPath  string
-	username       string
-	password       string
-	accessToken    string
-	refreshToken   string
+	serverCAPath      string
+	clientCertPath    string
+	clientKeyPath     string
+	username          string
+	password          string
+	accessToken       string
+	refreshToken      string
+	fileStoreBasePath string
 
 	url      *url.URL
 	registry *remote.Registry
@@ -41,14 +43,20 @@ type orasProvider struct {
 
 var _ artifacts.Provider = &orasProvider{}
 
-func Provider(ctx context.Context, registryURL string, options ...ProviderOption) (artifacts.Provider, error) {
+func Provider(ctx context.Context, registryURL, fileStoreBasePath string, options ...ProviderOption) (artifacts.Provider, error) {
 	var err error
 	// apply options
 	ret := &orasProvider{
-		ctx: ctx,
+		ctx:               ctx,
+		fileStoreBasePath: fileStoreBasePath,
 	}
 	for _, opt := range options {
 		opt(ret)
+	}
+
+	// create file store
+	if fileStoreBasePath == "" {
+		return nil, fmt.Errorf("fileStoreBasePath must not be empty")
 	}
 
 	// parse URL
@@ -130,7 +138,7 @@ func Provider(ctx context.Context, registryURL string, options ...ProviderOption
 }
 
 // Get implements artifacts.Provider
-func (op *orasProvider) Get(artifact string) io.ReadCloser {
+func (op *orasProvider) Get(artifact string) (rc io.ReadCloser) {
 	ctx, cancel := context.WithTimeout(op.ctx, time.Second*60)
 	defer cancel()
 
@@ -148,15 +156,26 @@ func (op *orasProvider) Get(artifact string) io.ReadCloser {
 	tagName := "latest"
 
 	// downloads the stuff locally
-	dst := memory.New()
-	rootDesc, err := oras.Copy(ctx, src, tagName, dst, tagName, oras.DefaultCopyOptions)
+	fileStorePath, err := os.MkdirTemp(op.fileStoreBasePath, "oras-provider-file-store-*")
+	if err != nil {
+		log.L().Error("oras: failed to create temporary directory for file store", zap.String("repo", repoName), zap.Error(err))
+		return nil
+	}
+	defer func() {
+		if rc == nil {
+			log.L().Debug("oras: cleaning up temporary file store path", zap.String("fileStorePath", fileStorePath))
+			os.RemoveAll(fileStorePath)
+		}
+	}()
+	fileStore := file.New(fileStorePath)
+	rootDesc, err := oras.Copy(ctx, src, tagName, fileStore, tagName, oras.DefaultCopyOptions)
 	if err != nil {
 		log.L().Error("oras: copying artifact into memory failed", zap.String("repo", repoName), zap.Error(err))
 		return nil
 	}
 
 	// fetch all entries for the tag
-	nodes, err := content.Successors(ctx, dst, rootDesc)
+	nodes, err := content.Successors(ctx, fileStore, rootDesc)
 	if err != nil {
 		log.L().Error("oras: fetching successors failed", zap.String("repo", repoName), zap.Error(err))
 		return nil
@@ -165,7 +184,7 @@ func (op *orasProvider) Get(artifact string) io.ReadCloser {
 	if len(nodes) == 1 {
 		// we would expect just one layer usually, which means we'll just download that
 		// and we'll assume this is the content that we are looking for
-		ret, err := dst.Fetch(ctx, nodes[0])
+		ret, err := fileStore.Fetch(ctx, nodes[0])
 		if err != nil {
 			log.L().Error("oras: fetch layer content failed", zap.String("repo", repoName), zap.Error(err))
 			return nil
@@ -176,12 +195,15 @@ func (op *orasProvider) Get(artifact string) io.ReadCloser {
 		for _, node := range nodes {
 			if node.MediaType == v1.MediaTypeImageLayer {
 				// this is probably the right media type for now
-				ret, err := dst.Fetch(ctx, node)
+				ret, err := fileStore.Fetch(ctx, node)
 				if err != nil {
 					log.L().Error("oras: fetch layer content failed", zap.String("repo", repoName), zap.Error(err))
 					return nil
 				}
-				return ret
+				return &orasReadCloser{
+					fileStorePath: fileStorePath,
+					rc:            ret,
+				}
 			}
 		}
 	}
@@ -190,3 +212,23 @@ func (op *orasProvider) Get(artifact string) io.ReadCloser {
 	log.L().Error("oras: no image layers in artifact", zap.String("repo", repoName))
 	return nil
 }
+
+type orasReadCloser struct {
+	fileStorePath string
+	rc            io.ReadCloser
+}
+
+// Close implements io.ReadCloser.
+func (orc *orasReadCloser) Close() error {
+	err := orc.rc.Close()
+	log.L().Debug("oras: ReadCloser: cleaning up temporary file store path on Close", zap.String("fileStorePath", orc.fileStorePath))
+	os.RemoveAll(orc.fileStorePath)
+	return err
+}
+
+// Read implements io.ReadCloser.
+func (orc *orasReadCloser) Read(p []byte) (n int, err error) {
+	return orc.rc.Read(p)
+}
+
+var _ io.ReadCloser = &orasReadCloser{}

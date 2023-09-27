@@ -30,6 +30,7 @@ settings:
     - 10.142.0.0/16
     - 10.143.0.0/16
   artifacts:
+    oci_temp_dir: /tmp/oci-file-stores
     oci_registries:
     - url: oci://registry.local:5000/githedgehog
       ca:

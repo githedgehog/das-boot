@@ -153,6 +153,7 @@ type RegistrySettings struct {
 
 type ArtifactProviders struct {
 	Directories   []string       `json:"directories,omitempty" yaml:"directories,omitempty"`
+	OCITempDir    string         `json:"oci_temp_dir,omitempty" yaml:"oci_temp_dir,omitempty"`
 	OCIRegistries []*OCIRegistry `json:"oci_registries,omitempty" yaml:"oci_registries,omitempty"`
 }
 
