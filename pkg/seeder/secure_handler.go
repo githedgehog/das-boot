@@ -20,8 +20,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
-
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -122,6 +120,7 @@ func (s *seeder) embedStage1Config(_ *http.Request, arch string, artifactBytes [
 		Stage2URL:   s.installerSettings.stage2URL(arch),
 	})
 }
+
 func (s *seeder) stage2Authz(r *http.Request) error {
 	// must be a TLS request
 	if r.TLS == nil {
@@ -408,15 +407,9 @@ func (s *seeder) getAgentConfig(authz func(*http.Request) error) func(w http.Res
 			return
 		}
 
-		agentCfgBytes, err := yaml.Marshal(agentCfg)
-		if err != nil {
-			errorWithJSON(w, r, http.StatusInternalServerError, "yaml encoding: %s", err)
-			return
-		}
-
 		w.Header().Set("Content-Type", "application/yaml")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write(agentCfgBytes); err != nil {
+		if _, err := w.Write(agentCfg); err != nil {
 			l.Error("failed to write agent config to HTTP response", zap.Error(err))
 		}
 	}

@@ -13,8 +13,9 @@ import (
 	wiring1alpha2 "go.githedgehog.com/fabric/api/wiring/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 type Client interface {
@@ -27,7 +28,7 @@ type Client interface {
 	GetDeviceRegistration(ctx context.Context, deviceID string) (*dasbootv1alpha1.DeviceRegistration, error)
 	CreateDeviceRegistration(ctx context.Context, reg *dasbootv1alpha1.DeviceRegistration) (*dasbootv1alpha1.DeviceRegistration, error)
 	GetSwitchByDeviceID(ctx context.Context, deviceID string) (*wiring1alpha2.Switch, error)
-	GetAgentConfig(ctx context.Context, deviceID string) (*agentv1alpha2.Agent, error)
+	GetAgentConfig(ctx context.Context, deviceID string) ([]byte, error)
 	GetAgentKubeconfig(ctx context.Context, deviceID string) ([]byte, error)
 }
 
@@ -318,14 +319,15 @@ func (c *KubernetesControlPlaneClient) GetSwitchByDeviceID(ctx context.Context, 
 	return switchObj, nil
 }
 
-func (c *KubernetesControlPlaneClient) GetAgentConfig(ctx context.Context, deviceID string) (*agentv1alpha2.Agent, error) {
+func (c *KubernetesControlPlaneClient) GetAgentConfig(ctx context.Context, deviceID string) ([]byte, error) {
 	// we will get the switch by device ID
 	switchObj, err := c.GetSwitchByDeviceID(ctx, deviceID)
 	if err != nil {
 		return nil, fmt.Errorf("switch by deviceID: %w", err)
 	}
 
-	obj := &agentv1alpha2.Agent{}
+	obj := &unstructured.Unstructured{}
+	obj.SetGroupVersionKind(agentv1alpha2.GroupVersion.WithKind("Agent"))
 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: switchObj.Namespace, Name: switchObj.Name}, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("agent: %w", ErrNotFound)
@@ -333,10 +335,12 @@ func (c *KubernetesControlPlaneClient) GetAgentConfig(ctx context.Context, devic
 		return nil, fmt.Errorf("agent: %w", err)
 	}
 
-	obj.APIVersion = agentv1alpha2.GroupVersion.Identifier()
-	obj.Kind = "Agent"
+	objBytes, err := yaml.Marshal(obj.Object)
+	if err != nil {
+		return nil, fmt.Errorf("yaml encoding: %w", err)
+	}
 
-	return obj, nil
+	return objBytes, nil
 }
 
 func (c *KubernetesControlPlaneClient) GetAgentKubeconfig(ctx context.Context, deviceID string) ([]byte, error) {
