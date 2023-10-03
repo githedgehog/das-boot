@@ -36,12 +36,18 @@ func NewHttpServer(addr, serverKeyPath, serverCertPath, clientCAPath string, han
 		serverKeyPath:  serverKeyPath,
 		serverCertPath: serverCertPath,
 		srv: &http.Server{
-			Addr:              addr,
-			ReadTimeout:       30 * time.Second,
-			WriteTimeout:      30 * time.Second,
-			IdleTimeout:       90 * time.Second,
-			ReadHeaderTimeout: 5 * time.Second,
-			Handler:           handler,
+			Addr: addr,
+			// if a header cannot be read within 10s, then this should abort for sure
+			ReadHeaderTimeout: 10 * time.Second,
+			// the system is not using large POST bodies at this point, so this is a safe approach
+			ReadTimeout: 30 * time.Second,
+			// However, the system *is* writing out large request bodies because we serve installer artifacts
+			// which can easily be >1GB.
+			// That said, they also should be served within 5min, and not block the server for too long.
+			WriteTimeout: 300 * time.Second,
+			// Keep-Alives should not hold up a connection for more than 1.5 minutes
+			IdleTimeout: 90 * time.Second,
+			Handler:     handler,
 		},
 	}
 }
