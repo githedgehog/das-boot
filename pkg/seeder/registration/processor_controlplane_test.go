@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha1" //nolint: gosec
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
@@ -28,7 +28,7 @@ func selfSignedCert() (*ecdsa.PrivateKey, *x509.Certificate) {
 		panic(err)
 	}
 	tmpl := &x509.Certificate{
-		SerialNumber: big.NewInt(mathrand.Int63()),
+		SerialNumber: big.NewInt(mathrand.Int63()), //nolint: gosec
 		Subject: pkix.Name{
 			Country:      []string{"US"},
 			Province:     []string{"Washington"},
@@ -53,7 +53,7 @@ func selfSignedCert() (*ecdsa.PrivateKey, *x509.Certificate) {
 	return key, cert
 }
 
-func newCSRPubKeyAndCert(id string, caKey *ecdsa.PrivateKey, caCert *x509.Certificate) ([]byte, *ecdsa.PublicKey, []byte) {
+func newCSRPubKeyAndCert(id string, caKey *ecdsa.PrivateKey, caCert *x509.Certificate) ([]byte, *ecdsa.PublicKey, []byte) { //nolint: unparam
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		panic(err)
