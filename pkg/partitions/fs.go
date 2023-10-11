@@ -16,6 +16,7 @@ type FS interface {
 	OpenFile(name string, flag int, perm fs.FileMode) (io.ReadWriteCloser, error)
 	Stat(name string) (fs.FileInfo, error)
 	ReadDir(name string) ([]fs.DirEntry, error)
+	Remove(path string) error
 	RemoveAll(path string) error
 	Mkdir(name string, perm fs.FileMode) error
 }

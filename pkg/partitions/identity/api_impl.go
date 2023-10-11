@@ -127,10 +127,24 @@ func Init(d *partitions.Device) (IdentityPartition, error) {
 
 // GenerateClientCSR implements IdentityPartition
 func (a *api) GenerateClientCSR() ([]byte, error) {
+	var b []byte
+	var err error
 	if tpm.HasTPM() {
-		return a.generateClientCSRWithTPM()
+		b, err = a.generateClientCSRWithTPM()
+	} else {
+		b, err = a.generateClientCSRWithoutTPM()
 	}
-	return a.generateClientCSRWithoutTPM()
+	if err != nil {
+		return nil, err
+	}
+
+	// and delete an existing certificate if it is there
+	err = a.dev.FS.Remove(clientCertPath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("deleting already existing certificate: %w", err)
+	}
+
+	return b, nil
 }
 
 func (a *api) generateClientCSRWithTPM() ([]byte, error) {
@@ -196,10 +210,29 @@ func (a *api) generateClientCSRWithoutTPM() ([]byte, error) {
 
 // GenerateClientKeyPair implements IdentityPartition
 func (a *api) GenerateClientKeyPair() error {
+	var err error
 	if tpm.HasTPM() {
-		return a.generateClientKeyPairWithTPM()
+		err = a.generateClientKeyPairWithTPM()
+	} else {
+		err = a.generateClientKeyPairWithoutTPM()
 	}
-	return a.generateClientKeyPairWithoutTPM()
+	if err != nil {
+		return err
+	}
+
+	// now ensure to delete an existing CSR if it is there
+	err = a.dev.FS.Remove(clientCSRPath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("deleting already existing CSR: %w", err)
+	}
+
+	// and delete an existing certificate if it is there
+	err = a.dev.FS.Remove(clientCertPath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("deleting already existing certificate: %w", err)
+	}
+
+	return nil
 }
 
 func (a *api) generateClientKeyPairWithTPM() error {
@@ -390,12 +423,45 @@ func (a *api) HasClientCert() bool {
 	if p.Type != "CERTIFICATE" {
 		return false
 	}
+	_, err = x509.ParseCertificate(p.Bytes)
+	return err == nil
+}
+
+// HasValidClientCert implements IdentityPartition
+func (a *api) HasValidClientCert() bool {
+	f, err := a.dev.FS.Open(clientCertPath)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	certPEMBytes, err := io.ReadAll(f)
+	if err != nil {
+		return false
+	}
+	p, _ := pem.Decode(certPEMBytes)
+	if p == nil {
+		return false
+	}
+	if p.Type != "CERTIFICATE" {
+		return false
+	}
 	cert, err := x509.ParseCertificate(p.Bytes)
 	if err != nil {
 		return false
 	}
+
+	// Up until here this just confirms that we have a certificate
+	// Now perform the checks to see if we have a valid certificate
+	// check that the cert is not expired
 	now := time.Now()
-	return cert.NotBefore.Before(now) && cert.NotAfter.After(now)
+	if !(cert.NotBefore.Before(now) && cert.NotAfter.After(now)) {
+		return false
+	}
+
+	// check that the public key of the cert matches the client key
+	// the best way to test this is simply to see if we can load the golang TLS pair
+	_, err = a.LoadX509KeyPair()
+	return err == nil
 }
 
 // HasClientKey implements IdentityPartition

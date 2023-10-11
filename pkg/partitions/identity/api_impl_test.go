@@ -414,6 +414,35 @@ func Test_api_GenerateClientKeyPair(t *testing.T) {
 				f.EXPECT().Write(gomock.Any()).Times(1).DoAndReturn(func(b []byte) (int, error) {
 					return len(b), nil
 				})
+				mfs.EXPECT().Remove(gomock.Eq(clientCSRPath)).Times(1).Return(nil)
+				mfs.EXPECT().Remove(gomock.Eq(clientCertPath)).Times(1).Return(os.ErrNotExist)
+			},
+		},
+		{
+			name:    "success, but deleting previous CSR fails",
+			wantErr: true,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(clientKeyPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				f.EXPECT().Write(gomock.Any()).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				mfs.EXPECT().Remove(gomock.Eq(clientCSRPath)).Times(1).Return(os.ErrPermission)
+			},
+		},
+		{
+			name:    "success, but deleting previous certificate fails",
+			wantErr: true,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(clientKeyPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				f.EXPECT().Write(gomock.Any()).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				mfs.EXPECT().Remove(gomock.Eq(clientCSRPath)).Times(1).Return(os.ErrNotExist)
+				mfs.EXPECT().Remove(gomock.Eq(clientCertPath)).Times(1).Return(os.ErrPermission)
 			},
 		},
 		{
@@ -1375,7 +1404,118 @@ func Test_api_HasClientCert(t *testing.T) {
 				tt.pre(t, ctrl, mockfs)
 			}
 			if got := a.HasClientCert(); got != tt.want {
-				t.Errorf("api.HasClientCert() = %v, want %v", got, tt.want)
+				t.Errorf("api.HasValidClientCert() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_api_HasValidClientCert(t *testing.T) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	certValid := readFile("cert-valid.pem")
+	certInvalid := readFile("cert-invalid.pem")
+	certExpired := readFile("cert-expired.pem")
+	certNotACSR := readFile("cert-not-a-cert.pem")
+	certNotAPEM := readFile("cert-not-pem.pem")
+	tests := []struct {
+		name string
+		want bool
+		pre  func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS)
+	}{
+		{
+			name: "success",
+			want: true,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certValid, 3)
+				f.EXPECT().Close().Times(1).Return(nil)
+
+				// for the cert loading check, we'll have some more calls
+				mfs.EXPECT().Path(gomock.Eq(clientKeyPath)).Times(1).Return(filepath.Join(pwd, "testdata", "key-valid.pem"))
+				mfs.EXPECT().Path(gomock.Eq(clientCertPath)).Times(1).Return(filepath.Join(pwd, "testdata", "cert-valid.pem"))
+			},
+		},
+		{
+			name: "invalid certificate",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certInvalid, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "expired certificate",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certExpired, 3)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "PEM not a certificate",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certNotACSR, 2)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "not a PEM file",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certNotAPEM, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "reading PEM file fails",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				f.EXPECT().Read(gomock.Any()).Times(1).Return(0, io.ErrUnexpectedEOF)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "opening PEM file fails",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(nil, os.ErrNotExist)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockfs := mockpartitions.NewMockFS(ctrl)
+			a := &api{
+				dev: &partitions.Device{
+					Uevent: partitions.Uevent{
+						partitions.UeventDevtype: partitions.UeventDevtypePartition,
+					},
+					GPTPartType: partitions.GPTPartTypeHedgehogIdentity,
+					FS:          mockfs,
+				},
+			}
+			if tt.pre != nil {
+				tt.pre(t, ctrl, mockfs)
+			}
+			if got := a.HasValidClientCert(); got != tt.want {
+				t.Errorf("api.HasValidClientCert() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -1762,6 +1902,24 @@ func Test_api_GenerateClientCSR(t *testing.T) {
 				f2.EXPECT().Write(gomock.Any()).Times(1).DoAndReturn(func(b []byte) (int, error) {
 					return len(b), nil
 				})
+				mfs.EXPECT().Remove(gomock.Eq(clientCertPath)).Times(1).Return(os.ErrNotExist)
+			},
+		},
+		{
+			name:    "success, but deleting previous cert fails",
+			wantErr: true,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(gomock.Eq(clientKeyPath)).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				mockio.ReadAllBytesMock(f, keyValid, 1)
+				f2 := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().OpenFile(gomock.Eq(clientCSRPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f2, nil)
+				f2.EXPECT().Close().Times(1).Return(nil)
+				f2.EXPECT().Write(gomock.Any()).Times(1).DoAndReturn(func(b []byte) (int, error) {
+					return len(b), nil
+				})
+				mfs.EXPECT().Remove(gomock.Eq(clientCertPath)).Times(1).Return(os.ErrPermission)
 			},
 		},
 		{

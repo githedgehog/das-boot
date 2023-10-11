@@ -57,6 +57,14 @@ func (fs *fsOs) ReadDir(name string) ([]fs.DirEntry, error) {
 	return os.ReadDir(filepath.Join(fs.base, name))
 }
 
+// Remove implements FS
+func (fs *fsOs) Remove(path string) error {
+	if fs.base == "" {
+		return ErrNotMounted
+	}
+	return os.Remove(filepath.Join(fs.base, path))
+}
+
 // RemoveAll implements FS
 func (fs *fsOs) RemoveAll(path string) error {
 	if fs.base == "" {
