@@ -1630,6 +1630,7 @@ func Test_api_StoreClientCert(t *testing.T) {
 	type args struct {
 		certBytes []byte
 	}
+	csrValid := readFile("csr-valid.pem")
 	certValid := readFile("cert-valid.der")
 	certValidPEM := readFile("cert-valid.pem")
 	certInvalid := readFile("csr-valid.der")
@@ -1648,6 +1649,12 @@ func Test_api_StoreClientCert(t *testing.T) {
 			wantErr: false,
 			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
 				f := mockio.NewMockReadWriteCloser(ctrl)
+				// CSR
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				mockio.ReadAllBytesMock(f, csrValid, 2)
+
+				// Cert
 				mfs.EXPECT().OpenFile(gomock.Eq(clientCertPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f, nil)
 				f.EXPECT().Close().Times(1).Return(nil)
 				f.EXPECT().Write(gomock.Eq(certValidPEM)).Times(1).Return(len(certValidPEM), nil)
@@ -1660,6 +1667,12 @@ func Test_api_StoreClientCert(t *testing.T) {
 			wantErrToBe: errWriteFailed,
 			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
 				f := mockio.NewMockReadWriteCloser(ctrl)
+				// CSR
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				mockio.ReadAllBytesMock(f, csrValid, 2)
+
+				// Cert
 				mfs.EXPECT().OpenFile(gomock.Eq(clientCertPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(f, nil)
 				f.EXPECT().Close().Times(1).Return(nil)
 				f.EXPECT().Write(gomock.Eq(certValidPEM)).Times(1).Return(0, errWriteFailed)
@@ -1671,6 +1684,13 @@ func Test_api_StoreClientCert(t *testing.T) {
 			wantErr:     true,
 			wantErrToBe: errOpenFailed,
 			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				// CSR
+				mfs.EXPECT().Open(clientCSRPath).Times(1).Return(f, nil)
+				f.EXPECT().Close().Times(1).Return(nil)
+				mockio.ReadAllBytesMock(f, csrValid, 2)
+
+				// Cert
 				mfs.EXPECT().OpenFile(gomock.Eq(clientCertPath), gomock.Eq(os.O_CREATE|os.O_TRUNC|os.O_WRONLY), gomock.Eq(fs.FileMode(0644))).Times(1).Return(nil, errOpenFailed)
 			},
 		},
