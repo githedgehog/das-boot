@@ -1,6 +1,7 @@
 package registration
 
 import (
+	"bytes"
 	"context"
 	"errors"
 
@@ -22,18 +23,49 @@ func (p *Processor) getRequestWithControlPlane(ctx context.Context, req *Request
 
 		// TODO: not entirely sure what is best here
 		// turning this into an error is probably wrong as the client aborts completely
-		l.Error("Retrieving DeviceRegistration failed", zap.String("deviceID", req.DeviceID), zap.Error(err))
+		// so we'll essentially return with what is considered the "pending" state
+		l.Error("registration processor: retrieving DeviceRegistration failed", zap.String("deviceID", req.DeviceID), zap.Error(err))
 		return &cert{}, true
 	}
 
-	// TODO: evaluate status of object properly
-	l.Info("DeviceRegistration retrieved")
-	reason := "issued by registration-controller"
-	rejected := false
+	// if there is a CSR in the request, we check if it matches the CSR in the spec
+	// we consider this rejected if they do not match, as this requires manual intervention
+	if len(req.CSR) > 0 {
+		if !bytes.Equal(req.CSR, reg.Spec.CSR) {
+			// TODO: there are some cases where we might be okay to let this slide:
+			// - when the certificate expired and we are expecting a new CSR for the same device (must be sanctioned by the controller though)
+			// - when the device changes location, and this is an expected change of location change (must be sanctioned by the controller as well)
+			l.Error("registration processor: DeviceRegistration retrieved but CSR does not match", zap.String("deviceID", req.DeviceID))
+			return &cert{
+				rejected: true,
+				reason:   "CSR of registration request does not match CSR of existing registration request. If this is expected because for example the device was expected to generate a new identity, then you need to delete the previous device registration.",
+			}, true
+		}
+	}
+
+	// if there is no certificate yet, we simply return
+	if len(reg.Status.Certificate) == 0 {
+		l.Info("registration processor: DeviceRegistration retrieved but no certificate has been issued yet", zap.String("deviceID", req.DeviceID))
+		return &cert{}, true
+	}
+
+	// if there is a certificate, we check its public key against the CSR of the spec
+	// only if they match do we know that a new certificate was issued
+	// otherwise we assume that the certificate is still being issued
+	// and we return with the "pending" state
+	if !matchesPublicKeys(reg.Spec.CSR, reg.Status.Certificate) {
+		l.Warn("registration processor: DeviceRegistration retrieved but the public key of the certificate does not match the public key of the CSR. This can happen when a new certificate is still being issued for a new CSR.", zap.String("deviceID", req.DeviceID))
+		return &cert{}, true
+	}
+
+	// TODO: check more things here, like:
+	// - certificate is not expired
+
+	l.Info("registration processor: DeviceRegistration and issued certificate retrieved", zap.String("deviceID", req.DeviceID))
 	return &cert{
 		der:      reg.Status.Certificate,
-		reason:   reason,
-		rejected: rejected,
+		reason:   "issued by registration-controller",
+		rejected: false,
 	}, true
 }
 

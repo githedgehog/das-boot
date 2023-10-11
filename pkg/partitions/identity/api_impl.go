@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
@@ -471,8 +472,34 @@ func (a *api) ReadClientCSR() ([]byte, error) {
 
 // StoreClientCert implements IdentityPartition
 func (a *api) StoreClientCert(certBytes []byte) error {
-	if _, err := x509.ParseCertificate(certBytes); err != nil {
+	// validate input first
+	cert, err := x509.ParseCertificate(certBytes)
+	if err != nil {
 		return fmt.Errorf("identity: not a valid certificate: %w", err)
+	}
+	certPub, ok := cert.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("identity: not an ECDSA certificate")
+	}
+
+	// we need to check the certificate against the CSR first
+	// before we allow it to be stored
+	csrBytes, err := a.ReadClientCSR()
+	if err != nil {
+		return fmt.Errorf("identity: failed to read CSR while trying to store cert: %w", err)
+	}
+	csr, err := x509.ParseCertificateRequest(csrBytes)
+	if err != nil {
+		return fmt.Errorf("identity: failed to parse CSR while trying to store cert: %w", err)
+	}
+	csrPub, ok := csr.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("identity: CSR is not an ECDSA CSR")
+	}
+
+	// the public keys need to match
+	if !csrPub.Equal(certPub) {
+		return fmt.Errorf("identity: CSR and certificate public keys do not match")
 	}
 
 	p := &pem.Block{

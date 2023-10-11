@@ -10,6 +10,8 @@
 !/pkg/seeder/artifacts/embedded/artifacts/.keepme
 /cmd/hhdevid/hhdevid
 /cmd/seeder/seeder
+/test/mock/controller-runtime/mockclient/client.go
+/test/mock/controller-runtime/mockclient/subresource_writer.go
 /test/mock/mockexec/cmd_mock_interface.go
 /test/mock/mockio/io_readwritecloser.go
 /test/mock/mockio/mockfs/fs_fileinfo.go
@@ -18,6 +20,7 @@
 /test/mock/mockpartitions/fs_mock.go
 /test/mock/mockpartitions/mocklocation/api_mock.go
 /test/mock/mockuefi/uefi_mock_efictx.go
+/test/mock/seeder/mockcontrolplane/client.go
 /test/integration/integ-disk/integ-disk
 /test/integration/integ-log/integ-log
 /test/integration/integ-netdev/integ-netdev
