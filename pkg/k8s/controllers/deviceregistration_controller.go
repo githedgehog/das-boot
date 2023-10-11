@@ -94,6 +94,9 @@ func (r *DeviceRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 	csrPubBytes := ecdhCsrPub.Bytes()
 
+	// TODO: check requested location of the device first, and if there is already a registration for this device
+	// then we need to reject this
+
 	// check if we need to create a certificate
 	if !needToGenerateCertificate(l, &dr, csrPub) {
 		l.Info("No need to generate a new certificate", "req", req.NamespacedName)
