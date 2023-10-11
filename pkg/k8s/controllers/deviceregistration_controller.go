@@ -11,6 +11,7 @@ import (
 	mathrand "math/rand"
 	"time"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,6 +21,9 @@ import (
 )
 
 var certificateValidity = time.Hour * 24 * 360
+
+//go:generate mockgen -destination ../../../test/mock/controller-runtime/mockclient/client.go -package mockclient sigs.k8s.io/controller-runtime/pkg/client Client
+//go:generate mockgen -destination ../../../test/mock/controller-runtime/mockclient/subresource_writer.go -package mockclient sigs.k8s.io/controller-runtime/pkg/client SubResourceWriter
 
 // DeviceRegistrationReconciler reconciles a DeviceRegistration object
 type DeviceRegistrationReconciler struct {
@@ -49,6 +53,7 @@ type DeviceRegistrationReconciler struct {
 func (r *DeviceRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
+	// get the reconciling object in question
 	var dr dasbootv1alpha1.DeviceRegistration
 	if err := r.Get(ctx, req.NamespacedName, &dr); err != nil {
 		l.Error(err, "unable to fetch DeviceRegistration")
@@ -59,6 +64,7 @@ func (r *DeviceRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 	l.Info("Got DeviceRegistration", "req", req.NamespacedName, "dr", dr)
 
+	// parse the CSR
 	csr, err := x509.ParseCertificateRequest(dr.Spec.CSR)
 	if err != nil {
 		l.Error(err, "Parsing CSR failed", "req", req.NamespacedName)
@@ -87,6 +93,14 @@ func (r *DeviceRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 	csrPubBytes := ecdhCsrPub.Bytes()
+
+	// check if we need to create a certificate
+	if !needToGenerateCertificate(l, &dr, csrPub) {
+		l.Info("No need to generate a new certificate", "req", req.NamespacedName)
+		return ctrl.Result{}, nil
+	}
+
+	l.Info("Generating a new certificate", "req", req.NamespacedName)
 	subjectKeyId := sha1.Sum(csrPubBytes) //nolint: gosec
 	template := &x509.Certificate{
 		// we copy the subject from the CSR
@@ -111,6 +125,30 @@ func (r *DeviceRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func needToGenerateCertificate(l logr.Logger, dr *dasbootv1alpha1.DeviceRegistration, csrPub *ecdsa.PublicKey) bool {
+	// if we have no certificate, we need to generate one
+	if len(dr.Status.Certificate) == 0 {
+		return true
+	}
+
+	// if we have a certificate, parse it first
+	cert, err := x509.ParseCertificate(dr.Status.Certificate)
+	if err != nil {
+		// if we cannot parse the certificate, then we need to regenerate it
+		l.Error(err, "needToGenerateCertificate: parsing exisiting certificate failed, generating a new one...")
+		return true
+	}
+	certPub, ok := cert.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		l.Error(err, "needToGenerateCertificate: existing certificate does not contain an ECDSA public key, generating a new one...")
+		return true
+	}
+
+	// if the public keys match, then we do NOT have to generate a new certificate
+	// otherwise it is a new CSR, so we need to generate a new certificate
+	return !csrPub.Equal(certPub)
 }
 
 // SetupWithManager sets up the controller with the Manager.
