@@ -202,27 +202,29 @@ func Run(ctx context.Context, override *configstage.Stage1, logSettings *stage.L
 	// - if the location info changed
 	// - if there never was a key before (duh)
 	// - if the certificate is not valid - the HasClientCert check will fail if the cert expired (NOTE: it will not check the certificate chain because we don't know that)
-	var generateNewCSR bool
 	hasClientKey := identityPartition.HasClientKey()
-	hasValidClientCert := identityPartition.HasClientCert()
-	if reinitialize || !hasClientKey || !hasValidClientCert {
-		l.Info("Generating client key pair now...", zap.Bool("reinitialize", reinitialize), zap.Bool("hasClientKey", hasClientKey), zap.Bool("hasValidClientCert", hasValidClientCert))
+	hasClientCert := identityPartition.HasClientCert()
+	hasValidClientCert := identityPartition.HasValidClientCert()
+	if reinitialize || !hasClientKey || (hasClientCert && !hasValidClientCert) {
+		l.Info("Generating client key pair now...", zap.Bool("reinitialize", reinitialize), zap.Bool("hasClientKey", hasClientKey), zap.Bool("hasClientCert", hasClientCert), zap.Bool("hasValidClientCert", hasValidClientCert))
 		if err := identityPartition.GenerateClientKeyPair(); err != nil {
 			l.Error("Generating client key pair failed", zap.Error(err))
 			return executionError(fmt.Errorf("generating client key pair: %w", err))
 		}
-
-		// a regenerated client key needs to force to generate a new CSR
-		generateNewCSR = true
 	}
+
+	// test again for a valid client certificate
+	// if we generated a client key pair above, and we already had a valid certificate before, then it will be gone now
+	// as a call to GenerateClientKeyPair will delete any existing certificate
+	hasValidClientCert = identityPartition.HasValidClientCert()
 
 	// if we didn't need to generate a new key, then generateNewCSR is false
 	// and we can directly load the key and cert from disk
-	if !generateNewCSR {
+	if hasValidClientCert {
 		l.Info("Reusing existing client key pair and certificate from identity partition")
 	} else {
 		// otherwise we need to register now
-		if err := registerDevice(ctx, cfg, identityPartition, si, locationInfo, generateNewCSR); err != nil {
+		if err := registerDevice(ctx, cfg, identityPartition, si, locationInfo); err != nil {
 			// no detailed error handling necessary here, done in registerDevice
 			return err
 		}
@@ -261,11 +263,11 @@ func Run(ctx context.Context, override *configstage.Stage1, logSettings *stage.L
 }
 
 // registers the device with the control plane
-func registerDevice(ctx context.Context, cfg *configstage.Stage1, identityPartition identity.IdentityPartition, si *stage.StagingInfo, locationInfo *location.Info, generateNewCSR bool) error {
+func registerDevice(ctx context.Context, cfg *configstage.Stage1, identityPartition identity.IdentityPartition, si *stage.StagingInfo, locationInfo *location.Info) error {
 	var clientCSRBytes []byte
 	hasClientCSR := identityPartition.HasClientCSR()
-	if generateNewCSR || !hasClientCSR {
-		l.Info("Generating CSR from client key pair now...", zap.Bool("generateNewCSR", generateNewCSR), zap.Bool("hasClientCSR", hasClientCSR))
+	if !hasClientCSR {
+		l.Info("Generating CSR from client key pair now...")
 		var err error
 		clientCSRBytes, err = identityPartition.GenerateClientCSR()
 		if err != nil {

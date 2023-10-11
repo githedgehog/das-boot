@@ -42,18 +42,26 @@ type IdentityPartition interface {
 	// to the key on disk (or TPM).
 	HasClientCSR() bool
 
-	// HasClientCert tests if the partition already holds a valid certificate. The implementation needs to validate that
-	// the certificate on disk is in fact valid, and optionally should check if the embedded public key belongs to the
-	// key on disk (or TPM).
+	// HasClientCert tests if the partition already holds a certificate. The implementation MUST NOT validate that
+	// the certificate on disk is in fact valid. Use `HasValidClientCert()` for that. It simply needs to check if there
+	// is a parseable certificate on disk.
 	HasClientCert() bool
 
+	// HasValidClientCert tests if the partition already holds a valid certificate. The implementation needs to validate that
+	// the certificate on disk is in fact valid, and optionally should check if the embedded public key belongs to the
+	// key on disk (or TPM).
+	HasValidClientCert() bool
+
 	// GenerateClientKeyPair generates a new key client key pair. It must overwrite any existing keys on disk (or TPM).
-	// Therefore a call to `HasClientKey` is recommended if overwriting would not be the intention.
+	// Therefore a call to `HasClientKey` is recommended if overwriting would not be the intention. Subsequently, it must
+	// delete any already existing CSR and certificate on disk if they exist. If there is an error deleting already
+	// existing CSR or certificate, it must return an error.
 	GenerateClientKeyPair() error
 
 	// GenerateClientCSR generates a new CSR using the key pair on disk (or TPM). It overwrites any existing CSR on disk.
 	// Therefore a call to `HasClientCSR` is recommended if overwriting would not be the intention. The returned CSR is
-	// in DER encoded format.
+	// in DER encoded format. Subsequently, it must delete any already existing certificate on disk if it exists. If there
+	// is an error deleting the already existing certificate, it must return an error.
 	GenerateClientCSR() ([]byte, error)
 
 	// ReadClientCSR reads the client CSR from the partition. It fails if it does not exist yet, in which case the caller
