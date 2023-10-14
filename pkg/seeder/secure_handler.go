@@ -327,7 +327,7 @@ func (s *seeder) getAgentArtifact(authz func(*http.Request) error) func(w http.R
 			return
 		}
 
-		artifact := fmt.Sprintf("agent/%s", archParam)
+		artifact := fmt.Sprintf("fabric/agent/%s", archParam)
 		s.getArtifact(artifact)(w, r)
 	}
 }
