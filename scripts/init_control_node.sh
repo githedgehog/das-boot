@@ -181,7 +181,7 @@ echo
 # we'll do this in a subshell so that we can change into the image directory, otherwise the image layer titles will have the full path
 echo "Pushing SONiC, ONIE and Hedgehog agent into registry..."
 ( cd $IMAGE_DIR && $ORAS push registry.local:5000/githedgehog/sonic/x86_64-kvm_x86_64-r0:latest sonic-vs.bin )
-( cd $IMAGE_DIR && $ORAS push registry.local:5000/githedgehog/agent/x86_64:latest agent )
+( cd $IMAGE_DIR && $ORAS push registry.local:5000/githedgehog/fabric/agent/x86_64:latest agent )
 echo
 
 # push the CRDs into the local registry
