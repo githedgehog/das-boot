@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -19,6 +20,11 @@ var (
 
 	// HTTPRegistrationRequestNotFound is returned when the registration request could not be located by the internal processor
 	HTTPRegistrationRequestNotFound = 464
+)
+
+var (
+	// ErrRegistrationRequestNotFound is returned when the registration request could not be located by the internal processor
+	ErrRegistrationRequestNotFound = errors.New("registration request not found")
 )
 
 func DoPollRequest(ctx context.Context, hc *http.Client, deviceID string, registrationURL string) (*Response, error) {
@@ -67,7 +73,7 @@ func DoPollRequest(ctx context.Context, hc *http.Client, deviceID string, regist
 		// in this case somebody must have cleaned out the registration request
 		// we cannot recover from this, and need to start over
 		if httpResp.StatusCode == HTTPRegistrationRequestNotFound {
-			return nil, fmt.Errorf("registration request not found by the processor: %s: %s", resp.Status, resp.StatusDescription)
+			return nil, fmt.Errorf("%w: registration request not found by the processor: %s: %s", ErrRegistrationRequestNotFound, resp.Status, resp.StatusDescription)
 		}
 
 		// we cannot recover from internal processing errors, and need to retry

@@ -464,6 +464,31 @@ func (a *api) HasValidClientCert() bool {
 	return err == nil
 }
 
+// MatchesClientCertificate implements IdentityPartition.
+func (a *api) MatchesClientCertificate(cert *x509.Certificate) bool {
+	f, err := a.dev.FS.Open(clientCertPath)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	certPEMBytes, err := io.ReadAll(f)
+	if err != nil {
+		return false
+	}
+	p, _ := pem.Decode(certPEMBytes)
+	if p == nil {
+		return false
+	}
+	if p.Type != "CERTIFICATE" {
+		return false
+	}
+	certOnDisk, err := x509.ParseCertificate(p.Bytes)
+	if err != nil {
+		return false
+	}
+	return certOnDisk.Equal(cert)
+}
+
 // HasClientKey implements IdentityPartition
 func (a *api) HasClientKey() bool {
 	if tpm.HasTPM() {

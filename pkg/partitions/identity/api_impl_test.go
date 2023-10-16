@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"io"
 	"io/fs"
@@ -1404,7 +1405,7 @@ func Test_api_HasClientCert(t *testing.T) {
 				tt.pre(t, ctrl, mockfs)
 			}
 			if got := a.HasClientCert(); got != tt.want {
-				t.Errorf("api.HasValidClientCert() = %v, want %v", got, tt.want)
+				t.Errorf("api.HasClientCert() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -1516,6 +1517,132 @@ func Test_api_HasValidClientCert(t *testing.T) {
 			}
 			if got := a.HasValidClientCert(); got != tt.want {
 				t.Errorf("api.HasValidClientCert() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_api_MatchesClientCertificate(t *testing.T) {
+	type args struct {
+		cert *x509.Certificate
+	}
+	certValid := readFile("cert-valid.pem")
+	p, _ := pem.Decode(certValid)
+	if p == nil {
+		panic("certValid is not a PEM file")
+	}
+	x509CertValid, err := x509.ParseCertificate(p.Bytes)
+	if err != nil {
+		panic(err)
+	}
+	certNoMatch := readFile("cert-expired.pem")
+	p, _ = pem.Decode(certNoMatch)
+	if p == nil {
+		panic("certNoMatch is not a PEM file")
+	}
+	x509CertNoMatch, err := x509.ParseCertificate(p.Bytes)
+	certInvalid := readFile("cert-invalid.pem")
+	certNotACSR := readFile("cert-not-a-cert.pem")
+	certNotAPEM := readFile("cert-not-pem.pem")
+	tests := []struct {
+		name string
+		want bool
+		args args
+		pre  func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS)
+	}{
+		{
+			name: "success",
+			want: true,
+			args: args{
+				cert: x509CertValid,
+			},
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certValid, 3)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "certificates do not match",
+			want: false,
+			args: args{
+				cert: x509CertNoMatch,
+			},
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certValid, 3)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "invalid certificate",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certInvalid, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "PEM not a certificate",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certNotACSR, 2)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "not a PEM file",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				mockio.ReadAllBytesMock(f, certNotAPEM, 1)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "reading PEM file fails",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				f := mockio.NewMockReadWriteCloser(ctrl)
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(f, nil)
+				f.EXPECT().Read(gomock.Any()).Times(1).Return(0, io.ErrUnexpectedEOF)
+				f.EXPECT().Close().Times(1).Return(nil)
+			},
+		},
+		{
+			name: "opening PEM file fails",
+			want: false,
+			pre: func(t *testing.T, ctrl *gomock.Controller, mfs *mockpartitions.MockFS) {
+				mfs.EXPECT().Open(clientCertPath).Times(1).Return(nil, os.ErrNotExist)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockfs := mockpartitions.NewMockFS(ctrl)
+			a := &api{
+				dev: &partitions.Device{
+					Uevent: partitions.Uevent{
+						partitions.UeventDevtype: partitions.UeventDevtypePartition,
+					},
+					GPTPartType: partitions.GPTPartTypeHedgehogIdentity,
+					FS:          mockfs,
+				},
+			}
+			if tt.pre != nil {
+				tt.pre(t, ctrl, mockfs)
+			}
+			if got := a.MatchesClientCertificate(tt.args.cert); got != tt.want {
+				t.Errorf("api.MatchesClientCertificate() = %v, want %v", got, tt.want)
 			}
 		})
 	}
