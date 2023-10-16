@@ -366,7 +366,7 @@ func registerDevice(ctx context.Context, hc *http.Client, cfg *configstage.Stage
 }
 
 func checkValidRegistration(ctx context.Context, hc *http.Client, cfg *configstage.Stage1, identityPartition identity.IdentityPartition, si *stage.StagingInfo) error {
-	l.Info("Checking if a registration entry exists within the controller...", zap.String("deviceID", si.DeviceID))
+	l.Info("Valid client certificate found on identity partition. Checking if a registration entry exists within the controller and that it matches our certificate...", zap.String("deviceID", si.DeviceID))
 
 	// this is the same check as during registration, where we poll for a valid certificate
 	resp, err := registration.DoPollRequest(ctx, hc, si.DeviceID, cfg.RegisterURL)
@@ -401,6 +401,6 @@ func checkValidRegistration(ctx context.Context, hc *http.Client, cfg *configsta
 	}
 
 	// this means that we have a registration entry with the controller, and our certificate on disk matches the one in the response
-	l.Info("Valid registration entry exists within the controller", zap.String("deviceID", si.DeviceID))
+	l.Info("Valid registration entry exists within the controller and matches our certificate", zap.String("deviceID", si.DeviceID))
 	return nil
 }
