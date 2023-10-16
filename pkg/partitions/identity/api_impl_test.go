@@ -1541,6 +1541,9 @@ func Test_api_MatchesClientCertificate(t *testing.T) {
 		panic("certNoMatch is not a PEM file")
 	}
 	x509CertNoMatch, err := x509.ParseCertificate(p.Bytes)
+	if err != nil {
+		panic(err)
+	}
 	certInvalid := readFile("cert-invalid.pem")
 	certNotACSR := readFile("cert-not-a-cert.pem")
 	certNotAPEM := readFile("cert-not-pem.pem")

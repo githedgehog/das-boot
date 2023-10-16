@@ -229,7 +229,7 @@ func Run(ctx context.Context, override *configstage.Stage1, logSettings *stage.L
 	// if we have a valid client cert, then we need to check if the controller still has our registration
 	// and if the certificate matches. If it doesn't, then we are going to rekey
 	if hasValidClientCert {
-		if err := checkValidRegistration(ctx, hc, cfg, identityPartition, si, locationInfo); err != nil {
+		if err := checkValidRegistration(ctx, hc, cfg, identityPartition, si); err != nil {
 			// no detailed error handling necessary here, done in checkValidRegistration
 			return err
 		}
@@ -357,7 +357,7 @@ func registerDevice(ctx context.Context, hc *http.Client, cfg *configstage.Stage
 	return nil
 }
 
-func checkValidRegistration(ctx context.Context, hc *http.Client, cfg *configstage.Stage1, identityPartition identity.IdentityPartition, si *stage.StagingInfo, locationInfo *location.Info) error {
+func checkValidRegistration(ctx context.Context, hc *http.Client, cfg *configstage.Stage1, identityPartition identity.IdentityPartition, si *stage.StagingInfo) error {
 	l.Info("Checking if a registration entry exists within the controller...", zap.String("deviceID", si.DeviceID))
 
 	// this is the same check as during registration, where we poll for a valid certificate
