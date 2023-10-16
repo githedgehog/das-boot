@@ -178,7 +178,7 @@ func Run(ctx context.Context, override *configstage.Stage1, logSettings *stage.L
 	}
 	l.Info("Opened Hedgehog Identity Partition successfully")
 
-	// build an HTTP client for the register requests
+	// build an HTTP client for the register requests, it does not need to do client certificate authentication
 	hc, err := stage.SeederHTTPClient(si.ServerCA, nil)
 	if err != nil {
 		l.Error("Building HTTP client for registration failed", zap.Error(err))
@@ -250,6 +250,14 @@ func Run(ctx context.Context, override *configstage.Stage1, logSettings *stage.L
 			// no detailed error handling necessary here, done in registerDevice
 			return err
 		}
+	}
+
+	// reinitialize HTTP client: it now MUST do client certificate authentication
+	// so we pass in the identity partition
+	hc, err = stage.SeederHTTPClient(si.ServerCA, identityPartition)
+	if err != nil {
+		l.Error("Building HTTP client for downloading stage 2 failed", zap.Error(err))
+		return executionError(err)
 	}
 
 	// now try to download stage 2
