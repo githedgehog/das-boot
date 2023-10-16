@@ -401,5 +401,6 @@ func checkValidRegistration(ctx context.Context, hc *http.Client, cfg *configsta
 	}
 
 	// this means that we have a registration entry with the controller, and our certificate on disk matches the one in the response
+	l.Info("Valid registration entry exists within the controller", zap.String("deviceID", si.DeviceID))
 	return nil
 }
