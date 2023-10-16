@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -177,6 +178,13 @@ func Run(ctx context.Context, override *configstage.Stage1, logSettings *stage.L
 	}
 	l.Info("Opened Hedgehog Identity Partition successfully")
 
+	// build an HTTP client for the register requests
+	hc, err := stage.SeederHTTPClient(si.ServerCA, nil)
+	if err != nil {
+		l.Error("Building HTTP client for registration failed", zap.Error(err))
+		return executionError(err)
+	}
+
 	// first let's check if there is already location information stored
 	// if it is, it must match the location information that we detected before
 	// if not, we must start from scratch and delete potentially previously stored keys and certs
@@ -218,22 +226,30 @@ func Run(ctx context.Context, override *configstage.Stage1, logSettings *stage.L
 	// as a call to GenerateClientKeyPair will delete any existing certificate
 	hasValidClientCert = identityPartition.HasValidClientCert()
 
+	// if we have a valid client cert, then we need to check if the controller still has our registration
+	// and if the certificate matches. If it doesn't, then we are going to rekey
+	if hasValidClientCert {
+		if err := checkValidRegistration(ctx, hc, cfg, identityPartition, si); err != nil {
+			// no detailed error handling necessary here, done in checkValidRegistration
+			return err
+		}
+	}
+
+	// test again for a valid client certificate
+	// if the controller did not have our registration, then we restart registration and are rekeying
+	// in which case the certificate will be gone now
+	hasValidClientCert = identityPartition.HasValidClientCert()
+
 	// if we didn't need to generate a new key, then generateNewCSR is false
 	// and we can directly load the key and cert from disk
 	if hasValidClientCert {
 		l.Info("Reusing existing client key pair and certificate from identity partition")
 	} else {
 		// otherwise we need to register now
-		if err := registerDevice(ctx, cfg, identityPartition, si, locationInfo); err != nil {
+		if err := registerDevice(ctx, hc, cfg, identityPartition, si, locationInfo); err != nil {
 			// no detailed error handling necessary here, done in registerDevice
 			return err
 		}
-	}
-
-	hc, err := stage.SeederHTTPClient(si.ServerCA, identityPartition)
-	if err != nil {
-		l.Error("Building HTTP client for downloading stage 2 failed", zap.Error(err))
-		return executionError(err)
 	}
 
 	// now try to download stage 2
@@ -263,7 +279,7 @@ func Run(ctx context.Context, override *configstage.Stage1, logSettings *stage.L
 }
 
 // registers the device with the control plane
-func registerDevice(ctx context.Context, cfg *configstage.Stage1, identityPartition identity.IdentityPartition, si *stage.StagingInfo, locationInfo *location.Info) error {
+func registerDevice(ctx context.Context, hc *http.Client, cfg *configstage.Stage1, identityPartition identity.IdentityPartition, si *stage.StagingInfo, locationInfo *location.Info) error {
 	var clientCSRBytes []byte
 	hasClientCSR := identityPartition.HasClientCSR()
 	if !hasClientCSR {
@@ -285,14 +301,7 @@ func registerDevice(ctx context.Context, cfg *configstage.Stage1, identityPartit
 		}
 	}
 
-	// build an HTTP client for the register requests
-	hc, err := stage.SeederHTTPClient(si.ServerCA, nil)
-	if err != nil {
-		l.Error("Building HTTP client for registration failed", zap.Error(err))
-		return executionError(err)
-	}
-
-	l.Info("Performing device registration now...")
+	l.Info("Performing device registration now...", zap.String("deviceID", si.DeviceID))
 	// TODO: needs all the details - this is truly the bare minimum
 	req := &registration.Request{
 		DeviceID:     si.DeviceID,
@@ -338,11 +347,51 @@ func registerDevice(ctx context.Context, cfg *configstage.Stage1, identityPartit
 	}
 
 	// store returned certificate onto identity partition
+	// this will fail if the returned certificate does not match the CSR/key pair
 	l.Info("Storing client certificate to identity partition...")
 	if err := identityPartition.StoreClientCert(resp.ClientCertificate); err != nil {
 		l.Error("Storing client certificate to identity partition failed", zap.Error(err))
 		return executionError(fmt.Errorf("storing client certificate: %w", err))
 	}
 
+	return nil
+}
+
+func checkValidRegistration(ctx context.Context, hc *http.Client, cfg *configstage.Stage1, identityPartition identity.IdentityPartition, si *stage.StagingInfo) error {
+	l.Info("Checking if a registration entry exists within the controller...", zap.String("deviceID", si.DeviceID))
+
+	// this is the same check as during registration, where we poll for a valid certificate
+	resp, err := registration.DoPollRequest(ctx, hc, si.DeviceID, cfg.RegisterURL)
+	if errors.Is(err, registration.ErrRegistrationRequestNotFound) {
+		l.Warn("Registration not found by the controller. We are going to generate a new key, and restart registration...")
+		l.Info("Generating new client key pair now...")
+		if err := identityPartition.GenerateClientKeyPair(); err != nil {
+			l.Error("Generating new client key pair failed", zap.Error(err))
+			return executionError(fmt.Errorf("generating client key pair: %w", err))
+		}
+		return nil
+	}
+	if err != nil {
+		l.Error("Checking for a valid device registration failed", zap.Error(err))
+		return executionError(fmt.Errorf("checking device registration: %w", err))
+	}
+
+	// check if the certificate matches the cert on disk
+	cert, err := x509.ParseCertificate(resp.ClientCertificate)
+	if err != nil {
+		l.Error("Our registration entry returned an invalid certificate", zap.Error(err))
+		return executionError(fmt.Errorf("checking device registration: %w", err))
+	}
+	if !identityPartition.MatchesClientCertificate(cert) {
+		l.Warn("The certificate for our registration entry does not match the certificate on disk. We are going to generate a new key, and restart registration...")
+		l.Info("Generating new client key pair now...")
+		if err := identityPartition.GenerateClientKeyPair(); err != nil {
+			l.Error("Generating new client key pair failed", zap.Error(err))
+			return executionError(fmt.Errorf("generating client key pair: %w", err))
+		}
+		return nil
+	}
+
+	// this means that we have a registration entry with the controller, and our certificate on disk matches the one in the response
 	return nil
 }

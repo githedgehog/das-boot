@@ -2,6 +2,7 @@ package identity
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 
 	"go.githedgehog.com/dasboot/pkg/partitions/location"
@@ -51,6 +52,11 @@ type IdentityPartition interface {
 	// the certificate on disk is in fact valid, and optionally should check if the embedded public key belongs to the
 	// key on disk (or TPM).
 	HasValidClientCert() bool
+
+	// MatchesClientCertificate tests if the provided certificate matches the client certificate on disk.
+	// If there is no client certificate on disk, it must return false. Note that this call does not verify the validity
+	// of the certificate on disk, it will
+	MatchesClientCertificate(cert *x509.Certificate) bool
 
 	// GenerateClientKeyPair generates a new key client key pair. It must overwrite any existing keys on disk (or TPM).
 	// Therefore a call to `HasClientKey` is recommended if overwriting would not be the intention. Subsequently, it must
