@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"go.githedgehog.com/dasboot/pkg/log"
+	"go.githedgehog.com/dasboot/pkg/net"
 	seedernet "go.githedgehog.com/dasboot/pkg/net"
 	"go.githedgehog.com/dasboot/pkg/seeder/config"
 	seedererrors "go.githedgehog.com/dasboot/pkg/seeder/errors"
@@ -130,8 +131,16 @@ func getInterfacesForServerNeighbours(ctx context.Context, k8sClient client.Clie
 		if conn.Spec.Management == nil {
 			continue
 		}
-		intf := conn.Spec.Management.Link.Server.LocalPortName()
-		retMap[intf] = struct{}{}
+
+		portName := conn.Spec.Management.Link.Server.LocalPortName()
+		portMAC := conn.Spec.Management.Link.Server.MAC
+		nic, err := net.GetInterface(portName, portMAC)
+		if err != nil {
+			log.L().Warn("Getting interface failed, skipping", zap.String("nic", portName), zap.String("mac", portMAC), zap.Error(err))
+			continue
+		}
+
+		retMap[nic] = struct{}{}
 	}
 	ret := make([]string, 0, len(retMap))
 	for intf := range retMap {

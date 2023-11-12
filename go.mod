@@ -10,23 +10,24 @@ require (
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.1
-	github.com/opencontainers/image-spec v1.1.0-rc.3
+	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/vishvananda/netlink v1.1.0
-	go.githedgehog.com/fabric v0.16.0
+	go.githedgehog.com/fabric v0.20.7
 	go.uber.org/zap v1.25.0
 	golang.org/x/sys v0.12.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.28.0
 	k8s.io/apimachinery v0.28.0
 	k8s.io/client-go v0.28.0
-	oras.land/oras-go/v2 v2.0.0-rc.3
+	oras.land/oras-go/v2 v2.3.0
 	sigs.k8s.io/controller-runtime v0.16.0
 	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
 	github.com/0x5a17ed/itkit v0.6.0 // indirect
+	github.com/apparentlymart/go-cidr v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
@@ -70,7 +71,7 @@ require (
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/net v0.15.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
-	golang.org/x/sync v0.3.0 // indirect
+	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/term v0.12.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect

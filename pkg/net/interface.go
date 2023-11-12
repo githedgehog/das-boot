@@ -1,6 +1,7 @@
 package net
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -301,4 +302,32 @@ func GetInterfaceAddresses(device string) ([]netip.Addr, error) {
 		}
 	}
 	return ret, nil
+}
+
+// GetInterface returns the interface name for a given name and MAC address.
+func GetInterface(name, macStr string) (string, error) {
+	mac, err := net.ParseMAC(macStr)
+	if macStr != "" && err != nil {
+		return "", fmt.Errorf("net: parse mac: %w", err)
+	}
+
+	ll, err := netlink.LinkList()
+	if err != nil {
+		return "", fmt.Errorf("netlink: link list: %w", err)
+	}
+
+	for _, link := range ll {
+		la := link.Attrs()
+		if link.Type() != "device" || la.EncapType != "ether" {
+			continue
+		}
+		if la.Name == name {
+			return la.Name, nil
+		}
+		if macStr != "" && bytes.Equal(la.HardwareAddr, mac) {
+			return la.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("net: interface '%s' (mac: '%s') not found", name, macStr)
 }
