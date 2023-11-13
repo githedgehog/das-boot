@@ -7,10 +7,13 @@ import (
 	"os"
 
 	dasbootv1alpha1 "go.githedgehog.com/dasboot/pkg/k8s/api/v1alpha1"
+	"go.githedgehog.com/dasboot/pkg/log"
+	"go.githedgehog.com/dasboot/pkg/net"
 	seedernet "go.githedgehog.com/dasboot/pkg/net"
 	"go.githedgehog.com/dasboot/pkg/seeder/config"
 	agentv1alpha2 "go.githedgehog.com/fabric/api/agent/v1alpha2"
 	wiring1alpha2 "go.githedgehog.com/fabric/api/wiring/v1alpha2"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -134,7 +137,15 @@ func (c *KubernetesControlPlaneClient) getInterfacesForServerNeighbours(ctx cont
 	for _, conn := range connList.Items {
 		if conn.Spec.Management != nil {
 			// we expect a switch on this port as a neighbour, so we want to listen on this port
-			nic := conn.Spec.Management.Link.Server.LocalPortName()
+
+			portName := conn.Spec.Management.Link.Server.LocalPortName()
+			portMAC := conn.Spec.Management.Link.Server.MAC
+			nic, err := net.GetInterface(portName, portMAC)
+			if err != nil {
+				log.L().Warn("Getting interface failed, skipping", zap.String("nic", portName), zap.String("mac", portMAC), zap.Error(err))
+				continue
+			}
+
 			addrs, err := seedernet.GetInterfaceAddresses(nic)
 			if err != nil {
 				return nil, nil, err
@@ -170,7 +181,15 @@ func (c *KubernetesControlPlaneClient) getInterfacesForSwitchNeighbours(ctx cont
 	for _, conn := range connList.Items {
 		if conn.Spec.Management != nil {
 			// we expect a switch on this port as a neighbour, so we want to listen on this port
-			nic := conn.Spec.Management.Link.Switch.BasePortName.LocalPortName()
+
+			portName := conn.Spec.Management.Link.Server.LocalPortName()
+			portMAC := conn.Spec.Management.Link.Server.MAC
+			nic, err := net.GetInterface(portName, portMAC)
+			if err != nil {
+				log.L().Warn("Getting interface failed, skipping", zap.String("nic", portName), zap.String("mac", portMAC), zap.Error(err))
+				continue
+			}
+
 			addrs, err := seedernet.GetInterfaceAddresses(nic)
 			if err != nil {
 				return nil, nil, err
@@ -217,7 +236,15 @@ func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx con
 		// we are only interested in management connections at the moment
 		if conn.Spec.Management != nil {
 			// get all addresses that belong to this port
-			nic := conn.Spec.Management.Link.Server.LocalPortName()
+
+			portName := conn.Spec.Management.Link.Server.LocalPortName()
+			portMAC := conn.Spec.Management.Link.Server.MAC
+			nic, err := net.GetInterface(portName, portMAC)
+			if err != nil {
+				log.L().Warn("Getting interface failed, skipping", zap.String("nic", portName), zap.String("mac", portMAC), zap.Error(err))
+				continue
+			}
+
 			addrs, err := seedernet.GetInterfaceAddresses(nic)
 			if err != nil {
 				return nil, nil, err

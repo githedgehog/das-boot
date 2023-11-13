@@ -167,7 +167,12 @@ func (op *orasProvider) Get(artifact string) (rc io.ReadCloser) {
 			os.RemoveAll(fileStorePath)
 		}
 	}()
-	fileStore := file.New(fileStorePath)
+	fileStore, err := file.New(fileStorePath)
+	if err != nil {
+		log.L().Error("oras: failed to create file store", zap.String("repo", repoName), zap.Error(err))
+		return nil
+	}
+
 	rootDesc, err := oras.Copy(ctx, src, tagName, fileStore, tagName, oras.DefaultCopyOptions)
 	if err != nil {
 		log.L().Error("oras: copying artifact into memory failed", zap.String("repo", repoName), zap.Error(err))
