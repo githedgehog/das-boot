@@ -161,7 +161,6 @@ func main() {
 					ConfigSignatureCAPath: cfg.InstallerSettings.ConfigSignatureCAPath,
 					SecureServerName:      cfg.InstallerSettings.SecureServerName,
 					ControlVIP:            cfg.InstallerSettings.ControlVIP,
-					DNSServers:            cfg.InstallerSettings.DNSServers,
 					NTPServers:            cfg.InstallerSettings.NTPServers,
 					SyslogServers:         cfg.InstallerSettings.SyslogServers,
 					KubeSubnets:           cfg.InstallerSettings.KubeSubnets,

@@ -17,7 +17,6 @@ import (
 // Settings needs to be passed in by the seeder to a ProcessRequest call
 type Settings struct {
 	ControlVIP    string
-	DNSServers    []string
 	SyslogServers []string
 	NTPServers    []string
 	KubeSubnets   []string
@@ -153,7 +152,6 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 
 	return &Response{
 		IPAddresses:   ips,
-		DNSServers:    settings.DNSServers,
 		NTPServers:    settings.NTPServers,
 		SyslogServers: settings.SyslogServers,
 		Stage1URL:     settings.Stage1URL,

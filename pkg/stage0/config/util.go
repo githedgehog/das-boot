@@ -87,6 +87,24 @@ func MergeConfigs(embedded *Stage0, override *Stage0) *Stage0 {
 		ret.IPAMURL = override.IPAMURL
 	}
 
+	// Stage1URL can be overridden
+	if override.Stage1URL != "" {
+		ret.Stage1URL = override.Stage1URL
+	}
+
+	// Services can be overridden
+	if override.Services.ControlVIP != "" {
+		ret.Services.ControlVIP = override.Services.ControlVIP
+	}
+	if len(override.Services.NTPServers) > 0 {
+		ret.Services.NTPServers = make([]string, len(override.Services.NTPServers))
+		copy(ret.Services.NTPServers, override.Services.NTPServers)
+	}
+	if len(override.Services.SyslogServers) > 0 {
+		ret.Services.SyslogServers = make([]string, len(override.Services.SyslogServers))
+		copy(ret.Services.SyslogServers, override.Services.SyslogServers)
+	}
+
 	// location information can be overridden
 	if override.Location != nil {
 		ret.Location = &location.Info{

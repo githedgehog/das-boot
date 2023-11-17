@@ -60,8 +60,6 @@ settings:
     secure:
       - ":8443"
   control_vip: "192.168.42.1"
-  dns_servers:
-    - "10.143.0.10"
   ntp_servers:
     - ntp.default.svc.cluster.local
   syslog_servers:

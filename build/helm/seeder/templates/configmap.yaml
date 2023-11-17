@@ -35,8 +35,6 @@ data:
       config_signature_ca: /etc/hedgehog/seeder-certs/config-ca/{{ .Values.secrets.configCA.certKey }}
       secure_server_name: {{ include "das-boot.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
       control_vip: "{{ .Values.settings.control_vip }}"
-      dns_servers:
-        {{- toYaml .Values.settings.dns_servers | nindent 10 }}
       ntp_servers:
         {{- toYaml .Values.settings.ntp_servers | nindent 10 }}
       syslog_servers:
