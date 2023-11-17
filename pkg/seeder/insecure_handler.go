@@ -3,6 +3,7 @@ package seeder
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -92,7 +93,7 @@ func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []by
 		return uint(n)
 	}
 
-	// this is being requested from a link-local address
+	// if this is being requested from a link-local address
 	// we are going to discover the neighbour and also serve
 	// the location information for the configured neighbour
 	var loc *location.Info
@@ -116,6 +117,38 @@ func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []by
 					MetadataSig: []byte(sw.Spec.LocationSig.Sig),
 				}
 				log.L().Info("Serving location information for request", zap.Reflect("loc", loc))
+			}
+		}
+	} else {
+		// otherwise we are going to check if this is being requested from an IP address from a known switch
+		// and if so, we are going to serve the location information for that switch based on that IP address
+		remoteHost, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			log.L().Error("failed to split remote address and port", zap.String("addr", r.RemoteAddr), zap.Error(err))
+		} else {
+			if net.ParseIP(remoteHost) == nil {
+				log.L().Error("failed to parse remote host as IP address", zap.String("addr", r.RemoteAddr))
+			} else {
+				ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
+				defer cancel()
+				sw, _, err := s.cpc.GetSwitchByAddr(ctx, remoteHost)
+				if err != nil {
+					log.L().Error("failed to discover switch", zap.String("addr", remoteHost), zap.Error(err))
+				} else {
+					md, err := json.Marshal(&sw.Spec.Location)
+					if err != nil {
+						log.L().Error("failed to marshal location information of neighbouring switch", zap.Error(err))
+					} else {
+						locationUUID, _ := sw.Spec.Location.GenerateUUID()
+						loc = &location.Info{
+							UUID:        locationUUID,
+							UUIDSig:     []byte(sw.Spec.LocationSig.UUIDSig),
+							Metadata:    string(md),
+							MetadataSig: []byte(sw.Spec.LocationSig.Sig),
+						}
+						log.L().Info("Serving location information for request", zap.Reflect("loc", loc))
+					}
+				}
 			}
 		}
 	}

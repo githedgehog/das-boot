@@ -8,7 +8,6 @@ import (
 
 	dasbootv1alpha1 "go.githedgehog.com/dasboot/pkg/k8s/api/v1alpha1"
 	"go.githedgehog.com/dasboot/pkg/log"
-	"go.githedgehog.com/dasboot/pkg/net"
 	seedernet "go.githedgehog.com/dasboot/pkg/net"
 	"go.githedgehog.com/dasboot/pkg/seeder/config"
 	agentv1alpha2 "go.githedgehog.com/fabric/api/agent/v1alpha2"
@@ -28,6 +27,7 @@ type Client interface {
 	DeviceNamespace() string
 	GetInterfacesForNeighbours(ctx context.Context) (map[string]string, map[string]string, error)
 	GetSwitchConnections(ctx context.Context, switchName string) ([]wiring1alpha2.Connection, error)
+	GetSwitchByAddr(ctx context.Context, addr string) (*wiring1alpha2.Switch, *wiring1alpha2.Connection, error)
 	GetNeighbourSwitchByAddr(ctx context.Context, addr string) (*wiring1alpha2.Switch, *wiring1alpha2.Connection, error)
 	GetSwitchByLocationUUID(ctx context.Context, uuid string) (*wiring1alpha2.Switch, error)
 	GetDeviceRegistration(ctx context.Context, deviceID string) (*dasbootv1alpha1.DeviceRegistration, error)
@@ -140,7 +140,7 @@ func (c *KubernetesControlPlaneClient) getInterfacesForServerNeighbours(ctx cont
 
 			portName := conn.Spec.Management.Link.Server.LocalPortName()
 			portMAC := conn.Spec.Management.Link.Server.MAC
-			nic, err := net.GetInterface(portName, portMAC)
+			nic, err := seedernet.GetInterface(portName, portMAC)
 			if err != nil {
 				log.L().Warn("Getting interface failed, skipping", zap.String("nic", portName), zap.String("mac", portMAC), zap.Error(err))
 				continue
@@ -184,7 +184,7 @@ func (c *KubernetesControlPlaneClient) getInterfacesForSwitchNeighbours(ctx cont
 
 			portName := conn.Spec.Management.Link.Server.LocalPortName()
 			portMAC := conn.Spec.Management.Link.Server.MAC
-			nic, err := net.GetInterface(portName, portMAC)
+			nic, err := seedernet.GetInterface(portName, portMAC)
 			if err != nil {
 				log.L().Warn("Getting interface failed, skipping", zap.String("nic", portName), zap.String("mac", portMAC), zap.Error(err))
 				continue
@@ -203,6 +203,49 @@ func (c *KubernetesControlPlaneClient) getInterfacesForSwitchNeighbours(ctx cont
 		}
 	}
 	return ret1, ret2, nil
+}
+
+func (c *KubernetesControlPlaneClient) GetSwitchByAddr(ctx context.Context, addr string) (*wiring1alpha2.Switch, *wiring1alpha2.Connection, error) {
+	// get all connections
+	// TODO: yes, it would be great if we could filter here
+	connList := &wiring1alpha2.ConnectionList{}
+	if err := c.client.List(ctx, connList); err != nil {
+		return nil, nil, err
+	}
+
+	// find the connection by the passed address
+	// existing Conn type=Management to define leaf-front-panel <> control-node connection, we don’t need any extra data
+	// existing Conn type=Fabric to use spine <> leaf connections
+	for _, conn := range connList.Items {
+		var deviceName string
+		if conn.Spec.Management != nil {
+			if conn.Spec.Management.Link.Switch.IP == addr {
+				deviceName = conn.Spec.Management.Link.Switch.DeviceName()
+			}
+		} else if conn.Spec.Fabric != nil {
+			for _, link := range conn.Spec.Fabric.Links {
+				if link.Leaf.IP == addr {
+					deviceName = link.Leaf.DeviceName()
+					break
+				}
+				if link.Spine.IP == addr {
+					deviceName = link.Spine.DeviceName()
+					break
+				}
+			}
+		}
+
+		if deviceName != "" {
+			// we found our match, now retrieve the switch item
+			ret1 := &wiring1alpha2.Switch{}
+			if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.deviceNamespace, Name: deviceName}, ret1); err != nil {
+				return nil, nil, err
+			}
+			ret2 := conn.DeepCopy()
+			return ret1, ret2, nil
+		}
+	}
+	return nil, nil, ErrNotFound
 }
 
 // GetNeighbourSwitchByAddr finds the switch that is connected to this device by its link local IP address `addr`.
@@ -239,7 +282,7 @@ func (c *KubernetesControlPlaneClient) getNeighbourSwitchByAddrForServer(ctx con
 
 			portName := conn.Spec.Management.Link.Server.LocalPortName()
 			portMAC := conn.Spec.Management.Link.Server.MAC
-			nic, err := net.GetInterface(portName, portMAC)
+			nic, err := seedernet.GetInterface(portName, portMAC)
 			if err != nil {
 				log.L().Warn("Getting interface failed, skipping", zap.String("nic", portName), zap.String("mac", portMAC), zap.Error(err))
 				continue
