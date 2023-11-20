@@ -1,4 +1,5 @@
 /.hhfab
+/exec.log
 /dev/**
 /cover.out
 /build/coverage/**
