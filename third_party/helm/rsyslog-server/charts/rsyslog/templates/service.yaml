@@ -9,14 +9,14 @@ spec:
   ports:
     - port: {{ .Values.service.port }}
       targetPort: 514
-      {{- if gt .Values.service.nodePort 0 }}
+      {{- if gt (int .Values.service.nodePort) 0 }}
       nodePort: {{ .Values.service.nodePort }}
       {{- end }}
       protocol: TCP
       name: syslog-tcp
     - port: {{ .Values.service.port }}
       targetPort: 514
-      {{- if gt .Values.service.nodePort 0 }}
+      {{- if gt (int .Values.service.nodePort) 0 }}
       nodePort: {{ .Values.service.nodePort }}
       {{- end }}
       protocol: UDP

@@ -6,11 +6,11 @@ DOCKER_VERSION ?= latest
 # using 0.1.0 for now to keep compatible with other scripts
 HELM_CHART_VERSION ?= 0.1.0
 
-DOCKER_REPO ?= registry.local:5000/githedgehog
+DOCKER_REPO ?= registry.local:31000/githedgehog
 DOCKER_REPO_SEEDER ?= $(DOCKER_REPO)/das-boot-seeder
 DOCKER_REPO_REGISTRATION_CONTROLLER ?= $(DOCKER_REPO)/das-boot-registration-controller
 
-HELM_CHART_REPO ?= registry.local:5000/githedgehog/helm-charts
+HELM_CHART_REPO ?= registry.local:31000/githedgehog/helm-charts
 
 MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 's#/$$##')
 BUILD_DIR := $(MKFILE_DIR)/build
@@ -231,10 +231,6 @@ dev-init-oci-certs: $(DEV_OCI_REPO_CERT_FILES) ## Generates a local CA and serve
 $(DEV_OCI_REPO_CERT_FILES) &:
 	$(MKFILE_DIR)/scripts/init_repo_certs.sh
 
-.PHONY: run-docker-registry
-run-docker-registry: dev-init-oci-certs ## Runs a local docker registry in a docker container. NOTE: This is forwarded to the control plane as well!
-	$(MKFILE_DIR)/scripts/run_registry.sh
-
 .PHONY: docker
 docker: docker-seeder docker-registration-controller ## Builds all docker images
 
@@ -254,10 +250,7 @@ docker-seeder-clean: ## Removes the docker image from the local docker images
 
 .PHONY: docker-seeder-push
 docker-seeder-push: docker ## Builds AND pushes a docker image for the seeder
-	@echo
-	@[ "$(DOCKER_REPO_SEEDER)" = "registry.local:5000/githedgehog/das-boot-seeder" ] && $(MKFILE_DIR)/scripts/run_registry.sh || echo "Not trying to run local registry, different docker repository..."
-	@echo
-	docker push $(DOCKER_REPO_SEEDER):$(DOCKER_VERSION)
+	skopeo copy --dest-tls-verify=false docker-daemon:$(DOCKER_REPO_SEEDER):$(DOCKER_VERSION) docker://$(DOCKER_REPO_SEEDER):$(DOCKER_VERSION)
 
 .PHONY: docker-registration-controller
 docker-registration-controller: registration-controller ## Builds a docker images for the registration-controller
@@ -269,10 +262,7 @@ docker-registration-controller-clean: ## Removes the docker image from the local
 
 .PHONY: docker-registration-controller-push
 docker-registration-controller-push: docker ## Builds AND pushes a docker image for the registration-controller
-	@echo
-	@[ "$(DOCKER_REPO_REGISTRATION_CONTROLLER)" = "registry.local:5000/githedgehog/das-boot-registration-controller" ] && $(MKFILE_DIR)/scripts/run_registry.sh || echo "Not trying to run local registry, different docker repository..."
-	@echo
-	docker push $(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION)
+	skopeo copy --dest-tls-verify=false docker-daemon:$(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION) docker://$(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION)
 
 .PHONY: helm
 helm: ## Builds a helm chart for the seeder
@@ -293,9 +283,13 @@ helm-clean: ## Cleans the packaged helm chart for the seeder from the artifacts 
 
 .PHONY: helm-push
 helm-push: helm ## Builds AND pushes the helm chart for the seeder
-	helm push $(BUILD_ARTIFACTS_DIR)/das-boot-crds-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
-	helm push $(BUILD_ARTIFACTS_DIR)/das-boot-registration-controller-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
-	helm push $(BUILD_ARTIFACTS_DIR)/das-boot-seeder-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
+	helm push --insecure-skip-tls-verify $(BUILD_ARTIFACTS_DIR)/das-boot-crds-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
+	helm push --insecure-skip-tls-verify $(BUILD_ARTIFACTS_DIR)/das-boot-registration-controller-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
+	helm push --insecure-skip-tls-verify $(BUILD_ARTIFACTS_DIR)/das-boot-seeder-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
+
+.PHONY: update-third-party-helm
+update-third-party-helm: ## Builds AND pushes the 3rd party helm charts
+	$(MKFILE_DIR)/scripts/update_third_party_helm.sh
 
 # Use this target only for local linting. In CI we use a dedicated github action
 .PHONY: lint

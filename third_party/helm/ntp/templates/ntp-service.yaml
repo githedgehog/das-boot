@@ -21,7 +21,7 @@ spec:
   {{- end }}
   ports:
   - port: 123
-    {{- if gt .Values.serviceUDP.nodePort 0 }}
+    {{- if gt (int .Values.serviceUDP.nodePort) 0 }}
     nodePort: {{ .Values.serviceUDP.nodePort }}
     {{- end }}
     targetPort: ntp
