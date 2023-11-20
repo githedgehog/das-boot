@@ -11,6 +11,7 @@ image:
 
 serviceUDP:
   type: NodePort
+  nodePort: 0
   externalTrafficPolicy: Local
   loadBalancerIP: ""
     # a fixed LoadBalancer IP

@@ -39,8 +39,6 @@ data:
         {{- toYaml .Values.settings.ntp_servers | nindent 10 }}
       syslog_servers:
         {{- toYaml .Values.settings.syslog_servers | nindent 10 }}
-      kube_subnets:
-        {{- toYaml .Values.settings.kube_subnets | nindent 10 }}
     {{- if .Values.settings.issue_certificates }}
     registry_settings:
       cert_path: /etc/hedgehog/seeder-certs/client-ca/{{ .Values.secrets.clientCA.certKey }}

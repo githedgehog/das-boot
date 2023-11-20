@@ -32,15 +32,6 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: https
-              containerPort: {{ .Values.service.ports.secure.targetPort }}
-              protocol: TCP
-          # TODO: we have to rethink how we would like to do the readiness check
-          #readinessProbe:
-          #  httpGet:
-          #    path: /healthz
-          #    port: 80
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:

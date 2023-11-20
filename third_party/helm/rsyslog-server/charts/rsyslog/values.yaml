@@ -21,6 +21,7 @@ podAnnotations: {}
 service:
   type: ClusterIP
   port: 514
+  nodePort: 0
 
 resources: {}
   # limits:

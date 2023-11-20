@@ -126,10 +126,6 @@ type InstallerSettings struct {
 
 	// SyslogServers are the syslog servers which will be configured on clients at installation time
 	SyslogServers []string `json:"syslog_servers,omitempty" yaml:"syslog_servers,omitempty"`
-
-	// KubeSubnets are the subnets for which the seeder will generate routes that will be configured to access the management/control plane network
-	// NOTE: subject to change in the future
-	KubeSubnets []string `json:"kube_subnets,omitempty" yaml:"kube_subnets,omitempty"`
 }
 
 // RegistrySettings are all the settings that instruct the seeder on what to do for registration requests
@@ -195,7 +191,6 @@ var ReferenceConfig = Config{
 		ControlVIP:            "192.168.42.1",
 		NTPServers:            []string{"192.168.42.1", "192.168.42.2"},
 		SyslogServers:         []string{"192.168.42.1"},
-		KubeSubnets:           []string{"10.142.0.0/16", "10.143.0.0/16"},
 	},
 }
 

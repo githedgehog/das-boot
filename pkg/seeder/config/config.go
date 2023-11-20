@@ -82,10 +82,6 @@ type InstallerSettings struct {
 
 	// SyslogServers are the syslog servers which will be configured on clients at installation time
 	SyslogServers []string
-
-	// KubeSubnets are the subnets for which the seeder will generate routes that will be configured to access the management/control plane network
-	// NOTE: subject to change in the future
-	KubeSubnets []string
 }
 
 // RegistrySettings are all the settings that instruct the seeder on what to do for registration requests

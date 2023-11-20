@@ -19,7 +19,6 @@ type Settings struct {
 	ControlVIP    string
 	SyslogServers []string
 	NTPServers    []string
-	KubeSubnets   []string
 	Stage1URL     string
 }
 
@@ -114,12 +113,6 @@ func ProcessRequest(ctx context.Context, settings *Settings, cpc controlplane.Cl
 				{
 					// the route to the controller over the server IP
 					Destinations: []string{controlVIP},
-					Gateway:      serverIP,
-				},
-				{
-					// the route to access Kubernetes pods and services
-					// NOTE: subject to change
-					Destinations: settings.KubeSubnets,
 					Gateway:      serverIP,
 				},
 			}

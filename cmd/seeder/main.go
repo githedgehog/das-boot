@@ -163,7 +163,6 @@ func main() {
 					ControlVIP:            cfg.InstallerSettings.ControlVIP,
 					NTPServers:            cfg.InstallerSettings.NTPServers,
 					SyslogServers:         cfg.InstallerSettings.SyslogServers,
-					KubeSubnets:           cfg.InstallerSettings.KubeSubnets,
 				}
 			}
 			if cfg.RegistrySettings != nil {

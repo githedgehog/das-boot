@@ -24,9 +24,6 @@ settings:
     - hh-ntp-udp.default.svc.cluster.local
   syslog_servers:
     - hh-syslog-rsyslog.default.svc.cluster.local
-  kube_subnets:
-    - 10.142.0.0/16
-    - 10.143.0.0/16
   artifacts:
     oci_temp_dir: /tmp/oci-file-stores
     oci_registries:

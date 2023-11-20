@@ -15,7 +15,6 @@ type loadedInstallerSettings struct {
 	controlVIP           string
 	ntpServers           []string
 	syslogServers        []string
-	kubeSubnets          []string
 }
 
 func (s *seeder) initializeInstallerSettings(cfg *config.InstallerSettings) error {
@@ -46,7 +45,6 @@ func (s *seeder) initializeInstallerSettings(cfg *config.InstallerSettings) erro
 		controlVIP:           cfg.ControlVIP,
 		ntpServers:           cfg.NTPServers,
 		syslogServers:        cfg.SyslogServers,
-		kubeSubnets:          cfg.KubeSubnets,
 	}
 
 	return nil

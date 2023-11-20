@@ -213,7 +213,6 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 		ControlVIP:    s.installerSettings.controlVIP,
 		NTPServers:    s.installerSettings.ntpServers,
 		SyslogServers: s.installerSettings.syslogServers,
-		KubeSubnets:   s.installerSettings.kubeSubnets,
 		// as the architecture has been validated by this point, we can rely on this value
 		Stage1URL: s.installerSettings.stage1URL(req.Arch),
 	}

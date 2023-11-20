@@ -34,19 +34,6 @@ securityContext: {}
   # runAsNonRoot: true
   # runAsUser: 1000
 
-# the service will provide port 80 and 443
-# and map them
-service:
-  type: ClusterIP
- # clusterIP: 10.143.0.42
-  ports:
-    # insecure:
-    #   port: 80
-    #   targetPort: 8080
-    secure:
-      port: 443
-      targetPort: 8443
-
 # All the following settings will be templated
 # into the config map / config file into the right places
 settings:
@@ -55,8 +42,8 @@ settings:
       dynll:
         device_name: ""
         listening_port: 8080
-      #generic:
-      #  - "[::]:8080"
+      generic:
+        - "[::]:8080"
     secure:
       - ":8443"
   control_vip: "192.168.42.1"
@@ -64,9 +51,6 @@ settings:
     - ntp.default.svc.cluster.local
   syslog_servers:
     - syslog.default.svc.cluster.local
-  kube_subnets:
-    - 10.142.0.0/16
-    - 10.143.0.0/16
   # NOTE: this should *NEVER* be used in a production deployment
   # This essentially disables device registration and approval
   # and will simply always hand out a device certificate
