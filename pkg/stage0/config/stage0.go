@@ -64,13 +64,13 @@ type Stage0 struct {
 // executing system
 type Services struct {
 	// ControlVIP is the IP address of the control plane virtual IP address
-	ControlVIP string
+	ControlVIP string `json:"control_vip,omitempty" yaml:"control_vip,omitempty"`
 
 	// SyslogServers is a list of syslog servers which the stage 0 installer should configure
-	SyslogServers []string
+	SyslogServers []string `json:"syslog_servers,omitempty" yaml:"syslog_servers,omitempty"`
 
 	// NTPServers is a list of NTP servers which the stage 0 installer should configure
-	NTPServers []string
+	NTPServers []string `json:"ntp_servers,omitempty" yaml:"ntp_servers,omitempty"`
 }
 
 // OnieHeaders is being included by the control plane (seeder) when generating the
