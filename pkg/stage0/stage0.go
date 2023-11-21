@@ -18,7 +18,6 @@ import (
 
 	"go.githedgehog.com/dasboot/pkg/config"
 	"go.githedgehog.com/dasboot/pkg/devid"
-	"go.githedgehog.com/dasboot/pkg/dns"
 	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/net"
 	"go.githedgehog.com/dasboot/pkg/ntp"
@@ -334,55 +333,35 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 		return executionError(err)
 	}
 
-	// now issue the IPAM request
-	locationUUID := ""
-	var locationUUIDSig []byte
-	if locationInfo != nil {
-		locationUUID = locationInfo.UUID
-		locationUUIDSig = locationInfo.UUIDSig
-	}
-	ipamReq := &ipam.Request{
-		Arch:                  stage.Arch(),
-		DevID:                 hhdevid,
-		LocationUUID:          locationUUID,
-		LocationUUIDSignature: locationUUIDSig,
-		Interfaces:            netdevs,
-	}
-	ipamResp, err := ipamClient(ctx, httpClient, cfg.IPAMURL, ipamReq, onieEnv)
-	if err != nil {
-		l.Error("IPAM request failure", zap.Reflect("ipamRequest", ipamReq), zap.Error(err))
-		return executionError(err)
-	}
-	l.Info("IPAM response received", zap.Reflect("ipamRequest", ipamReq), zap.Reflect("ipamResp", ipamResp))
-
-	// we can configure DNS just once
-	if err := dns.SetSystemResolvers(ipamResp.DNSServers); err != nil {
-		l.Error("Configuring system DNS resolver failed", zap.String("systemDNSResolverFile", "/etc/resolv.conf"), zap.Error(err))
-		return executionError(err)
-	}
-	l.Info("System DNS resolver successfully configured", zap.String("systemDNSResolverFile", "/etc/resolv.conf"))
-
-	// for the rest until we finished downloading stage 1, we iterate over all IP addresses that we got back
-	// and essentially retry the rest of stage 0 until it works
-	// first we try with "preferred" entries that we got back
+	// now issue the IPAM request if we need to
+	// NOTE: the seeder will decide if we need to do IPAM or not
 	var stage1Path string
-	for netdev, ipa := range ipamResp.IPAddresses {
-		if !ipa.Preferred {
-			continue
+	if cfg.IPAMURL != "" {
+		locationUUID := ""
+		var locationUUIDSig []byte
+		if locationInfo != nil {
+			locationUUID = locationInfo.UUID
+			locationUUIDSig = locationInfo.UUIDSig
 		}
-		var err error
-		stage1Path, resetNetwork, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
+		ipamReq := &ipam.Request{
+			Arch:                  stage.Arch(),
+			DevID:                 hhdevid,
+			LocationUUID:          locationUUID,
+			LocationUUIDSignature: locationUUIDSig,
+			Interfaces:            netdevs,
+		}
+		ipamResp, err := ipamClient(ctx, httpClient, cfg.IPAMURL, ipamReq, onieEnv)
 		if err != nil {
-			l.Error("System network configuration failed for netdev", zap.String("netdev", netdev), zap.Reflect("ipa", ipa), zap.Error(err))
-			continue
+			l.Error("IPAM request failure", zap.Reflect("ipamRequest", ipamReq), zap.Error(err))
+			return executionError(err)
 		}
-		l.Info("System network configured", zap.String("netdev", netdev), zap.Reflect("ipa", ipa))
-		break
-	}
-	// if preferred responses did not work, we will try all other responses
-	if stage1Path == "" {
+		l.Info("IPAM response received", zap.Reflect("ipamRequest", ipamReq), zap.Reflect("ipamResp", ipamResp))
+
+		// for the rest until we finished downloading stage 1, we iterate over all IP addresses that we got back
+		// and essentially retry the rest of stage 0 until it works
+		// first we try with "preferred" entries that we got back
 		for netdev, ipa := range ipamResp.IPAddresses {
-			if ipa.Preferred {
+			if !ipa.Preferred {
 				continue
 			}
 			var err error
@@ -394,10 +373,36 @@ func Run(ctx context.Context, override *configstage.Stage0, logSettings *stage.L
 			l.Info("System network configured", zap.String("netdev", netdev), zap.Reflect("ipa", ipa))
 			break
 		}
-	}
-	if stage1Path == "" {
-		l.Error("System network configuration failed for all network devices")
-		return ErrExecution
+		// if preferred responses did not work, we will try all other responses
+		if stage1Path == "" {
+			for netdev, ipa := range ipamResp.IPAddresses {
+				if ipa.Preferred {
+					continue
+				}
+				var err error
+				stage1Path, resetNetwork, err = runWith(ctx, stagingInfo, logSettings, httpClient, ipamResp, netdev, ipa)
+				if err != nil {
+					l.Error("System network configuration failed for netdev", zap.String("netdev", netdev), zap.Reflect("ipa", ipa), zap.Error(err))
+					continue
+				}
+				l.Info("System network configured", zap.String("netdev", netdev), zap.Reflect("ipa", ipa))
+				break
+			}
+		}
+		if stage1Path == "" {
+			l.Error("System network configuration failed for all network devices")
+			return ErrExecution
+		}
+	} else {
+		// if we don't need to do IPAM, then this means that we were configured with LLDP (hopefully)
+		// this means that we are going to setup NTP and Syslog servers from the configuration
+		var err error
+		stage1Path, err = runWithoutIPAM(ctx, stagingInfo, logSettings, httpClient, cfg)
+		if err != nil {
+			l.Error("System configuration failed", zap.Error(err))
+			return executionError(err)
+		}
+		l.Info("System configuration successful")
 	}
 
 	// set the log settings which will now also have the right syslog servers
@@ -620,4 +625,46 @@ func ipamClient(ctx context.Context, hc *http.Client, ipamURL string, req *ipam.
 		return resp, nil
 	}
 	return nil, fmt.Errorf("request failed on all network interfaces [%s]", strings.Join(req.Interfaces, ","))
+}
+
+func runWithoutIPAM(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *stage.LogSettings, httpClient *http.Client, cfg *configstage.Stage0) (funcRet string, funcErr error) {
+	// configure the syslog logger so that we're not blind anymore
+	// this gets a special context so that if this function failed
+	// we will essentially stop the underlying syslog client
+	// however, we want to keep it running on success
+	logSettings.SyslogServers = cfg.Services.SyslogServers
+	logCtx, logCtxCancel := context.WithCancel(ctx)
+	defer func() {
+		if funcErr != nil {
+			logCtxCancel()
+		}
+	}()
+	if err := stage.InitializeGlobalLogger(logCtx, logSettings); err != nil {
+		l.Warn("Reinitializing global logger with new settings including syslog servers failed", zap.Strings("syslogServers", cfg.Services.SyslogServers), zap.Error(err))
+	} else {
+		l = log.L()
+		l.Info("Reinitialized global logger with new settings including syslog servers",
+			zap.Strings("syslogServers", cfg.Services.SyslogServers),
+		)
+	}
+
+	// now run NTP - we only fail if NTP fails, not if hardware clock sync fails
+	l.Info("Trying to query NTP servers now to synchronize system clock...", zap.Strings("ntpServers", cfg.Services.NTPServers))
+	if err := ntp.SyncClock(ctx, cfg.Services.NTPServers); err != nil && !errors.Is(err, ntp.ErrHWClockSync) {
+		l.Error("Syncing system clock with NTP failed", zap.Error(err))
+		return "", fmt.Errorf("syncing clock with NTP: %w", err)
+	}
+	l.Info("System clock successfully synchronized with NTP", zap.Strings("ntpServers", cfg.Services.NTPServers))
+
+	// now try to download stage 1
+	stage1Path := filepath.Join(stagingInfo.StagingDir, "stage1")
+	if err := stage.DownloadExecutable(ctx, httpClient, cfg.Stage1URL, stage1Path, 60*time.Second); err != nil {
+		l.Error("Downloading stage 1 installer failed", zap.String("url", cfg.Stage1URL), zap.String("dest", stage1Path), zap.Error(err))
+		return "", fmt.Errorf("downloading stage 1: %w", err)
+	}
+	l.Info("Downloading stage 1 installer completed", zap.String("url", cfg.Stage1URL), zap.String("dest", stage1Path))
+
+	// these are all the pieces which are dependent on the "right" network to work
+	// we'll continue execution in the main function
+	return stage1Path, nil
 }

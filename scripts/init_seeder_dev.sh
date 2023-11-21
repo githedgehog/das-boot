@@ -96,8 +96,6 @@ installer_settings:
   # adjust these as needed, should match one of the SANs of the server cert
   secure_server_name: localhost
   # adjust all these to your dev needs
-  dns_servers:
-    - 127.0.0.1
   ntp_servers:
     - 127.0.0.1
   syslog_servers:

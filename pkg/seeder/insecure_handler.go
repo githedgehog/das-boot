@@ -3,6 +3,7 @@ package seeder
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -71,7 +72,7 @@ func (s *seeder) stage0Authz(*http.Request) error {
 	return nil
 }
 
-func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []byte) ([]byte, error) {
+func (s *seeder) embedStage0Config(r *http.Request, arch string, artifactBytes []byte) ([]byte, error) {
 	// build IPAM URL
 	// we are going to send back the same host
 	// that we are using for serving this stage 0 artifact
@@ -92,11 +93,14 @@ func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []by
 		return uint(n)
 	}
 
-	// this is being requested from a link-local address
+	// if this is being requested from a link-local address
 	// we are going to discover the neighbour and also serve
 	// the location information for the configured neighbour
+	var ipamURLString string
 	var loc *location.Info
 	if strings.HasPrefix(r.Host, "[fe80:") {
+		// we only set the ipamURL if this is a link-local request
+		ipamURLString = ipamURL.String()
 		host := strings.TrimSuffix(strings.TrimPrefix(r.Host, "["), "]")
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
 		defer cancel()
@@ -118,13 +122,51 @@ func (s *seeder) embedStage0Config(r *http.Request, _ string, artifactBytes []by
 				log.L().Info("Serving location information for request", zap.Reflect("loc", loc))
 			}
 		}
+	} else {
+		// otherwise we are going to check if this is being requested from an IP address from a known switch
+		// and if so, we are going to serve the location information for that switch based on that IP address
+		remoteHost, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			log.L().Error("failed to split remote address and port", zap.String("addr", r.RemoteAddr), zap.Error(err))
+		} else {
+			if net.ParseIP(remoteHost) == nil {
+				log.L().Error("failed to parse remote host as IP address", zap.String("addr", r.RemoteAddr))
+			} else {
+				ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
+				defer cancel()
+				sw, _, err := s.cpc.GetSwitchByAddr(ctx, remoteHost)
+				if err != nil {
+					log.L().Error("failed to discover switch", zap.String("addr", remoteHost), zap.Error(err))
+				} else {
+					md, err := json.Marshal(&sw.Spec.Location)
+					if err != nil {
+						log.L().Error("failed to marshal location information of neighbouring switch", zap.Error(err))
+					} else {
+						locationUUID, _ := sw.Spec.Location.GenerateUUID()
+						loc = &location.Info{
+							UUID:        locationUUID,
+							UUIDSig:     []byte(sw.Spec.LocationSig.UUIDSig),
+							Metadata:    string(md),
+							MetadataSig: []byte(sw.Spec.LocationSig.Sig),
+						}
+						log.L().Info("Serving location information for request", zap.Reflect("loc", loc))
+					}
+				}
+			}
+		}
 	}
 
 	return s.ecg.Stage0(artifactBytes, &config0.Stage0{
 		CA:          s.installerSettings.serverCADER,
 		SignatureCA: s.installerSettings.configSignatureCADER,
-		IPAMURL:     ipamURL.String(),
-		Location:    loc,
+		IPAMURL:     ipamURLString,
+		Stage1URL:   s.installerSettings.stage1URL(arch),
+		Services: config0.Services{
+			ControlVIP:    s.installerSettings.controlVIP,
+			NTPServers:    s.installerSettings.ntpServers,
+			SyslogServers: s.installerSettings.syslogServers,
+		},
+		Location: loc,
 		OnieHeaders: &config0.OnieHeaders{
 			SerialNumber: r.Header.Get("ONIE-SERIAL-NUMBER"),
 			EthAddr:      r.Header.Get("ONIE-ETH-ADDR"),
@@ -169,10 +211,8 @@ func (s *seeder) processIPAMRequest(w http.ResponseWriter, r *http.Request) {
 
 	set := &ipam.Settings{
 		ControlVIP:    s.installerSettings.controlVIP,
-		DNSServers:    s.installerSettings.dnsServers,
 		NTPServers:    s.installerSettings.ntpServers,
 		SyslogServers: s.installerSettings.syslogServers,
-		KubeSubnets:   s.installerSettings.kubeSubnets,
 		// as the architecture has been validated by this point, we can rely on this value
 		Stage1URL: s.installerSettings.stage1URL(req.Arch),
 	}

@@ -13,10 +13,8 @@ type loadedInstallerSettings struct {
 	configSignatureCADER []byte
 	secureServerName     string
 	controlVIP           string
-	dnsServers           []string
 	ntpServers           []string
 	syslogServers        []string
-	kubeSubnets          []string
 }
 
 func (s *seeder) initializeInstallerSettings(cfg *config.InstallerSettings) error {
@@ -45,10 +43,8 @@ func (s *seeder) initializeInstallerSettings(cfg *config.InstallerSettings) erro
 		configSignatureCADER: configSignatureCADER,
 		secureServerName:     cfg.SecureServerName,
 		controlVIP:           cfg.ControlVIP,
-		dnsServers:           cfg.DNSServers,
 		ntpServers:           cfg.NTPServers,
 		syslogServers:        cfg.SyslogServers,
-		kubeSubnets:          cfg.KubeSubnets,
 	}
 
 	return nil

@@ -3,7 +3,6 @@ package ipam
 // Response is the response as should be written back to stage 0 clients who made an IPAM request
 type Response struct {
 	IPAddresses   IPAddresses `json:"ip_addresses"`
-	DNSServers    []string    `json:"dns_servers,omitempty"`
 	NTPServers    []string    `json:"ntp_servers,omitempty"`
 	SyslogServers []string    `json:"syslog_servers,omitempty"`
 	Stage1URL     string      `json:"stage1_url"`

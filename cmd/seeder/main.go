@@ -131,7 +131,8 @@ func main() {
 							DeviceName:    cfg.Servers.ServerInsecure.DynLL.DeviceName,
 							ListeningPort: cfg.Servers.ServerInsecure.DynLL.ListeningPort,
 						}
-					} else if cfg.Servers.ServerInsecure.Generic != nil {
+					}
+					if cfg.Servers.ServerInsecure.Generic != nil {
 						c.InsecureServer.Generic = &seederconfig.BindInfo{
 							Address:        cfg.Servers.ServerInsecure.Generic.Addresses,
 							ClientCAPath:   cfg.Servers.ServerInsecure.Generic.ClientCAPath,
@@ -161,10 +162,8 @@ func main() {
 					ConfigSignatureCAPath: cfg.InstallerSettings.ConfigSignatureCAPath,
 					SecureServerName:      cfg.InstallerSettings.SecureServerName,
 					ControlVIP:            cfg.InstallerSettings.ControlVIP,
-					DNSServers:            cfg.InstallerSettings.DNSServers,
 					NTPServers:            cfg.InstallerSettings.NTPServers,
 					SyslogServers:         cfg.InstallerSettings.SyslogServers,
-					KubeSubnets:           cfg.InstallerSettings.KubeSubnets,
 				}
 			}
 			if cfg.RegistrySettings != nil {

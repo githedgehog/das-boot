@@ -37,6 +37,13 @@ type Stage0 struct {
 	// IPAMURL is the URL where the installer is going to get its IP and VLAN configuration from.
 	IPAMURL string `json:"ipam_url,omitempty" yaml:"ipam_url,omitempty"`
 
+	// Stage1URL is the URL where the installer is going to continue if stage 0 execution was successful with stage 1.
+	Stage1URL string `json:"stage1_url,omitempty" yaml:"ipam_url,omitempty"`
+
+	// Services holds a collection of services settings which the stage 0 installer makes use of to configure the
+	// executing system
+	Services Services `json:"services,omitempty" yaml:"services,omitempty"`
+
 	// Location will be served if stage0 was served over a link-local request and the seeder can determine
 	// the location information by configuration
 	Location *location.Info `json:"location,omitempty" yaml:"location,omitempty"`
@@ -51,6 +58,19 @@ type Stage0 struct {
 
 	// Version is tracking the format of this structure itself
 	Version config.ConfigVersion `json:"version,omitempty" yaml:"version,omitempty"`
+}
+
+// Services holds a collection of services settings which the stage 0 installer makes use of to configure the
+// executing system
+type Services struct {
+	// ControlVIP is the IP address of the control plane virtual IP address
+	ControlVIP string `json:"control_vip,omitempty" yaml:"control_vip,omitempty"`
+
+	// SyslogServers is a list of syslog servers which the stage 0 installer should configure
+	SyslogServers []string `json:"syslog_servers,omitempty" yaml:"syslog_servers,omitempty"`
+
+	// NTPServers is a list of NTP servers which the stage 0 installer should configure
+	NTPServers []string `json:"ntp_servers,omitempty" yaml:"ntp_servers,omitempty"`
 }
 
 // OnieHeaders is being included by the control plane (seeder) when generating the

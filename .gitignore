@@ -1,3 +1,6 @@
+/.hhfab
+/exec.log
+/wiring.yaml
 /dev/**
 /cover.out
 /build/coverage/**
@@ -26,3 +29,4 @@
 /test/integration/integ-netdev/integ-netdev
 /test/integration/integ-ntp/integ-ntp
 /test/integration/integ-uefi/integ-uefi
+/third_party/*.tgz

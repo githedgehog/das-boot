@@ -6,11 +6,11 @@ DOCKER_VERSION ?= latest
 # using 0.1.0 for now to keep compatible with other scripts
 HELM_CHART_VERSION ?= 0.1.0
 
-DOCKER_REPO ?= registry.local:5000/githedgehog
+DOCKER_REPO ?= registry.local:31000/githedgehog/das-boot
 DOCKER_REPO_SEEDER ?= $(DOCKER_REPO)/das-boot-seeder
 DOCKER_REPO_REGISTRATION_CONTROLLER ?= $(DOCKER_REPO)/das-boot-registration-controller
 
-HELM_CHART_REPO ?= registry.local:5000/githedgehog/helm-charts
+HELM_CHART_REPO ?= registry.local:31000/githedgehog/helm-charts
 
 MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 's#/$$##')
 BUILD_DIR := $(MKFILE_DIR)/build
@@ -20,6 +20,7 @@ BUILD_DOCKER_SEEDER_DIR := $(BUILD_DIR)/docker/seeder
 BUILD_DOCKER_REGISTRATION_CONTROLLER_DIR := $(BUILD_DIR)/docker/registration-controller
 BUILD_HELM_DIR := $(BUILD_DIR)/helm
 DEV_DIR := $(MKFILE_DIR)/dev
+HHFAB_DIR ?= $(MKFILE_DIR)/.hhfab
 
 SRC_COMMON := $(shell find $(MKFILE_DIR)/pkg -type f -name "*.go")
 SRC_K8S_COMMON := $(shell find $(MKFILE_DIR)/pkg/k8s -type f -name "*.go")
@@ -231,10 +232,6 @@ dev-init-oci-certs: $(DEV_OCI_REPO_CERT_FILES) ## Generates a local CA and serve
 $(DEV_OCI_REPO_CERT_FILES) &:
 	$(MKFILE_DIR)/scripts/init_repo_certs.sh
 
-.PHONY: run-docker-registry
-run-docker-registry: dev-init-oci-certs ## Runs a local docker registry in a docker container. NOTE: This is forwarded to the control plane as well!
-	$(MKFILE_DIR)/scripts/run_registry.sh
-
 .PHONY: docker
 docker: docker-seeder docker-registration-controller ## Builds all docker images
 
@@ -254,10 +251,7 @@ docker-seeder-clean: ## Removes the docker image from the local docker images
 
 .PHONY: docker-seeder-push
 docker-seeder-push: docker ## Builds AND pushes a docker image for the seeder
-	@echo
-	@[ "$(DOCKER_REPO_SEEDER)" = "registry.local:5000/githedgehog/das-boot-seeder" ] && $(MKFILE_DIR)/scripts/run_registry.sh || echo "Not trying to run local registry, different docker repository..."
-	@echo
-	docker push $(DOCKER_REPO_SEEDER):$(DOCKER_VERSION)
+	skopeo copy --dest-tls-verify=false docker-daemon:$(DOCKER_REPO_SEEDER):$(DOCKER_VERSION) docker://$(DOCKER_REPO_SEEDER):$(DOCKER_VERSION)
 
 .PHONY: docker-registration-controller
 docker-registration-controller: registration-controller ## Builds a docker images for the registration-controller
@@ -269,10 +263,7 @@ docker-registration-controller-clean: ## Removes the docker image from the local
 
 .PHONY: docker-registration-controller-push
 docker-registration-controller-push: docker ## Builds AND pushes a docker image for the registration-controller
-	@echo
-	@[ "$(DOCKER_REPO_REGISTRATION_CONTROLLER)" = "registry.local:5000/githedgehog/das-boot-registration-controller" ] && $(MKFILE_DIR)/scripts/run_registry.sh || echo "Not trying to run local registry, different docker repository..."
-	@echo
-	docker push $(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION)
+	skopeo copy --dest-tls-verify=false docker-daemon:$(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION) docker://$(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION)
 
 .PHONY: helm
 helm: ## Builds a helm chart for the seeder
@@ -293,9 +284,13 @@ helm-clean: ## Cleans the packaged helm chart for the seeder from the artifacts 
 
 .PHONY: helm-push
 helm-push: helm ## Builds AND pushes the helm chart for the seeder
-	helm push $(BUILD_ARTIFACTS_DIR)/das-boot-crds-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
-	helm push $(BUILD_ARTIFACTS_DIR)/das-boot-registration-controller-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
-	helm push $(BUILD_ARTIFACTS_DIR)/das-boot-seeder-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
+	helm push --insecure-skip-tls-verify $(BUILD_ARTIFACTS_DIR)/das-boot-crds-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
+	helm push --insecure-skip-tls-verify $(BUILD_ARTIFACTS_DIR)/das-boot-registration-controller-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
+	helm push --insecure-skip-tls-verify $(BUILD_ARTIFACTS_DIR)/das-boot-seeder-$(HELM_CHART_VERSION).tgz oci://$(HELM_CHART_REPO)
+
+.PHONY: update-third-party-helm
+update-third-party-helm: ## Builds AND pushes the 3rd party helm charts
+	$(MKFILE_DIR)/scripts/update_third_party_helm.sh
 
 # Use this target only for local linting. In CI we use a dedicated github action
 .PHONY: lint
@@ -356,154 +351,36 @@ $(DEV_SEEDER_FILES) &:
 dev-run-seeder: dev-init-seeder seeder ## Runs the seeder locally
 	$(BUILD_ARTIFACTS_DIR)/seeder --config $(DEV_DIR)/seeder/seeder.yaml
 
-.PHONY: init-control-node
-init-control-node: ## Prepares a QEMU VM to run the control node
-	$(MKFILE_DIR)/scripts/init_control_node.sh
+.PHONY: init-vlab
+init-vlab: ## Prepares a VLAB using our hhfab utility
+ifneq "$(wildcard $(HHFAB_DIR) )" ""
+	$(error "VLAB already initialized...")
+endif
+	hhfab wiring sample spine-leaf --chain-control-link=true > $(MKFILE_DIR)/wiring.yaml
+	hhfab init -p vlab -w $(MKFILE_DIR)/wiring.yaml
+	hhfab build
 
-.PHONY: run-control-node
-run-control-node: ## Runs the control node VM
-	$(MKFILE_DIR)/scripts/run_control_node.sh
+.PHONY: clean-vlab
+clean-vlab: ## Deletes the VLAB and its supporting files
+	rm -rvf $(HHFAB_DIR) || true
+	rm -vf $(MKFILE_DIR)/wiring.yaml || true
 
-.PHONY: run-control-node-tpm
-run-control-node-tpm: ## Runs the software TPM for the control node VM (NOTE: not needed to run separately, will be started automatically)
-	$(MKFILE_DIR)/scripts/run_control_node_tpm.sh
+.PHONY: run-vlab
+run-vlab: ## Runs the VLAB using our hhfab utility
+	hhfab vlab up
 
-.PHONE: clean-control-node
-clean-control-node: ## Deletes the control node VM and its supporting files
-	rm -rvf $(DEV_DIR)/control-node-1 || true
-
-.PHONY: access-control-node-kubeconfig
-access-control-node-kubeconfig: ## Displays the kubeconfig to use to be able to reach the Kubernetes cluster (NOTE: 127.0.0.1 is fine, port-forwarding is used)
-	@ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1 "sudo kubectl config view --raw=true" | tee $(DEV_DIR)/control-node-1/kubeconfig
-	@chmod 600 $(DEV_DIR)/control-node-1/kubeconfig
+access-vlab-kubeconfig: ## Displays the kubeconfig to use to be able to reach the Kubernetes cluster (NOTE: 127.0.0.1 is fine, port-forwarding is used)
+	@chmod 600 $(HHFAB_DIR)/vlab-vms/kubeconfig.yaml
+	@cat $(HHFAB_DIR)/vlab-vms/kubeconfig.yaml
 	@echo
-	@echo "NOTE: a copy is also stored now at $(DEV_DIR)/control-node-1/kubeconfig" 1>&2
 	@echo "Run the following command in your shell to get access to it immediately:" 1>&2
 	@echo 1>&2
-	@echo "export KUBECONFIG=\"$(DEV_DIR)/control-node-1/kubeconfig\"" 1>&2
+	@echo "export KUBECONFIG=\"$(HHFAB_DIR)/vlab-vms/kubeconfig.yaml\"" 1>&2
 
-.PHONY: access-control-node-ssh
-access-control-node-ssh: ## SSH into control node VM
-	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $(DEV_DIR)/control-node-1/core-ssh-key -p 2201 core@127.0.0.1
+.PHONY: access-vlab-ssh
+access-vlab-ssh: ## SSH into the VLAB with VM selector
+	hhfab vlab ssh
 
-.PHONY: access-control-node-serial
-access-control-node-serial: ## Access the serial console of the control node VM
-	@echo "Use ^] to disconnect from serial console"
-	socat -,rawer,escape=0x1d unix-connect:$(DEV_DIR)/control-node-1/serial.sock
-
-.PHONY: access-control-node-vnc
-access-control-node-vnc: ## Access the VGA display of the control node VM
-	vncviewer unix $(DEV_DIR)/control-node-1/vnc.sock
-
-.PHONY: access-control-node-monitor
-access-control-node-monitor: ## Access the QEMU monitor (control interface) of the control node VM
-	nc -U $(DEV_DIR)/control-node-1/monitor.sock
-
-.PHONY: access-control-node-qnp
-access-control-node-qnp:
-	nc -U $(DEV_DIR)/control-node-1/qnp.sock
-
-.PHONY: init-switch1
-init-switch1: ## Prepares a QEMU VM to run switch1
-	SSH_PORT="2211" NETDEVS="devid=eth0 mac=0c:20:12:fe:01:00 devid=eth1 mac=0c:20:12:fe:01:01 local_port=127.0.0.1:21011 dest_port=127.0.0.1:21001 devid=eth2 mac=0c:20:12:fe:01:02 local_port=127.0.0.1:21012 dest_port=127.0.0.1:21031" $(MKFILE_DIR)/scripts/init_switch.sh switch1
-
-.PHONY: run-switch1
-run-switch1: ## Runs the VM for switch1
-	$(MKFILE_DIR)/scripts/run_switch.sh switch1
-
-.PHONY: run-switch1-tpm
-run-switch1-tpm: ## Runs the software TPM for th switch1 VM (NOTE: not needed to run separately, will be started automatically)
-	SSH_PORT="2211" $(MKFILE_DIR)/scripts/run_switch_tpm.sh switch1
-
-.PHONE: clean-switch1
-clean-switch1: ## Deletes the switch1 VM and its supporting files
-	rm -rvf $(DEV_DIR)/switch1 || true
-
-.PHONY: access-switch1-serial
-access-switch1-serial: ## Access the serial console of the switch1 VM
-	@echo "Use ^] to disconnect from serial console"
-	socat -,rawer,escape=0x1d unix-connect:$(DEV_DIR)/switch1/serial.sock
-
-.PHONY: access-switch1-ssh
-access-switch1-ssh: ## SSH into switch1 VM (NOTE: requires a successful SONiC installation)
-	@echo "Use password 'githedgehog' for our own SONiC VS builds (default)."
-	@echo "Change the username in the Makefile to 'admin' for upstream SONiC VS builds. Password for this is 'YourPaSsWoRd'."
-	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p 2211 githedgehog@127.0.0.1
-
-.PHONY: access-switch1-monitor
-access-switch1-monitor: ## Access the QEMU monitor (control interface) of the switch1 VM
-	nc -U $(DEV_DIR)/switch1/monitor.sock
-
-.PHONY: access-switch1-qnp
-access-switch1-qnp:
-	nc -U $(DEV_DIR)/switch1/qnp.sock
-
-.PHONY: init-switch2
-init-switch2: ## Prepares a QEMU VM to run switch2
-	SSH_PORT="2212" NETDEVS="devid=eth0 mac=0c:20:12:fe:02:00 devid=eth1 mac=0c:20:12:fe:02:01 local_port=127.0.0.1:21021 dest_port=127.0.0.1:21002 devid=eth2 mac=0c:20:12:fe:02:02 local_port=127.0.0.1:21022 dest_port=127.0.0.1:21032" $(MKFILE_DIR)/scripts/init_switch.sh switch2
-
-.PHONY: run-switch2
-run-switch2: ## Runs the VM for switch2
-	SSH_PORT="2212" $(MKFILE_DIR)/scripts/run_switch.sh switch2
-
-.PHONY: run-switch2-tpm
-run-switch2-tpm: ## Runs the software TPM for th switch2 VM (NOTE: not needed to run separately, will be started automatically)
-	$(MKFILE_DIR)/scripts/run_switch_tpm.sh switch2
-
-.PHONE: clean-switch2
-clean-switch2: ## Deletes the switch2 VM and its supporting files
-	rm -rvf $(DEV_DIR)/switch2 || true
-
-.PHONY: access-switch2-serial
-access-switch2-serial: ## Access the serial console of the switch2 VM
-	@echo "Use ^] to disconnect from serial console"
-	socat -,rawer,escape=0x1d unix-connect:$(DEV_DIR)/switch2/serial.sock
-
-.PHONY: access-switch2-ssh
-access-switch2-ssh: ## SSH into switch2 VM (NOTE: requires a successful SONiC installation)
-	@echo "Use password 'githedgehog' for our own SONiC VS builds (default)."
-	@echo "Change the username in the Makefile to 'admin' for upstream SONiC VS builds. Password for this is 'YourPaSsWoRd'."
-	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p 2212 githedgehog@127.0.0.1
-
-.PHONY: access-switch2-monitor
-access-switch2-monitor: ## Access the QEMU monitor (control interface) of the switch2 VM
-	nc -U $(DEV_DIR)/switch2/monitor.sock
-
-.PHONY: access-switch2-qnp
-access-switch2-qnp:
-	nc -U $(DEV_DIR)/switch2/qnp.sock
-
-.PHONY: init-switch3
-init-switch3: ## Prepares a QEMU VM to run switch3
-	SSH_PORT="2213" NETDEVS="devid=eth0 mac=0c:20:12:fe:03:00 devid=eth1 mac=0c:20:12:fe:03:01 local_port=127.0.0.1:21031 dest_port=127.0.0.1:21012 devid=eth2 mac=0c:20:12:fe:03:02 local_port=127.0.0.1:21032 dest_port=127.0.0.1:21022" $(MKFILE_DIR)/scripts/init_switch.sh switch3
-
-.PHONY: run-switch3
-run-switch3: ## Runs the VM for switch3
-	SSH_PORT="2213" $(MKFILE_DIR)/scripts/run_switch.sh switch3
-
-.PHONY: run-switch3-tpm
-run-switch3-tpm: ## Runs the software TPM for th switch3 VM (NOTE: not needed to run separately, will be started automatically)
-	$(MKFILE_DIR)/scripts/run_switch_tpm.sh switch3
-
-.PHONE: clean-switch3
-clean-switch3: ## Deletes the switch3 VM and its supporting files
-	rm -rvf $(DEV_DIR)/switch3 || true
-
-.PHONY: access-switch3-serial
-access-switch3-serial: ## Access the serial console of the switch3 VM
-	@echo "Use ^] to disconnect from serial console"
-	socat -,rawer,escape=0x1d unix-connect:$(DEV_DIR)/switch3/serial.sock
-
-.PHONY: access-switch3-ssh
-access-switch3-ssh: ## SSH into switch3 VM (NOTE: requires a successful SONiC installation)
-	@echo "Use password 'githedgehog' for our own SONiC VS builds (default)."
-	@echo "Change the username in the Makefile to 'admin' for upstream SONiC VS builds. Password for this is 'YourPaSsWoRd'."
-	ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -p 2212 githedgehog@127.0.0.1
-
-.PHONY: access-switch3-monitor
-access-switch3-monitor: ## Access the QEMU monitor (control interface) of the switch3 VM
-	nc -U $(DEV_DIR)/switch3/monitor.sock
-
-.PHONY: access-switch3-qnp
-access-switch3-qnp:
-	nc -U $(DEV_DIR)/switch3/qnp.sock
+.PHONY: access-vlab-serial
+access-vlab-serial: ## Access the serial console of the VLAB with VM selector
+	hhfab vlab serial
