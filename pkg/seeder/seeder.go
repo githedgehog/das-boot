@@ -131,7 +131,8 @@ func New(ctx context.Context, cfg *config.SeederConfig) (Interface, error) {
 				return nil, err
 			}
 			errChLen += 100
-		} else if cfg.InsecureServer.Generic != nil {
+		}
+		if cfg.InsecureServer.Generic != nil {
 			var err error
 			ret.insecureServer, err = generic.NewGenericServer(cfg.InsecureServer.Generic, ret.insecureHandler())
 			if err != nil {
