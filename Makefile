@@ -363,7 +363,7 @@ endif
 .PHONY: clean-vlab
 clean-vlab: ## Deletes the VLAB and its supporting files
 	rm -rvf $(HHFAB_DIR) || true
-	rm -vf $(MKFILE_DIR)/wiring.yaml
+	rm -vf $(MKFILE_DIR)/wiring.yaml || true
 
 .PHONY: run-vlab
 run-vlab: ## Runs the VLAB using our hhfab utility
