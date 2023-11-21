@@ -33,7 +33,11 @@ data:
     installer_settings:
       server_ca: /etc/hedgehog/seeder-certs/server-ca/{{ .Values.secrets.serverCA.certKey }}
       config_signature_ca: /etc/hedgehog/seeder-certs/config-ca/{{ .Values.secrets.configCA.certKey }}
+      {{- if .Values.settings.secure_server_name }}
+      secure_server_name: {{ .Values.settings.secure_server_name }}
+      {{- else }}
       secure_server_name: {{ include "das-boot.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+      {{- end }}
       control_vip: "{{ .Values.settings.control_vip }}"
       ntp_servers:
         {{- toYaml .Values.settings.ntp_servers | nindent 10 }}

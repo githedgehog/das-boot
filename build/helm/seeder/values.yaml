@@ -46,6 +46,8 @@ settings:
         - "[::]:8080"
     secure:
       - ":8443"
+  # if not set, this defaults to the FQDN of the Kubernetes service
+  secure_server_name: ""
   control_vip: "192.168.42.1"
   ntp_servers:
     - ntp.default.svc.cluster.local
