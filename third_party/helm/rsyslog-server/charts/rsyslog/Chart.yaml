@@ -3,5 +3,5 @@ name: rsyslog
 description: A syslog server for cluster wide logging with log rotation
 
 type: application
-version: 0.1.1
+version: 0.1.2
 appVersion: 0.1.0
