@@ -44,15 +44,16 @@ type Interface interface {
 }
 
 type seeder struct {
-	done              chan struct{}
-	err               chan error
-	ecg               *embeddedConfigGenerator
-	secureServer      server.ControlInterface
-	insecureServer    server.ControlInterface
-	artifactsProvider artifacts.Provider
-	installerSettings *loadedInstallerSettings
-	registry          *registration.Processor
-	cpc               controlplane.Client
+	done                chan struct{}
+	err                 chan error
+	ecg                 *embeddedConfigGenerator
+	secureServer        server.ControlInterface
+	insecureServer      server.ControlInterface
+	insecureServerDynLL server.ControlInterface
+	artifactsProvider   artifacts.Provider
+	installerSettings   *loadedInstallerSettings
+	registry            *registration.Processor
+	cpc                 controlplane.Client
 }
 
 var _ Interface = &seeder{}
@@ -126,7 +127,7 @@ func New(ctx context.Context, cfg *config.SeederConfig) (Interface, error) {
 	if cfg.InsecureServer != nil {
 		if cfg.InsecureServer.DynLL != nil {
 			var err error
-			ret.insecureServer, err = dynll.NewDynLLServer(ctx, k8sClient, cfg.InsecureServer.DynLL, ret.insecureHandler())
+			ret.insecureServerDynLL, err = dynll.NewDynLLServer(ctx, k8sClient, cfg.InsecureServer.DynLL, ret.insecureHandler())
 			if err != nil {
 				return nil, err
 			}
@@ -158,8 +159,8 @@ func New(ctx context.Context, cfg *config.SeederConfig) (Interface, error) {
 func (s *seeder) Start() {
 	// fire up our servers
 	var wg sync.WaitGroup
-	wg.Add(2)
 	if s.insecureServer != nil {
+		wg.Add(1)
 		go s.insecureServer.Start()
 		go func() {
 			for {
@@ -173,7 +174,23 @@ func (s *seeder) Start() {
 		}()
 	}
 
+	if s.insecureServerDynLL != nil {
+		wg.Add(1)
+		go s.insecureServerDynLL.Start()
+		go func() {
+			for {
+				err, ok := <-s.insecureServerDynLL.Err()
+				if !ok {
+					wg.Done()
+					return
+				}
+				s.err <- err
+			}
+		}()
+	}
+
 	if s.secureServer != nil {
+		wg.Add(1)
 		go s.secureServer.Start()
 		go func() {
 			for {
@@ -191,6 +208,9 @@ func (s *seeder) Start() {
 	go func() {
 		if s.insecureServer != nil {
 			<-s.insecureServer.Done()
+		}
+		if s.insecureServerDynLL != nil {
+			<-s.insecureServerDynLL.Done()
 		}
 		if s.secureServer != nil {
 			<-s.secureServer.Done()
@@ -217,19 +237,33 @@ func (s *seeder) Stop(pctx context.Context) {
 	// try graceful shutdown first
 	done := make(chan struct{})
 	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		if err := s.insecureServer.Shutdown(ctx); err != nil {
-			l.Warn("insecure server: graceful shutdown failed", zap.Error(err))
-		}
-		wg.Done()
-	}()
-	go func() {
-		if err := s.secureServer.Shutdown(ctx); err != nil {
-			l.Warn("secure server: graceful shutdown failed", zap.Error(err))
-		}
-		wg.Done()
-	}()
+	if s.insecureServer != nil {
+		wg.Add(1)
+		go func() {
+			if err := s.insecureServer.Shutdown(ctx); err != nil {
+				l.Warn("insecure server: graceful shutdown failed", zap.Error(err))
+			}
+			wg.Done()
+		}()
+	}
+	if s.insecureServerDynLL != nil {
+		wg.Add(1)
+		go func() {
+			if err := s.insecureServerDynLL.Shutdown(ctx); err != nil {
+				l.Warn("insecure server DynLL: graceful shutdown failed", zap.Error(err))
+			}
+			wg.Done()
+		}()
+	}
+	if s.secureServer != nil {
+		wg.Add(1)
+		go func() {
+			if err := s.secureServer.Shutdown(ctx); err != nil {
+				l.Warn("secure server: graceful shutdown failed", zap.Error(err))
+			}
+			wg.Done()
+		}()
+	}
 	go func() {
 		wg.Wait()
 		close(done)
@@ -238,11 +272,20 @@ func (s *seeder) Stop(pctx context.Context) {
 	// if graceful shutdown fails, just tear it down
 	select {
 	case <-ctx.Done():
-		if err := s.insecureServer.Close(); err != nil {
-			l.Debug("insecure server: error on close", zap.Error(err))
+		if s.insecureServer != nil {
+			if err := s.insecureServer.Close(); err != nil {
+				l.Debug("insecure server: error on close", zap.Error(err))
+			}
 		}
-		if err := s.secureServer.Close(); err != nil {
-			l.Debug("secure server: error on close", zap.Error(err))
+		if s.insecureServerDynLL != nil {
+			if err := s.insecureServerDynLL.Close(); err != nil {
+				l.Debug("insecure server DynLL: error on close", zap.Error(err))
+			}
+		}
+		if s.secureServer != nil {
+			if err := s.secureServer.Close(); err != nil {
+				l.Debug("secure server: error on close", zap.Error(err))
+			}
 		}
 	case <-done:
 		// graceful shutdown was successful
