@@ -6,7 +6,7 @@ DOCKER_VERSION ?= latest
 # using 0.1.0 for now to keep compatible with other scripts
 HELM_CHART_VERSION ?= 0.1.0
 
-DOCKER_REPO ?= registry.local:31000/githedgehog
+DOCKER_REPO ?= registry.local:31000/githedgehog/das-boot
 DOCKER_REPO_SEEDER ?= $(DOCKER_REPO)/das-boot-seeder
 DOCKER_REPO_REGISTRATION_CONTROLLER ?= $(DOCKER_REPO)/das-boot-registration-controller
 
