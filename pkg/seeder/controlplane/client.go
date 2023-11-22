@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 
 	dasbootv1alpha1 "go.githedgehog.com/dasboot/pkg/k8s/api/v1alpha1"
@@ -222,15 +223,31 @@ func (c *KubernetesControlPlaneClient) GetSwitchByAddr(ctx context.Context, addr
 			if conn.Spec.Management.Link.Switch.IP == addr {
 				deviceName = conn.Spec.Management.Link.Switch.DeviceName()
 			}
+			ip, _, err := net.ParseCIDR(conn.Spec.Management.Link.Switch.IP)
+			if err == nil {
+				if ip.String() == addr {
+					deviceName = conn.Spec.Management.Link.Switch.DeviceName()
+				}
+			}
 		} else if conn.Spec.Fabric != nil {
 			for _, link := range conn.Spec.Fabric.Links {
 				if link.Leaf.IP == addr {
 					deviceName = link.Leaf.DeviceName()
-					break
+				}
+				ip, _, err := net.ParseCIDR(link.Leaf.IP)
+				if err == nil {
+					if ip.String() == addr {
+						deviceName = link.Leaf.DeviceName()
+					}
 				}
 				if link.Spine.IP == addr {
 					deviceName = link.Spine.DeviceName()
-					break
+				}
+				ip, _, err = net.ParseCIDR(link.Spine.IP)
+				if err == nil {
+					if ip.String() == addr {
+						deviceName = link.Spine.DeviceName()
+					}
 				}
 			}
 		}
