@@ -1,5 +1,7 @@
 # Development Scratchpad
 
+## DAS BOOT Development with hhfab/vlab
+
 Upgrading the seeder helm chart in a running vlab, and adjusting some settings:
 
 ```shell
@@ -12,7 +14,7 @@ Adding iptables rule to allow 443 to our control VIP through
 sudo iptables -t nat -I PREROUTING 1 -4 -d 172.30.1.1/32 -p tcp --dport 443 -j ACCEPT
 ```
 
-Creating a new ONIE kvm image
+## Creating a new ONIE kvm image
 
 - build it first with the usual `make MACHINE="kvm_x86_64" all`
 - then prepare the VM by going into the `emulation/` folder
@@ -52,4 +54,12 @@ xz onie-kvm_x86_64.qcow2
 cp ../emulation-files/uefi-bios/x86/OVMF_CODE.fd onie_efi_code.fd
 cp ../emulation-files/uefi-bios/x86/OVMF_VARS.fd onie_efi_vars.fd
 oras push ghcr.io/githedgehog/honie:latest *
+```
+
+## Reboot with SysRq key
+
+Issue a reboot with sysrq through the console
+
+```shell
+sudo sh -c "echo b > /proc/sysrq-trigger"
 ```
