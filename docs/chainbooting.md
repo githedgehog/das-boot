@@ -109,3 +109,11 @@ So (A) is probably my favourite solution. However, I'm concerned that Sergei has
 Considering what I just said about (A), (B) is probably the right path in the longer run as a solid alternative.
 
 And (C) is probably the best option for our upcoming release. It saves us time, we can think over (A) and (B) again, and push the real implementation out by a release, and use the time to speed up things for this release hopefully which are not optional.
+
+
+More TODOs:
+
+- comment in https://docs.google.com/document/d/1Gz7iNtJNMI-zKJhaOcI3aflPCx3etJ01JMxzbtvruKk/edit
+- we should merge: https://github.com/sonic-net/sonic-buildimage/pull/17024 into our saibcm-modules
+- we can potentially move and upgrade the Linux kernel to 6.1 (check out main sonic-linux-kernel repo which switched already)
+- redo our saibcm-modules package so that we have that in git repository

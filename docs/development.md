@@ -63,3 +63,9 @@ Issue a reboot with sysrq through the console
 ```shell
 sudo sh -c "echo b > /proc/sysrq-trigger"
 ```
+
+# scp into ONIE
+
+```shell
+scp -O onie-updater-x86_64-accton_as7726_32x-r0-marcus root@172.30.20.7:
+```
