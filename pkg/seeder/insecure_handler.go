@@ -3,6 +3,7 @@ package seeder
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -32,10 +33,13 @@ func (s *seeder) insecureHandler() *chi.Mux {
 	r.Use(middleware.RealIP)
 	r.Use(AddResponseRequestID())
 	r.Use(middleware.Heartbeat("/healthz"))
+	// For the installer, we do not need to be too device specific
 	r.Get("/onie-installer-{arch}", s.getStage0Artifact)
 	r.Get("/onie-installer", s.getStage0Artifact)
-	r.Get("/onie-updater-{arch}", s.getStage0Artifact)
-	r.Get("/onie-updater", s.getStage0Artifact)
+	// For ONIE updates, we're going to be very specific:
+	// onie-updater-<arch>-<vendor>_<machine>-r<machine_revision>
+	r.Get("/onie-updater-{arch}-{vendor}_{machine}-r{machine_revision}", s.getOnieUpdaterArtifact)
+	r.Get("/onie-updater", s.getOnieUpdaterArtifact)
 	r.Get("/stage0/{arch}", s.getStage0Artifact)
 	r.Route(ipamPath, func(r chi.Router) {
 		r.Use(middleware.AllowContentType("application/json"))
@@ -43,6 +47,35 @@ func (s *seeder) insecureHandler() *chi.Mux {
 	})
 	return r
 }
+
+func (s *seeder) getOnieUpdaterArtifact(w http.ResponseWriter, r *http.Request) {
+	// if this hit a fallback URL, we serve the bash script saying that this is not supported on this device
+	archParam := chi.URLParam(r, "arch")
+	vendorParam := chi.URLParam(r, "vendor")
+	machineParam := chi.URLParam(r, "machine")
+	machineRevParam := chi.URLParam(r, "machine_revision")
+	if archParam == "" || vendorParam == "" || machineParam == "" || machineRevParam == "" {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.WriteHeader(http.StatusOK)
+		w.Write(onieUpdaterFallback) //nolint: errcheck
+		return
+	}
+
+	// if we have a proper URL, then we are going to get the artifact for it
+	artifact := fmt.Sprintf("onie/onie-updater-%s-%s_%s-r%s", archParam, vendorParam, machineParam, machineRevParam)
+	s.getArtifact(artifact)(w, r)
+}
+
+var onieUpdaterFallback = []byte(`#!/bin/sh
+
+# DO NOT REMOVE THE NEXT LINE
+# ONIE-UPDATER-COOKIE
+
+source /etc/machine.conf
+echo "FATAL: If you have not seen any previous ONIE updaters failing, then this means that this platform ($onie_platform) is not a supported HONIE platform." 1>&2
+
+exit 1
+`)
 
 func (s *seeder) getStage0Artifact(w http.ResponseWriter, r *http.Request) {
 	// if this hit a fallback URL, we serve the bash script saying that this is not supported on this device

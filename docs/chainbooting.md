@@ -117,3 +117,15 @@ More TODOs:
 - we should merge: https://github.com/sonic-net/sonic-buildimage/pull/17024 into our saibcm-modules
 - we can potentially move and upgrade the Linux kernel to 6.1 (check out main sonic-linux-kernel repo which switched already)
 - redo our saibcm-modules package so that we have that in git repository
+
+- PDDF LED needs fixing
+- 7326 needs the EEPROM 0x56 and 0x57 thing
+- pddf xcvr lib needs BufReader
+- onie-said needs better caching to avoid using xcvr lib all the time
+- onie-sai we can remove the "CPU" host interface
+- 4630 grub issue
+- modules_install fixing
+- prep for CI
+- honie enable/disable for DHCP etc.
+- onie update mode does not work right now
+- onie ext4 features need to be disabled for backwards compatibility
