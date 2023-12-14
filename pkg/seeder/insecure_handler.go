@@ -109,6 +109,9 @@ func (s *seeder) embedStage0Config(r *http.Request, arch string, artifactBytes [
 	// build IPAM URL
 	// we are going to send back the same host
 	// that we are using for serving this stage 0 artifact
+	if strings.HasPrefix(r.Host, "fe80:") {
+		r.Host = fmt.Sprintf("[%s]", strings.TrimSuffix(r.Host, "]"))
+	}
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
@@ -131,10 +134,10 @@ func (s *seeder) embedStage0Config(r *http.Request, arch string, artifactBytes [
 	// the location information for the configured neighbour
 	var ipamURLString string
 	var loc *location.Info
-	host := strings.TrimSuffix(strings.TrimPrefix(r.Host, "["), "]")
-	if strings.HasPrefix(r.Host, "fe80:") {
+	if strings.HasPrefix(r.Host, "[fe80:") {
 		// we only set the ipamURL if this is a link-local request
 		ipamURLString = ipamURL.String()
+		host := strings.TrimSuffix(strings.TrimPrefix(r.Host, "["), "]")
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
 		defer cancel()
 		sw, _, err := s.cpc.GetNeighbourSwitchByAddr(ctx, host)
