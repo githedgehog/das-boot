@@ -572,7 +572,7 @@ func ipamClient(ctx context.Context, hc *http.Client, ipamURL string, req *ipam.
 	}
 
 	// if the IPAM URL is not a link-local address host, we can short-circuit here
-	if !strings.HasPrefix(url.Host, "[fe80:") {
+	if !strings.HasPrefix(url.Host, "[fe80:") && !strings.HasPrefix(url.Host, "fe80:") {
 		l.Debug("IPAM URL does not have a link-local host", zap.String("host", url.Host))
 		return ipam.DoRequest(ctx, hc, req, ipamURL)
 	}
@@ -581,7 +581,7 @@ func ipamClient(ctx context.Context, hc *http.Client, ipamURL string, req *ipam.
 	// because then we are going to assume that we want to use the same interface that
 	// was used to download the stage 0 installer
 	// that is of course only the case if this was downloaded from a link-local address URL
-	if strings.Contains(onieEnv.ExecURL, "[fe80:") {
+	if strings.Contains(onieEnv.ExecURL, "fe80:") {
 		l.Warn("IPAM URL is on a link-local host, as was the stage 0 installer. We are trying to reuse the same interface for the request.", zap.String("ExecURL", onieEnv.ExecURL))
 
 		// ONIE doesn't get URL encoding right for the host
