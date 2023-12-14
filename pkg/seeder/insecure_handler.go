@@ -131,10 +131,10 @@ func (s *seeder) embedStage0Config(r *http.Request, arch string, artifactBytes [
 	// the location information for the configured neighbour
 	var ipamURLString string
 	var loc *location.Info
-	if strings.HasPrefix(r.Host, "[fe80:") {
+	host := strings.TrimSuffix(strings.TrimPrefix(r.Host, "["), "]")
+	if strings.HasPrefix(r.Host, "fe80:") {
 		// we only set the ipamURL if this is a link-local request
 		ipamURLString = ipamURL.String()
-		host := strings.TrimSuffix(strings.TrimPrefix(r.Host, "["), "]")
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
 		defer cancel()
 		sw, _, err := s.cpc.GetNeighbourSwitchByAddr(ctx, host)
