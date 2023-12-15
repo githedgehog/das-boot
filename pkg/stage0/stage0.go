@@ -20,6 +20,7 @@ import (
 	"go.githedgehog.com/dasboot/pkg/devid"
 	"go.githedgehog.com/dasboot/pkg/log"
 	"go.githedgehog.com/dasboot/pkg/net"
+	onieurl "go.githedgehog.com/dasboot/pkg/net/url"
 	"go.githedgehog.com/dasboot/pkg/ntp"
 	"go.githedgehog.com/dasboot/pkg/partitions"
 	"go.githedgehog.com/dasboot/pkg/partitions/location"
@@ -565,16 +566,16 @@ func runWith(ctx context.Context, stagingInfo *stage.StagingInfo, logSettings *s
 	return stage1Path, resetNetwork, nil
 }
 
-func ipamClient(ctx context.Context, hc *http.Client, ipamURL string, req *ipam.Request, onieEnv *stage.OnieEnv) (*ipam.Response, error) {
-	url, err := url.Parse(ipamURL)
+func ipamClient(ctx context.Context, hc *http.Client, ipamURLStr string, req *ipam.Request, onieEnv *stage.OnieEnv) (*ipam.Response, error) {
+	ipamURL, err := url.Parse(ipamURLStr)
 	if err != nil {
 		return nil, fmt.Errorf("IPAM URL validation error: %w", err)
 	}
 
 	// if the IPAM URL is not a link-local address host, we can short-circuit here
-	if !strings.HasPrefix(url.Host, "[fe80:") && !strings.HasPrefix(url.Host, "fe80:") {
-		l.Debug("IPAM URL does not have a link-local host", zap.String("host", url.Host))
-		return ipam.DoRequest(ctx, hc, req, ipamURL)
+	if !strings.HasPrefix(ipamURL.Host, "[fe80:") && !strings.HasPrefix(ipamURL.Host, "fe80:") {
+		l.Debug("IPAM URL does not have a link-local host", zap.String("host", ipamURL.Host))
+		return ipam.DoRequest(ctx, hc, req, ipamURLStr)
 	}
 
 	// check if this is from within an ONIE installer
@@ -585,16 +586,11 @@ func ipamClient(ctx context.Context, hc *http.Client, ipamURL string, req *ipam.
 		l.Warn("IPAM URL is on a link-local host, as was the stage 0 installer. We are trying to reuse the same interface for the request.", zap.String("ExecURL", onieEnv.ExecURL))
 
 		// ONIE doesn't get URL encoding right for the host
-		// so we try to account for this here before we parse the URL
-		// we know that our URL path will not have any '%' characters
-		// so if ONIE got the encoding right, then there will be a '%25'
-		// otherwise it will be a single '%' in the URL, and also the first one
-		// as this is a link-local
-		execURLStr := onieEnv.ExecURL
-		if !strings.Contains(onieEnv.ExecURL, "%25") {
-			execURLStr = strings.Replace(onieEnv.ExecURL, "%", "%25", 1)
-		}
-		execURL, err := url.Parse(execURLStr)
+		// Furthermore, some older ONIE versions are even not using brackets around the
+		// IPv6 address
+		// This is why we have a dedicated URL parser package which deals with broken URLs
+		// NOTE: do *NOT* use this package for anything else than parsing the ONIE Exec URL
+		execURL, err := onieurl.Parse(onieEnv.ExecURL)
 		if err != nil {
 			return nil, fmt.Errorf("ONIE Exec URL validation error: %w", err)
 		}
@@ -604,22 +600,22 @@ func ipamClient(ctx context.Context, hc *http.Client, ipamURL string, req *ipam.
 		}
 
 		netdev := strings.TrimRight(host[1], "]")
-		hostTrimmed := strings.TrimLeft(strings.TrimRight(url.Host, "]"), "[")
+		hostTrimmed := strings.TrimLeft(strings.TrimRight(ipamURL.Host, "]"), "[")
 
 		// now adjust the URL, and use it
-		url.Host = "[" + hostTrimmed + "%" + netdev + "]"
-		return ipam.DoRequest(ctx, hc, req, url.String())
+		ipamURL.Host = "[" + hostTrimmed + "%" + netdev + "]"
+		return ipam.DoRequest(ctx, hc, req, ipamURL.String())
 	}
 
 	// otherwise this is probably being executed from the ONIE rescue system
 	// we will simply try the request on all interfaces
 	l.Warn("IPAM URL is on a link-local host, and failed to detect which network interface to use. We will try all of them", zap.Strings("netdevs", req.Interfaces))
-	urlHost := url.Host
+	urlHost := ipamURL.Host
 	for _, netdev := range req.Interfaces {
-		url.Host = urlHost + "%" + netdev
-		resp, err := ipam.DoRequest(ctx, hc, req, url.String())
+		ipamURL.Host = urlHost + "%" + netdev
+		resp, err := ipam.DoRequest(ctx, hc, req, ipamURL.String())
 		if err != nil {
-			l.Error("IPAM request failure", zap.String("netdev", netdev), zap.String("url", url.String()), zap.Reflect("ipamRequest", req), zap.Error(err))
+			l.Error("IPAM request failure", zap.String("netdev", netdev), zap.String("url", ipamURL.String()), zap.Reflect("ipamRequest", req), zap.Error(err))
 			continue
 		}
 		return resp, nil
