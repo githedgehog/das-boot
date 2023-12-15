@@ -423,6 +423,50 @@ var urltests = []URLTest{
 		},
 		"http://[fe80::1%25en01-._~]:8080/",
 	},
+	// Hedgehog: ONIE can send invalid URLs. However, we need to be able to parse them.
+	// host subcomponent; IPv6 address with zone identifier in RFC 6874
+	{
+		"http://fe80::1%25en0/", // alphanum zone identifier
+		&URL{
+			Scheme: "http",
+			Host:   "[fe80::1%en0]",
+			Path:   "/",
+		},
+		"http://[fe80::1%25en0]/",
+	},
+	// Hedgehog: ONIE can send invalid URLs. However, we need to be able to parse them.
+	// host and port subcomponents; IPv6 address with zone identifier in RFC 6874
+	{
+		"http://fe80::1%25en0:8080/", // alphanum zone identifier
+		&URL{
+			Scheme: "http",
+			Host:   "[fe80::1%en0]:8080",
+			Path:   "/",
+		},
+		"http://[fe80::1%25en0]:8080/",
+	},
+	// Hedgehog: ONIE can send invalid URLs. However, we need to be able to parse them.
+	// host subcomponent; IPv6 address with zone identifier in RFC 6874
+	{
+		"http://fe80::1%en0/", // alphanum zone identifier
+		&URL{
+			Scheme: "http",
+			Host:   "[fe80::1%en0]",
+			Path:   "/",
+		},
+		"http://[fe80::1%25en0]/",
+	},
+	// Hedgehog: ONIE can send invalid URLs. However, we need to be able to parse them.
+	// host and port subcomponents; IPv6 address with zone identifier in RFC 6874
+	{
+		"http://fe80::1%en0:8080/", // alphanum zone identifier
+		&URL{
+			Scheme: "http",
+			Host:   "[fe80::1%en0]:8080",
+			Path:   "/",
+		},
+		"http://[fe80::1%25en0]:8080/",
+	},
 	// alternate escapings of path survive round trip
 	{
 		"http://rest.rsc.io/foo%2fbar/baz%2Fquux?alt=media",

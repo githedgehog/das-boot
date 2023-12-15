@@ -13,6 +13,8 @@ package url
 import (
 	"errors"
 	"fmt"
+	"math"
+	"net/netip"
 	"path"
 	"sort"
 	"strconv"
@@ -611,10 +613,192 @@ func parseAuthority(authority string) (user *Userinfo, host string, err error) {
 	return user, host, nil
 }
 
+type parseAddrError struct {
+	in  string // the string given to ParseAddr
+	msg string // an explanation of the parse failure
+	at  string // optionally, the unparsed portion of in at which the error occurred.
+}
+
+func (err parseAddrError) Error() string {
+	q := strconv.Quote
+	if err.at != "" {
+		return "ParseAddr(" + q(err.in) + "): " + err.msg + " (at " + q(err.at) + ")"
+	}
+	return "ParseAddr(" + q(err.in) + "): " + err.msg
+}
+
+// parseIPv6 parses s as an IPv6 address (in form "2001:db8::68").
+func parseIPv6(in string) (netip.Addr, int, error) {
+	s := in
+
+	// Split off the zone right from the start. Yes it's a second scan
+	// of the string, but trying to handle it inline makes a bunch of
+	// other inner loop conditionals more expensive, and it ends up
+	// being slower.
+	zone := ""
+	i := strings.IndexByte(s, '%')
+	if i != -1 {
+		s, zone = s[:i], s[i+1:]
+		if zone == "" {
+			// Not allowed to have an empty zone if explicitly specified.
+			return netip.Addr{}, 0, parseAddrError{in: in, msg: "zone must be a non-empty string"}
+		}
+	}
+
+	var ip [16]byte
+	ellipsis := -1 // position of ellipsis in ip
+
+	// Might have leading ellipsis
+	if len(s) >= 2 && s[0] == ':' && s[1] == ':' {
+		ellipsis = 0
+		s = s[2:]
+		// Might be only ellipsis
+		if len(s) == 0 {
+			return netip.IPv6Unspecified().WithZone(zone), 0, nil
+		}
+	}
+
+	// Loop, parsing hex numbers followed by colon.
+	i = 0
+	for i < 16 {
+		// Hex number. Similar to parseIPv4, inlining the hex number
+		// parsing yields a significant performance increase.
+		off := 0
+		acc := uint32(0)
+		for ; off < len(s); off++ {
+			c := s[off]
+			if c >= '0' && c <= '9' {
+				acc = (acc << 4) + uint32(c-'0')
+			} else if c >= 'a' && c <= 'f' {
+				acc = (acc << 4) + uint32(c-'a'+10)
+			} else if c >= 'A' && c <= 'F' {
+				acc = (acc << 4) + uint32(c-'A'+10)
+			} else {
+				break
+			}
+			if acc > math.MaxUint16 {
+				// Overflow, fail.
+				return netip.Addr{}, 0, parseAddrError{in: in, msg: "IPv6 field has value >=2^16", at: s}
+			}
+		}
+		if off == 0 {
+			// No digits found, fail.
+			return netip.Addr{}, 0, parseAddrError{in: in, msg: "each colon-separated field must have at least one digit", at: s}
+		}
+
+		// If followed by dot, might be in trailing IPv4.
+		if off < len(s) && s[off] == '.' {
+			if ellipsis < 0 && i != 12 {
+				// Not the right place.
+				return netip.Addr{}, 0, parseAddrError{in: in, msg: "embedded IPv4 address must replace the final 2 fields of the address", at: s}
+			}
+			if i+4 > 16 {
+				// Not enough room.
+				return netip.Addr{}, 0, parseAddrError{in: in, msg: "too many hex fields to fit an embedded IPv4 at the end of the address", at: s}
+			}
+			return netip.Addr{}, 0, parseAddrError{in: in, msg: "embedded IPv4 address parsing is not supported for this specific function", at: s}
+
+		}
+
+		// Save this 16-bit chunk.
+		ip[i] = byte(acc >> 8)
+		ip[i+1] = byte(acc)
+		i += 2
+
+		// Stop at end of string.
+		s = s[off:]
+		if len(s) == 0 {
+			break
+		}
+
+		// Otherwise must be followed by colon and more.
+		if s[0] != ':' {
+			return netip.Addr{}, 0, parseAddrError{in: in, msg: "unexpected character, want colon", at: s}
+		} else if len(s) == 1 {
+			return netip.Addr{}, 0, parseAddrError{in: in, msg: "colon must be followed by more characters", at: s}
+		}
+		s = s[1:]
+
+		// Look for ellipsis.
+		if s[0] == ':' {
+			if ellipsis >= 0 { // already have one
+				return netip.Addr{}, 0, parseAddrError{in: in, msg: "multiple :: in address", at: s}
+			}
+			ellipsis = i
+			s = s[1:]
+			if len(s) == 0 { // can be at end
+				break
+			}
+		}
+	}
+
+	// // Must have used entire string.
+	// if len(s) != 0 {
+	// 	return netip.Addr{}, parseAddrError{in: in, msg: "trailing garbage after address", at: s}
+	// }
+
+	// If didn't parse enough, expand ellipsis.
+	if i < 16 {
+		if ellipsis < 0 {
+			return netip.Addr{}, 0, parseAddrError{in: in, msg: "address string too short"}
+		}
+		n := 16 - i
+		for j := i - 1; j >= ellipsis; j-- {
+			ip[j+n] = ip[j]
+		}
+		for j := ellipsis + n - 1; j >= ellipsis; j-- {
+			ip[j] = 0
+		}
+	} else if ellipsis >= 0 {
+		// Ellipsis must represent at least one 0 group.
+		return netip.Addr{}, 0, parseAddrError{in: in, msg: "the :: must expand to at least one field of zeros"}
+	}
+	return netip.AddrFrom16(ip).WithZone(zone), len(s), nil
+}
+
 // parseHost parses host as an authority without user
 // information. That is, as host[:port].
 func parseHost(host string) (string, error) {
-	if strings.HasPrefix(host, "[") {
+	// Hedgehog: ONIE URL exception handling: unfortunately ONIE can send
+	// invalid URLs, but we must be able to parse them in some places
+	if strings.HasPrefix(host, "fe80") {
+		// we do here what they are doing below, with the exception that we don't care for the brackets
+		hostTmp := host
+		zone := strings.Index(host, "%25")
+		if zone >= 0 {
+			host1, err := unescape(host[:zone], encodeHost)
+			if err != nil {
+				return "", err
+			}
+			host2, err := unescape(host[zone:], encodeZone)
+			if err != nil {
+				return "", err
+			}
+			hostTmp = host1 + host2
+		}
+
+		// now parse it as an IPv6 address
+		ip, _, err := parseIPv6(hostTmp)
+		if err != nil {
+			return "", err
+		}
+		zoneStr := ip.Zone()
+		if zoneStr == "" {
+			return "", fmt.Errorf("expected a zone for this IPv6 link-local address %q", host)
+		}
+
+		// this could include the port, so we need to check for that, and we'll split it off
+		if i := strings.LastIndex(zoneStr, ":"); i != -1 {
+			colonPort := zoneStr[i:]
+			if !validOptionalPort(colonPort) {
+				return "", fmt.Errorf("invalid port %q after host", colonPort)
+			}
+			host = "[" + strings.Replace(strings.TrimSuffix(ip.String(), colonPort), "%", "%25", 1) + "]" + colonPort
+		} else {
+			host = "[" + strings.Replace(ip.String(), "%", "%25", 1) + "]"
+		}
+		// fmt.Printf("'%v' %v\n", ip.String(), ip.Zone())
+	} else if strings.HasPrefix(host, "[") {
 		// Parse an IP-Literal in RFC 3986 and RFC 6874.
 		// E.g., "[fe80::1]", "[fe80::1%25en0]", "[fe80::1]:80".
 		i := strings.LastIndex(host, "]")
