@@ -275,7 +275,7 @@ func ExampleURL_Parse() {
 	}
 	fmt.Println(rel)
 	_, err = u.Parse(":foo")
-	if _, ok := err.(*url.Error); !ok {
+	if _, ok := err.(*url.Error); !ok { //nolint:errorlint
 		log.Fatal(err)
 	}
 	// Output:

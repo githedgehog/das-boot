@@ -1840,7 +1840,7 @@ var netErrorTests = []struct {
 // Test that url.Error implements net.Error and that it forwards
 func TestURLErrorImplementsNetError(t *testing.T) {
 	for i, tt := range netErrorTests {
-		err, ok := tt.err.(net.Error)
+		err, ok := tt.err.(net.Error) //nolint:errorlint
 		if !ok {
 			t.Errorf("%d: %T does not implement net.Error", i+1, tt.err)
 			continue
@@ -1849,8 +1849,8 @@ func TestURLErrorImplementsNetError(t *testing.T) {
 			t.Errorf("%d: err.Timeout(): got %v, want %v", i+1, err.Timeout(), tt.timeout)
 			continue
 		}
-		if err.Temporary() != tt.temporary {
-			t.Errorf("%d: err.Temporary(): got %v, want %v", i+1, err.Temporary(), tt.temporary)
+		if err.Temporary() != tt.temporary { //nolint:staticcheck
+			t.Errorf("%d: err.Temporary(): got %v, want %v", i+1, err.Temporary(), tt.temporary) //nolint:staticcheck
 		}
 	}
 }
@@ -2001,7 +2001,6 @@ func TestRejectControlCharacters(t *testing.T) {
 	if _, err := Parse("http://foo.com/ctl\x80"); err != nil {
 		t.Errorf("error parsing URL with non-ASCII control byte: %v", err)
 	}
-
 }
 
 var escapeBenchmarks = []struct {
@@ -2051,7 +2050,6 @@ func BenchmarkQueryEscape(b *testing.B) {
 			if g != tc.query {
 				b.Errorf("QueryEscape(%q) == %q, want %q", tc.unescaped, g, tc.query)
 			}
-
 		})
 	}
 }
@@ -2068,7 +2066,6 @@ func BenchmarkPathEscape(b *testing.B) {
 			if g != tc.path {
 				b.Errorf("PathEscape(%q) == %q, want %q", tc.unescaped, g, tc.path)
 			}
-
 		})
 	}
 }
@@ -2085,7 +2082,6 @@ func BenchmarkQueryUnescape(b *testing.B) {
 			if g != tc.unescaped {
 				b.Errorf("QueryUnescape(%q) == %q, want %q", tc.query, g, tc.unescaped)
 			}
-
 		})
 	}
 }
@@ -2102,7 +2098,6 @@ func BenchmarkPathUnescape(b *testing.B) {
 			if g != tc.unescaped {
 				b.Errorf("PathUnescape(%q) == %q, want %q", tc.path, g, tc.unescaped)
 			}
-
 		})
 	}
 }

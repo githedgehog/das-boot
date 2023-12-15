@@ -32,14 +32,14 @@ func (e *Error) Unwrap() error { return e.Err }
 func (e *Error) Error() string { return fmt.Sprintf("%s %q: %s", e.Op, e.URL, e.Err) }
 
 func (e *Error) Timeout() bool {
-	t, ok := e.Err.(interface {
+	t, ok := e.Err.(interface { //nolint:errorlint
 		Timeout() bool
 	})
 	return ok && t.Timeout()
 }
 
 func (e *Error) Temporary() bool {
-	t, ok := e.Err.(interface {
+	t, ok := e.Err.(interface { //nolint:errorlint
 		Temporary() bool
 	})
 	return ok && t.Temporary()
@@ -129,7 +129,7 @@ func shouldEscape(c byte, mode encoding) bool {
 	case '$', '&', '+', ',', '/', ':', ';', '=', '?', '@': // §2.2 Reserved characters (reserved)
 		// Different sections of the URL allow a few of
 		// the reserved characters to appear unescaped.
-		switch mode {
+		switch mode { //nolint:exhaustive
 		case encodePath: // §3.3
 			// The RFC allows : @ & = + $ but saves / ; , for assigning
 			// meaning to individual path segments. This package
@@ -361,7 +361,7 @@ func escape(s string, mode encoding) string {
 // for more details.
 //
 // URL's String method uses the EscapedPath method to obtain the path.
-type URL struct {
+type URL struct { //nolint:musttag
 	Scheme      string
 	Opaque      string    // encoded opaque data
 	User        *Userinfo // username and password information
@@ -697,7 +697,6 @@ func parseIPv6(in string) (netip.Addr, int, error) {
 				return netip.Addr{}, 0, parseAddrError{in: in, msg: "too many hex fields to fit an embedded IPv4 at the end of the address", at: s}
 			}
 			return netip.Addr{}, 0, parseAddrError{in: in, msg: "embedded IPv4 address parsing is not supported for this specific function", at: s}
-
 		}
 
 		// Save this 16-bit chunk.
@@ -1269,7 +1268,7 @@ func (u *URL) ResolveReference(ref *URL) *URL {
 		// The "absoluteURI" or "net_path" cases.
 		// We can ignore the error from setPath since we know we provided a
 		// validly-escaped path.
-		url.setPath(resolvePath(ref.EscapedPath(), ""))
+		url.setPath(resolvePath(ref.EscapedPath(), "")) //nolint:errcheck
 		return &url
 	}
 	if ref.Opaque != "" {
@@ -1288,7 +1287,7 @@ func (u *URL) ResolveReference(ref *URL) *URL {
 	// The "abs_path" or "rel_path" cases.
 	url.Host = u.Host
 	url.User = u.User
-	url.setPath(resolvePath(u.EscapedPath(), ref.EscapedPath()))
+	url.setPath(resolvePath(u.EscapedPath(), ref.EscapedPath())) //nolint:errcheck
 	return &url
 }
 
@@ -1391,7 +1390,7 @@ func (u *URL) JoinPath(elem ...string) *URL {
 		p += "/"
 	}
 	url := *u
-	url.setPath(p)
+	url.setPath(p) //nolint:errcheck
 	return &url
 }
 
