@@ -589,8 +589,14 @@ func ipamClient(ctx context.Context, hc *http.Client, ipamURLStr string, req *ip
 		// Furthermore, some older ONIE versions are even not using brackets around the
 		// IPv6 address
 		// This is why we have a dedicated URL parser package which deals with broken URLs
+		// However, we need to deal with the %netdev part beforehand, as it is impossible to get this
+		// corrected generically for all use-cases.
 		// NOTE: do *NOT* use this package for anything else than parsing the ONIE Exec URL
-		execURL, err := onieurl.Parse(onieEnv.ExecURL)
+		execURLStr := onieEnv.ExecURL
+		if !strings.Contains(onieEnv.ExecURL, "%25") {
+			execURLStr = strings.Replace(onieEnv.ExecURL, "%", "%25", 1)
+		}
+		execURL, err := onieurl.Parse(execURLStr)
 		if err != nil {
 			return nil, fmt.Errorf("ONIE Exec URL validation error: %w", err)
 		}
