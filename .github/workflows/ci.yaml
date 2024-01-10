@@ -17,7 +17,7 @@ jobs:
     env:
       GOPRIVATE: go.githedgehog.com
       GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-    runs-on: ubuntu-latest
+    runs-on: lab
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -46,7 +46,7 @@ jobs:
     env:
       GOPRIVATE: go.githedgehog.com
       GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-    runs-on: ubuntu-latest
+    runs-on: lab
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -87,7 +87,7 @@ jobs:
     env:
       GOPRIVATE: go.githedgehog.com
       GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-    runs-on: ubuntu-latest
+    runs-on: lab
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -117,7 +117,7 @@ jobs:
   publish:
     name: Publish to GitHub Packages
     if: startsWith(github.event.ref, 'refs/tags/') && github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: lab
     needs:
       - build
       - test
@@ -160,7 +160,7 @@ jobs:
         # temporary set explicit VERSIONs until we have scripts working with non-fixed versions
         run:
           make docker-push DOCKER_REPO=ghcr.io/githedgehog/das-boot DOCKER_VERSION=$(git describe --tags --dirty --always)
-      
+
       - name: Publish helm charts to GitHub Packages
         run:
           make helm-push HELM_CHART_REPO=ghcr.io/githedgehog/das-boot/charts HELM_CHART_VERSION=$(git describe --tags --dirty --always)
