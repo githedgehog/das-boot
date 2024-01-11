@@ -24,6 +24,7 @@ spec:
         app: {{ template "chrony.name" . }}
         release: {{ .Release.Name }}
     spec:
+      hostNetwork: {{ .Values.hostNetwork }}
       containers:
       - name: {{ .Chart.Name }}
         env:

@@ -9,6 +9,8 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
+hostNetwork: false
+
 serviceUDP:
   type: NodePort
   nodePort: 0
