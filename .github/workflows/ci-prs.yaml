@@ -30,7 +30,7 @@ jobs:
         run: make build
       # NOTE: disable uploading of build artifacts in PRs
       # - name: Archive build artifacts
-      #   uses: actions/upload-artifact@v3
+      #   uses: actions/upload-artifact@v4
       #   with:
       #     name: build-artifacts
       #     path: |
@@ -71,7 +71,7 @@ jobs:
           echo -n "" >> $GITHUB_STEP_SUMMARY
           echo -n "Look at coverage report in the artifacts for details." >> $GITHUB_STEP_SUMMARY
       - name: Archive code coverage results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: code-coverage-report
           path: build/coverage/coverage.html
