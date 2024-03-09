@@ -10,7 +10,7 @@ jobs:
     env:
       GOPRIVATE: go.githedgehog.com
       GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-    runs-on: ubuntu-latest
+    runs-on: lab
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -40,7 +40,7 @@ jobs:
     env:
       GOPRIVATE: go.githedgehog.com
       GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-    runs-on: ubuntu-latest
+    runs-on: lab
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -81,7 +81,7 @@ jobs:
     env:
       GOPRIVATE: go.githedgehog.com
       GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-    runs-on: ubuntu-latest
+    runs-on: lab
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
