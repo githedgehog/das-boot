@@ -10,13 +10,10 @@ on:
     - cron: "0 10 * * *" # ~2am PST
   workflow_dispatch:
 concurrency:
-  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
   cancel-in-progress: true
 jobs:
   build:
-    env:
-      GOPRIVATE: go.githedgehog.com
-      GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
     runs-on: lab
     steps:
       - name: Checkout repo
@@ -26,9 +23,8 @@ jobs:
       - name: setup go
         uses: actions/setup-go@v5
         with:
-          go-version: '~1.21.1'
+          go-version: "~1.21.1"
           cache: true
-      - run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
       - name: install dependencies
         run: make install-deps
       - name: Run code generators
@@ -43,9 +39,6 @@ jobs:
             build/artifacts
             !build/artifacts/.keepme
   test:
-    env:
-      GOPRIVATE: go.githedgehog.com
-      GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
     runs-on: lab
     steps:
       - name: Checkout repo
@@ -55,9 +48,8 @@ jobs:
       - name: setup go
         uses: actions/setup-go@v5
         with:
-          go-version: '~1.21.1'
+          go-version: "~1.21.1"
           cache: true
-      - run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
       - name: install dependencies
         run: make install-deps
       - name: Run code generators
@@ -84,9 +76,6 @@ jobs:
       - name: unit tests with race detector
         run: make test-race
   lint:
-    env:
-      GOPRIVATE: go.githedgehog.com
-      GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
     runs-on: lab
     steps:
       - name: Checkout repo
@@ -96,9 +85,8 @@ jobs:
       - name: setup go
         uses: actions/setup-go@v5
         with:
-          go-version: '~1.21.1'
+          go-version: "~1.21.1"
           cache: true
-      - run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
       - name: install dependencies
         run: make install-deps
       - name: Run code generators
@@ -122,10 +110,6 @@ jobs:
       - build
       - test
       - lint
-    env:
-      GOPRIVATE: go.githedgehog.com
-      GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -137,8 +121,6 @@ jobs:
         with:
           go-version: stable
           cache: true
-
-      - run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
 
       - name: install dependencies
         run: make install-deps
@@ -158,9 +140,7 @@ jobs:
 
       - name: Publish docker images to GitHub Packages
         # temporary set explicit VERSIONs until we have scripts working with non-fixed versions
-        run:
-          make docker-push DOCKER_REPO=ghcr.io/githedgehog/das-boot DOCKER_VERSION=$(git describe --tags --dirty --always)
+        run: make docker-push DOCKER_REPO=ghcr.io/githedgehog/das-boot DOCKER_VERSION=$(git describe --tags --dirty --always)
 
       - name: Publish helm charts to GitHub Packages
-        run:
-          make helm-push HELM_CHART_REPO=ghcr.io/githedgehog/das-boot/charts HELM_CHART_VERSION=$(git describe --tags --dirty --always)
+        run: make helm-push HELM_CHART_REPO=ghcr.io/githedgehog/das-boot/charts HELM_CHART_VERSION=$(git describe --tags --dirty --always)
