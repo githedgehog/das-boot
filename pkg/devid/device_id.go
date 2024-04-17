@@ -93,7 +93,12 @@ func ID() string {
 
 	// you really have a problem if you get down here
 	// nothing more we can do
-	return ""
+	if arch != "amd64" && arch != "386" && arch != "arm64" && arch != "arm" {
+		log.L().Warn("unknown architecture", zap.String("arch", arch))
+		return ""
+	}
+
+	return uuid.NewString()
 }
 
 func idFromVendorIDAndSerial() (string, error) {

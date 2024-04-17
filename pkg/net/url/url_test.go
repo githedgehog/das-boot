@@ -1907,7 +1907,7 @@ func TestJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	js, err := json.Marshal(u)
+	js, err := json.Marshal(u) //nolint:musttag
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1920,7 +1920,7 @@ func TestJSON(t *testing.T) {
 	// }
 
 	u1 := new(URL)
-	err = json.Unmarshal(js, u1)
+	err = json.Unmarshal(js, u1) //nolint:musttag
 	if err != nil {
 		t.Fatal(err)
 	}
