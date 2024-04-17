@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-//go:generate mockgen -destination ../../../test/mock/seeder/mockcontrolplane/client.go -package mockcontrolplane . Client
+//go:generate mockgen -destination ../../../test/mock/seeder/mockcontrolplane/client.go -package mockcontrolplane go.githedgehog.com/dasboot/pkg/seeder/controlplane Client
 
 type Client interface {
 	DeviceHostname() string

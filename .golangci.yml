@@ -54,3 +54,8 @@ linters:
   # TODO: Also consider the following linters in the future. They are both questionable, so use with caution.
   # - wrapcheck
   # - goerr113
+issues:
+  exclude-files:
+    - "pkg/k8s/api/v1alpha1/zz_generated*"
+  exclude-dirs:
+    - test

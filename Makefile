@@ -12,7 +12,7 @@ DOCKER_REPO_REGISTRATION_CONTROLLER ?= $(DOCKER_REPO)/das-boot-registration-cont
 
 HELM_CHART_REPO ?= registry.local:31000/githedgehog/helm-charts
 
-MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 's#/$$##')
+MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 's\#/$$\#\#')
 BUILD_DIR := $(MKFILE_DIR)/build
 BUILD_ARTIFACTS_DIR := $(BUILD_DIR)/artifacts
 BUILD_COVERAGE_DIR := $(BUILD_DIR)/coverage
@@ -302,7 +302,7 @@ test: test-race test-cover ## Runs golang unit tests twice: for code coverage, a
 .PHONY: test-race
 test-race: ## Runs golang unit tests with race detector
 	@echo "Running tests with race detector..."
-	go test -race ./cmd/... ./pkg/...
+	CGO_ENABLED=1 go test -race ./cmd/... ./pkg/...
 	@echo
 
 .PHONY: test-cover

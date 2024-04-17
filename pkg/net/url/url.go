@@ -32,14 +32,14 @@ func (e *Error) Unwrap() error { return e.Err }
 func (e *Error) Error() string { return fmt.Sprintf("%s %q: %s", e.Op, e.URL, e.Err) }
 
 func (e *Error) Timeout() bool {
-	t, ok := e.Err.(interface { //nolint:errorlint
+	t, ok := e.Err.(interface {
 		Timeout() bool
 	})
 	return ok && t.Timeout()
 }
 
 func (e *Error) Temporary() bool {
-	t, ok := e.Err.(interface { //nolint:errorlint
+	t, ok := e.Err.(interface {
 		Temporary() bool
 	})
 	return ok && t.Temporary()
@@ -361,7 +361,7 @@ func escape(s string, mode encoding) string {
 // for more details.
 //
 // URL's String method uses the EscapedPath method to obtain the path.
-type URL struct { //nolint:musttag
+type URL struct {
 	Scheme      string
 	Opaque      string    // encoded opaque data
 	User        *Userinfo // username and password information
