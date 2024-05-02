@@ -30,6 +30,8 @@ import (
 	"go.githedgehog.com/dasboot/pkg/seeder/registration"
 	config1 "go.githedgehog.com/dasboot/pkg/stage1/config"
 	config2 "go.githedgehog.com/dasboot/pkg/stage2/config"
+	agentv1alpha2 "go.githedgehog.com/fabric/api/agent/v1alpha2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -57,12 +59,12 @@ func (s *seeder) secureHandler() *chi.Mux {
 	r.Get(path.Join(stage2PathBase, "{arch}"), s.getStageArtifact("stage2", s.stage2Authz, s.embedStage2Config))
 	r.Post(registerPath, s.registerHandler)
 	r.Get(path.Join(registerPath, "{devid}"), s.registerPollHandler)
-	r.Get(path.Join(nosInstallerPathBase, "{platform}"), s.getNOSArtifact(s.stage2Authz))
+	r.Get(path.Join(nosInstallerPathBase, "{platform}", "{devid}"), s.getNOSArtifact(s.stage2Authz))
 	r.Get(path.Join(onieUpdaterPathBase, "{platform}"), s.getONIEArtifact(s.stage2Authz))
 	// to lift the confusion: this is the route for the provisioner executable
 	r.Get(path.Join(hhAgentProvisionerPathBase, "{arch}"), s.getStageArtifact("hedgehog-agent-provisioner", s.stage2Authz, s.embedStageHedgehogAgentProvisionerConfig))
 	// and this is the route to the agent executable which the provisioner calls
-	r.Get(path.Join(hhAgentProvisionerPathBase, "agent", "{arch}"), s.getAgentArtifact(s.stage2Authz))
+	r.Get(path.Join(hhAgentProvisionerPathBase, "agent", "{devid}"), s.getAgentArtifact(s.stage2Authz))
 	r.Get(path.Join(hhAgentProvisionerPathBase, "agent", "config", "{devid}"), s.getAgentConfig(s.stage2Authz))
 	r.Get(path.Join(hhAgentProvisionerPathBase, "agent", "kubeconfig", "{devid}"), s.getAgentKubeconfig(s.stage2Authz))
 	return r
@@ -190,7 +192,7 @@ func (s *seeder) embedStage2Config(_ *http.Request, arch string, artifactBytes [
 
 func (s *seeder) embedStageHedgehogAgentProvisionerConfig(_ *http.Request, arch string, artifactBytes []byte) ([]byte, error) {
 	return s.ecg.HedgehogAgentProvisioner(artifactBytes, &confighhagentprov.HedgehogAgentProvisioner{
-		AgentURL:           s.installerSettings.agentURL(arch),
+		AgentURL:           s.installerSettings.agentURL(),
 		AgentConfigURL:     s.installerSettings.agentConfigURL(),
 		AgentKubeconfigURL: s.installerSettings.agentKubeconfigURL(),
 	})
@@ -303,7 +305,41 @@ func (s *seeder) getNOSArtifact(authz func(*http.Request) error) func(w http.Res
 			return
 		}
 
+		// get the device ID from the URL paramater
+		devidParam := chi.URLParam(r, "devid")
+		if devidParam == "" {
+			errorWithJSON(w, r, http.StatusBadRequest, "no device ID in URL")
+			return
+		}
+
+		// the device ID parameter and the CN of the peer cert need to match
+		if err := s.authzMatchDevice(r, devidParam); err != nil {
+			errorWithJSON(w, r, http.StatusForbidden, "unauthorized access to artifact: %s", err)
+			return
+		}
+
+		// get agent config from control plane
+		agentCfg, err := s.cpc.GetAgentConfig(r.Context(), devidParam)
+		if err != nil {
+			if errors.Is(err, controlplane.ErrNotFound) {
+				errorWithJSON(w, r, http.StatusNotFound, "agent config not found: %s", err)
+				return
+			}
+			errorWithJSON(w, r, http.StatusInternalServerError, "fetching agent config: %s", err)
+			return
+		}
+
+		var agent *agentv1alpha2.Agent
+		if err := yaml.Unmarshal(agentCfg, &agent); err != nil {
+			errorWithJSON(w, r, http.StatusInternalServerError, "unmarshalling agent config: %s", err)
+			return
+		}
+		sonicVersion := agent.Spec.Version.NOSVersion
+
 		artifact := fmt.Sprintf("sonic/%s", platformParam)
+		if sonicVersion != "" {
+			artifact += ":" + sonicVersion
+		}
 		s.getArtifact(artifact)(w, r)
 	}
 }
@@ -334,14 +370,38 @@ func (s *seeder) getAgentArtifact(authz func(*http.Request) error) func(w http.R
 			return
 		}
 
-		// we require the arch so that we can fetch the artifact for the right device
-		archParam := chi.URLParam(r, "arch")
-		if archParam == "" {
-			errorWithJSON(w, r, http.StatusNotFound, "missing architecture in request path")
+		// get the device ID from the URL paramater
+		devidParam := chi.URLParam(r, "devid")
+		if devidParam == "" {
+			errorWithJSON(w, r, http.StatusBadRequest, "no device ID in URL")
 			return
 		}
 
-		artifact := fmt.Sprintf("fabric/agent/%s", archParam)
+		// get agent config from control plane
+		agentCfg, err := s.cpc.GetAgentConfig(r.Context(), devidParam)
+		if err != nil {
+			if errors.Is(err, controlplane.ErrNotFound) {
+				errorWithJSON(w, r, http.StatusNotFound, "agent config not found: %s", err)
+				return
+			}
+			errorWithJSON(w, r, http.StatusInternalServerError, "fetching agent config: %s", err)
+			return
+		}
+
+		var agent *agentv1alpha2.Agent
+		if err := yaml.Unmarshal(agentCfg, &agent); err != nil {
+			errorWithJSON(w, r, http.StatusInternalServerError, "unmarshalling agent config: %s", err)
+			return
+		}
+		agentVersion := agent.Spec.Version.Default
+		if agent.Spec.Version.Override != "" {
+			agentVersion = agent.Spec.Version.Override
+		}
+
+		artifact := "fabric/agent"
+		if agentVersion != "" {
+			artifact += ":" + agentVersion
+		}
 		s.getArtifact(artifact)(w, r)
 	}
 }
