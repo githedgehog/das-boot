@@ -215,6 +215,12 @@ func Run(ctx context.Context, override *configstage.HedgehogAgentProvisioner, lo
 	agentConfigPath := filepath.Join(agentConfigTargetDir, "agent-config.yaml")
 	agentKubeconfigPath := filepath.Join(agentConfigTargetDir, "agent-kubeconfig")
 
+	cfg.AgentURL, err = url.JoinPath(cfg.AgentURL, si.DeviceID)
+	if err != nil {
+		l.Error("Joining agent URL with device ID failed", zap.String("url", cfg.AgentURL), zap.String("deviceID", si.DeviceID), zap.Error(err))
+		return executionError(fmt.Errorf("joining agent URL with device ID '%s': %w", si.DeviceID, err))
+	}
+
 	if err := stage.DownloadExecutable(ctx, hc, cfg.AgentURL, agentBinPath, time.Second*60); err != nil {
 		l.Error("Downloading agent binary failed", zap.String("url", cfg.AgentURL), zap.String("dest", agentBinPath), zap.Error(err))
 		return executionError(fmt.Errorf("downloading agent binary: %w", err))

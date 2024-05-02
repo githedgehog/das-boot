@@ -185,6 +185,7 @@ func runNosInstall(ctx context.Context, hc *http.Client, cfg *configstage.Stage2
 		l.Error("Building NOS installer URL failed", zap.String("url", cfg.NOSInstallerURL), zap.String("platform", onie.Platform), zap.Error(err))
 		return fmt.Errorf("building NOS installer URL: %w", err)
 	}
+	url += "/" + si.DeviceID
 
 	// NOS download
 	nosPath := filepath.Join(si.StagingDir, "nos-install")

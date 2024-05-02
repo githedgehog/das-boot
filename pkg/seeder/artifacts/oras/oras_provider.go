@@ -156,6 +156,16 @@ func (op *orasProvider) Get(artifact string) (rc io.ReadCloser) {
 	ctx, cancel := context.WithTimeout(op.ctx, time.Second*60)
 	defer cancel()
 
+	tagName := "latest"
+	if strings.Contains(artifact, ":") {
+		parts := strings.Split(artifact, ":")
+		if len(parts) == 2 {
+			artifact = parts[0]
+			tagName = parts[1]
+		}
+	}
+	log.L().Debug("oras: fetching artifact", zap.String("artifact", artifact), zap.String("tag", tagName))
+
 	// build repo name from artifact
 	// we need to remove the left most '/' as it would render an invalid repository name
 	repoName := path.Join(op.url.Path, artifact)
@@ -165,9 +175,6 @@ func (op *orasProvider) Get(artifact string) (rc io.ReadCloser) {
 		log.L().Error("oras: getting repository reference failed", zap.String("repo", repoName), zap.Error(err))
 		return nil
 	}
-
-	// TODO: tag name
-	tagName := "latest"
 
 	// downloads the stuff locally
 	fileStorePath, err := os.MkdirTemp(op.fileStoreBasePath, "oras-provider-file-store-*")

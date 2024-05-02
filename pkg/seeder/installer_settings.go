@@ -112,11 +112,11 @@ func (lis *loadedInstallerSettings) hhAgentProvisionerURL(arch string) string {
 	}).String()
 }
 
-func (lis *loadedInstallerSettings) agentURL(arch string) string {
+func (lis *loadedInstallerSettings) agentURL() string {
 	return (&url.URL{
 		Scheme: "https",
 		Host:   lis.secureServerName,
-		Path:   path.Join("/", hhAgentProvisionerPathBase, "agent", arch),
+		Path:   path.Join("/", hhAgentProvisionerPathBase, "agent"),
 	}).String()
 }
 
