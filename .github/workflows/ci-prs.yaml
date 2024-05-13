@@ -16,7 +16,7 @@ jobs:
       - name: setup go
         uses: actions/setup-go@v5
         with:
-          go-version: "~1.21.1"
+          go-version: stable
           cache: true
       - name: install dependencies
         run: make install-deps
@@ -42,7 +42,7 @@ jobs:
       - name: setup go
         uses: actions/setup-go@v5
         with:
-          go-version: "~1.21.1"
+          go-version: stable
           cache: true
       - name: install dependencies
         run: make install-deps
@@ -79,7 +79,7 @@ jobs:
       - name: setup go
         uses: actions/setup-go@v5
         with:
-          go-version: "~1.21.1"
+          go-version: stable
           cache: true
       - name: install dependencies
         run: make install-deps
@@ -92,6 +92,3 @@ jobs:
         with:
           version: latest
           args: --verbose ./...
-          # unfortunately the package cache is creating lots of errors/warnings right now
-          # for details: https://github.com/golangci/golangci-lint-action/issues/677
-          skip-pkg-cache: true
