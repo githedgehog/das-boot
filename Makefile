@@ -9,6 +9,7 @@ HELM_CHART_VERSION ?= 0.1.0
 DOCKER_REPO ?= registry.local:31000/githedgehog/das-boot
 DOCKER_REPO_SEEDER ?= $(DOCKER_REPO)/das-boot-seeder
 DOCKER_REPO_REGISTRATION_CONTROLLER ?= $(DOCKER_REPO)/das-boot-registration-controller
+DOCKET_HOST ?= unix:///var/run/docker.sock
 
 HELM_CHART_REPO ?= registry.local:31000/githedgehog/helm-charts
 
@@ -251,7 +252,7 @@ docker-seeder-clean: ## Removes the docker image from the local docker images
 
 .PHONY: docker-seeder-push
 docker-seeder-push: docker ## Builds AND pushes a docker image for the seeder
-	skopeo copy --dest-tls-verify=false docker-daemon:$(DOCKER_REPO_SEEDER):$(DOCKER_VERSION) docker://$(DOCKER_REPO_SEEDER):$(DOCKER_VERSION)
+	skopeo copy --dest-tls-verify=false --src-daemon-host=$(DOCKER_HOST) docker-daemon:$(DOCKER_REPO_SEEDER):$(DOCKER_VERSION) docker://$(DOCKER_REPO_SEEDER):$(DOCKER_VERSION)
 
 .PHONY: docker-registration-controller
 docker-registration-controller: registration-controller ## Builds a docker images for the registration-controller
@@ -263,7 +264,7 @@ docker-registration-controller-clean: ## Removes the docker image from the local
 
 .PHONY: docker-registration-controller-push
 docker-registration-controller-push: docker ## Builds AND pushes a docker image for the registration-controller
-	skopeo copy --dest-tls-verify=false docker-daemon:$(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION) docker://$(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION)
+	skopeo copy --dest-tls-verify=false --src-daemon-host=$(DOCKER_HOST) docker-daemon:$(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION) docker://$(DOCKER_REPO_REGISTRATION_CONTROLLER):$(DOCKER_VERSION)
 
 .PHONY: helm
 helm: ## Builds a helm chart for the seeder

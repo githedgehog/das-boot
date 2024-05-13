@@ -12,6 +12,8 @@ on:
 concurrency:
   group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
   cancel-in-progress: true
+env:
+  DOCKER_HOST: unix:///run/docker/docker.sock
 jobs:
   build:
     runs-on: lab
