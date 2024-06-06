@@ -65,9 +65,11 @@ type CertificateSigningRequestCondition struct {
 	LastTransitionTime metav1.Time
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:categories=hedgehog;fabric,shortName=devreg;dr
+// +kubebuilder:printcolumn:name="Location",type=string,JSONPath=`.spec.locationUUID`,priority=0
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`,priority=0
 // DeviceRegistration is the Schema for the device registration within DAS BOOT
 type DeviceRegistration struct {
 	metav1.TypeMeta   `json:",inline"`
