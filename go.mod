@@ -4,7 +4,7 @@ go 1.22.0
 
 require (
 	github.com/0x5a17ed/uefi v0.6.1
-	github.com/beevik/ntp v1.4.1
+	github.com/beevik/ntp v1.4.3
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-logr/logr v1.4.1
 	github.com/golang/mock v1.6.0
@@ -65,11 +65,11 @@ require (
 	github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
-	golang.org/x/net v0.24.0 // indirect
+	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/term v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/term v0.20.0 // indirect
+	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
