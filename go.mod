@@ -6,7 +6,7 @@ require (
 	github.com/0x5a17ed/uefi v0.6.1
 	github.com/beevik/ntp v1.4.1
 	github.com/go-chi/chi/v5 v5.0.12
-	github.com/go-logr/logr v1.4.1
+	github.com/go-logr/logr v1.4.2
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/opencontainers/image-spec v1.1.0
